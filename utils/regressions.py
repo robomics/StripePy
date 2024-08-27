@@ -16,7 +16,7 @@ def local_weighted_regression(x0, X, Y, tau):
 
 # function to perform weight calculation
 def weights_calculate(x0, X, tau):
-    return np.exp(np.sum((X - x0) ** 2, axis=1) / (-2 * (tau ** 2)))
+    return np.exp(np.sum((X - x0) ** 2, axis=1) / (-2 * (tau**2)))
 
 
 # plot locally weighted regression for different bandwidth values
@@ -31,9 +31,7 @@ def compute_wQISA_predictions(Y, k):
     # These are actually the control points of a weighted quasi-interpolant spline approximation:
     kernel = np.full((k,), 1 / k)
     radius = (k - 1) // 2
-    Y_ext = np.pad(Y.tolist(), (radius, radius), mode='edge')
-    predictions = np.convolve(Y_ext, kernel, 'valid')
+    Y_ext = np.pad(Y.tolist(), (radius, radius), mode="edge")
+    predictions = np.convolve(Y_ext, kernel, "valid")
 
     return predictions
-
-

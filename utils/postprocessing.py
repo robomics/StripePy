@@ -41,7 +41,7 @@ def filter_L_stripes(I, sites, HIoIs, VIoIs, threshold, output_folder=None):
         # Restricting I to the rectangular domain defined by current HIoI and VIoI:
         convex_comb = int(round(0.99 * VIoI[0] + 0.01 * VIoI[1]))
         # restrI = I[HIoI[1]:VIoI[1], HIoI[0]:HIoI[1]]
-        restrI = I[convex_comb:VIoI[1], HIoI[0]:HIoI[1]]
+        restrI = I[convex_comb : VIoI[1], HIoI[0] : HIoI[1]]
 
         # Horizontal enlargements:
         enl_HIoI_1 = max(0, HIoI[0] - 3)
@@ -53,25 +53,30 @@ def filter_L_stripes(I, sites, HIoIs, VIoIs, threshold, output_folder=None):
             np.percentile(restrI, 25),
             np.percentile(restrI, 50),
             np.percentile(restrI, 75),
-            np.max(restrI)]
+            np.max(restrI),
+        ]
         candida_stripe.inner_descriptors["mean"] = np.mean(restrI)
         candida_stripe.inner_descriptors["std"] = np.std(restrI)
 
         inner_means[num_cand] = candida_stripe.inner_descriptors["mean"]
 
         # Mean intensity - left neighborhood:
-        candida_stripe.outer_descriptors["l-mean"] = np.mean(I[convex_comb:VIoI[1], enl_HIoI_1:HIoI[0]])
+        candida_stripe.outer_descriptors["l-mean"] = np.mean(I[convex_comb : VIoI[1], enl_HIoI_1 : HIoI[0]])
 
         # Mean intensity - right neighborhood:
-        candida_stripe.outer_descriptors["r-mean"] = np.mean(I[convex_comb:VIoI[1], HIoI[1]:enl_HIoI_2])
+        candida_stripe.outer_descriptors["r-mean"] = np.mean(I[convex_comb : VIoI[1], HIoI[1] : enl_HIoI_2])
 
         # Mean intensity:
-        candida_stripe.outer_descriptors["mean"] = (candida_stripe.outer_descriptors["l-mean"] +
-                                                    candida_stripe.outer_descriptors["r-mean"]) / 2
+        candida_stripe.outer_descriptors["mean"] = (
+            candida_stripe.outer_descriptors["l-mean"] + candida_stripe.outer_descriptors["r-mean"]
+        ) / 2
 
         # Relative change in mean intensity:
-        candida_stripe.rel_change = (candida_stripe.inner_descriptors["mean"] - candida_stripe.outer_descriptors[
-            "mean"]) / (candida_stripe.outer_descriptors["mean"]) * 100
+        candida_stripe.rel_change = (
+            (candida_stripe.inner_descriptors["mean"] - candida_stripe.outer_descriptors["mean"])
+            / (candida_stripe.outer_descriptors["mean"])
+            * 100
+        )
 
         candida_stripes.append(candida_stripe)
 
@@ -85,7 +90,7 @@ def filter_L_stripes(I, sites, HIoIs, VIoIs, threshold, output_folder=None):
         L_VIoI_regions4check += [[convex_comb, VIoI[1]]]
 
     if output_folder is not None:
-        np.savetxt(f"{output_folder}/LT_inner_means_{threshold:.2f}.txt", inner_means, delimiter=',')
+        np.savetxt(f"{output_folder}/LT_inner_means_{threshold:.2f}.txt", inner_means, delimiter=",")
 
     return candida_stripes, candida2keep, candida2disc, L_HIoI_regions4check, L_VIoI_regions4check
 
@@ -120,7 +125,7 @@ def filter_U_stripes(I, sites, HIoIs, VIoIs, threshold, output_folder=None):
 
         # Restricting Iproc1 to the rectangular domain defined by current HIoI and VIoI:
         convex_comb = int(round(0.01 * VIoI[0] + 0.99 * VIoI[1]))
-        restrI = I[VIoI[0]:convex_comb, HIoI[0]:HIoI[1]]
+        restrI = I[VIoI[0] : convex_comb, HIoI[0] : HIoI[1]]
 
         # Horizontal enlargements:
         enl_HIoI_1 = max(0, HIoI[0] - 3)
@@ -134,7 +139,8 @@ def filter_U_stripes(I, sites, HIoIs, VIoIs, threshold, output_folder=None):
             np.percentile(restrI, 25),
             np.percentile(restrI, 50),
             np.percentile(restrI, 75),
-            np.max(restrI)]
+            np.max(restrI),
+        ]
         candida_stripe.inner_descriptors["mean"] = np.mean(restrI)
         candida_stripe.inner_descriptors["std"] = np.std(restrI)
 
@@ -142,25 +148,31 @@ def filter_U_stripes(I, sites, HIoIs, VIoIs, threshold, output_folder=None):
 
         # Mean intensity - left neighborhood:
         # l_mean = np.mean(I[HIoI[0]:VIoI[1], enl_HIoI_1:HIoI[0]])
-        candida_stripe.outer_descriptors["l-mean"] = np.mean(I[VIoI[0]:convex_comb, enl_HIoI_1:HIoI[0]])
+        candida_stripe.outer_descriptors["l-mean"] = np.mean(I[VIoI[0] : convex_comb, enl_HIoI_1 : HIoI[0]])
 
         # Mean intensity - right neighborhood:
         # r_mean = np.mean(I[enl_HIoI_2:VIoI[1], HIoI[1]:enl_HIoI_2])
-        candida_stripe.outer_descriptors["r-mean"] = np.mean(I[VIoI[0]:convex_comb, HIoI[1]:enl_HIoI_2])
+        candida_stripe.outer_descriptors["r-mean"] = np.mean(I[VIoI[0] : convex_comb, HIoI[1] : enl_HIoI_2])
 
         # Mean intensity:
-        candida_stripe.outer_descriptors["mean"] = (candida_stripe.outer_descriptors["l-mean"] +
-                                                    candida_stripe.outer_descriptors["r-mean"]) / 2
+        candida_stripe.outer_descriptors["mean"] = (
+            candida_stripe.outer_descriptors["l-mean"] + candida_stripe.outer_descriptors["r-mean"]
+        ) / 2
 
         # Relative change in mean intensity:
-        candida_stripe.rel_change = (candida_stripe.inner_descriptors["mean"] - candida_stripe.outer_descriptors[
-            "mean"]) / (candida_stripe.outer_descriptors["mean"]) * 100
+        candida_stripe.rel_change = (
+            (candida_stripe.inner_descriptors["mean"] - candida_stripe.outer_descriptors["mean"])
+            / (candida_stripe.outer_descriptors["mean"])
+            * 100
+        )
 
-        print(f"{num_cand}) "
-              f"{candida_stripe.inner_descriptors["mean"]}\t"
-              f"{candida_stripe.outer_descriptors["mean"]}\t"
-              f"{candida_stripe.outer_descriptors["l-mean"]}\t"
-              f"{candida_stripe.outer_descriptors["r-mean"]}\t{candida_stripe.rel_change}")
+        print(
+            f"{num_cand}) "
+            f"{candida_stripe.inner_descriptors["mean"]}\t"
+            f"{candida_stripe.outer_descriptors["mean"]}\t"
+            f"{candida_stripe.outer_descriptors["l-mean"]}\t"
+            f"{candida_stripe.outer_descriptors["r-mean"]}\t{candida_stripe.rel_change}"
+        )
 
         candida_stripes.append(candida_stripe)
 
@@ -174,6 +186,6 @@ def filter_U_stripes(I, sites, HIoIs, VIoIs, threshold, output_folder=None):
         U_VIoI_regions4check += [[convex_comb, VIoI[1]]]
 
     if output_folder is not None:
-        np.savetxt(f"{output_folder}/UT_inner_means_{threshold:.2f}.txt", inner_means, delimiter=',')
+        np.savetxt(f"{output_folder}/UT_inner_means_{threshold:.2f}.txt", inner_means, delimiter=",")
 
     return candida_stripes, candida2keep, candida2disc, U_HIoI_regions4check, U_VIoI_regions4check

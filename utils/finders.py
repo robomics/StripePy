@@ -1,8 +1,8 @@
 from functools import partial
-import numpy as np
-import matplotlib.pyplot as plt
 from multiprocessing import Pool, freeze_support
 
+import matplotlib.pyplot as plt
+import numpy as np
 import TDA
 from regressions import compute_predictions, compute_wQISA_predictions
 
@@ -13,8 +13,8 @@ def find_horizontal_domain(pd, coarse_h_domain, max_width=1e9):
     MP, L_mP, R_mP = coarse_h_domain
 
     # Left and sides of candidate:
-    L_interval = np.flip(pd[L_mP:MP + 1])
-    R_interval = pd[MP:R_mP + 1]
+    L_interval = np.flip(pd[L_mP : MP + 1])
+    R_interval = pd[MP : R_mP + 1]
 
     # LEFT INTERVAL
     L_interval_shifted = np.append(L_interval[1:], [max(pd) + 1], axis=0)
@@ -79,13 +79,24 @@ def find_lower_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
     if VIoIs2plot is not None:
         if n in VIoIs2plot:
             fig, ax = plt.subplots(1, 1)
-            ax.plot(X_tr, Y, color='red', linewidth=0.5, linestyle='solid')
-            ax.plot(X_tr, Y_hat, color='black', linewidth=0.5, linestyle='solid')
+            ax.plot(X_tr, Y, color="red", linewidth=0.5, linestyle="solid")
+            ax.plot(X_tr, Y_hat, color="black", linewidth=0.5, linestyle="solid")
             if min_persistence is not None:
-                ax.plot([seed_site + a for a in loc_Maxima[:-1]], np.array(Y)[loc_Maxima[:-1]].tolist(),
-                        color='blue', marker='.', linestyle='', markersize=8 * 1.5)
-            ax.plot([seed_site + candida_bound[0], seed_site + candida_bound[0]], [0., 1.],
-                    color='blue', linewidth=1.0, linestyle='dashed')
+                ax.plot(
+                    [seed_site + a for a in loc_Maxima[:-1]],
+                    np.array(Y)[loc_Maxima[:-1]].tolist(),
+                    color="blue",
+                    marker=".",
+                    linestyle="",
+                    markersize=8 * 1.5,
+                )
+            ax.plot(
+                [seed_site + candida_bound[0], seed_site + candida_bound[0]],
+                [0.0, 1.0],
+                color="blue",
+                linewidth=1.0,
+                linestyle="dashed",
+            )
             plt.xlim((X_tr[0], X_tr[-1]))
             plt.ylim((0, 1))
             fig.set_dpi(256)
@@ -141,13 +152,24 @@ def find_upper_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
     if VIoIs2plot is not None:
         if n in VIoIs2plot:
             fig, ax = plt.subplots(1, 1)
-            ax.plot(X_tr, Y, color='red', linewidth=0.5, linestyle='solid')
-            ax.plot(X_tr, Y_hat, color='black', linewidth=0.5, linestyle='solid')
+            ax.plot(X_tr, Y, color="red", linewidth=0.5, linestyle="solid")
+            ax.plot(X_tr, Y_hat, color="black", linewidth=0.5, linestyle="solid")
             if min_persistence is not None:
-                ax.plot([seed_site + a for a in loc_Maxima[:-1]], np.array(Y)[loc_Maxima[:-1]].tolist(),
-                        color='blue', marker='.', linestyle='', markersize=8 * 1.5)
-            ax.plot([seed_site + candida_bound[0], seed_site + candida_bound[0]], [0., 1.],
-                    color='blue', linewidth=1.0, linestyle='dashed')
+                ax.plot(
+                    [seed_site + a for a in loc_Maxima[:-1]],
+                    np.array(Y)[loc_Maxima[:-1]].tolist(),
+                    color="blue",
+                    marker=".",
+                    linestyle="",
+                    markersize=8 * 1.5,
+                )
+            ax.plot(
+                [seed_site + candida_bound[0], seed_site + candida_bound[0]],
+                [0.0, 1.0],
+                color="blue",
+                linewidth=1.0,
+                linestyle="dashed",
+            )
             plt.xlim((X_tr[0], X_tr[-1]))
             plt.ylim((0, 1))
             fig.set_dpi(256)
@@ -155,7 +177,6 @@ def find_upper_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
             plt.savefig(f"{output_folder}/UT_local-pseudo-distrib_{seed_site}.jpg")
             plt.close()
             plt.clf()
-
 
     return Vdomain_and_peaks
 
@@ -174,8 +195,10 @@ def find_HIoIs(pd, seed_sites, seed_site_bounds, max_width):
     HIoIs                       list of lists, where each sublist is a pair consisting of the left and right boundaries
     """
 
-    iterable_input = [(seed_site, seed_site_bounds[num_MP], seed_site_bounds[num_MP + 1])
-                      for num_MP, seed_site in enumerate(seed_sites)]
+    iterable_input = [
+        (seed_site, seed_site_bounds[num_MP], seed_site_bounds[num_MP + 1])
+        for num_MP, seed_site in enumerate(seed_sites)
+    ]
     with Pool() as pool:
         HIoIs = pool.map(partial(find_horizontal_domain, pd, max_width=max_width), iterable_input)
         pool.close()
@@ -186,14 +209,23 @@ def find_HIoIs(pd, seed_sites, seed_site_bounds, max_width):
         current_pair = HIoIs[i]
         next_pair = HIoIs[i + 1]
 
-        if current_pair[1] > next_pair[0]:      # Check for intersection
-            next_pair[0] = current_pair[1]      # Modify the second pair
+        if current_pair[1] > next_pair[0]:  # Check for intersection
+            next_pair[0] = current_pair[1]  # Modify the second pair
 
     return HIoIs
 
 
-def find_VIoIs(I, seed_sites, HIoIs, max_height, threshold_cut=0.1, min_persistence=0.20, VIoIs2plot=None,
-               output_folder=None, where="lower"):
+def find_VIoIs(
+    I,
+    seed_sites,
+    HIoIs,
+    max_height,
+    threshold_cut=0.1,
+    min_persistence=0.20,
+    VIoIs2plot=None,
+    output_folder=None,
+    where="lower",
+):
 
     # Triplets to use in multiprocessing:
     iterable_input = [(n, seed_site, HIoI) for n, (seed_site, HIoI) in enumerate(zip(seed_sites, HIoIs))]
@@ -205,7 +237,8 @@ def find_VIoIs(I, seed_sites, HIoIs, max_height, threshold_cut=0.1, min_persiste
 
             Vdomains_and_peaks = pool.map(
                 partial(find_lower_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
-                iterable_input)
+                iterable_input,
+            )
             pool.close()
             pool.join()
 
@@ -219,7 +252,8 @@ def find_VIoIs(I, seed_sites, HIoIs, max_height, threshold_cut=0.1, min_persiste
 
             Vdomains_and_peaks = pool.map(
                 partial(find_upper_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
-                iterable_input)
+                iterable_input,
+            )
             pool.close()
             pool.join()
 

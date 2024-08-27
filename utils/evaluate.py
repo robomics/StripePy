@@ -1,21 +1,22 @@
+import itertools
+import sys
+
 import bioframe as bf
 import hictkpy
-import itertools
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
-from sklearn.metrics import confusion_matrix
 import seaborn as sns
+from sklearn.metrics import confusion_matrix
 
-import sys
 sys.path.append("utils")
-from utils.evaluate import *
 import IO
 
+from utils.evaluate import *
 
 # Colors
-colors = ['#e76f51', '#f4a261', '#e9c46a', '#2a9d8f', '#669bbc']
+colors = ["#e76f51", "#f4a261", "#e9c46a", "#2a9d8f", "#669bbc"]
 
 
 def initialize():
@@ -100,8 +101,8 @@ def retrieve_stripepy(path, chromosome, n_bins, resolution, threshold):
     Ldf = pd.read_csv(f"{path}/global/all/LT_shape-descriptors.csv", dtype=int)
     Udf = pd.read_csv(f"{path}/global/all/UT_shape-descriptors.csv", dtype=int)
 
-    L_seeds = Ldf[Ldf['seed'].isin([i for L_HIoI in L_HIoIs for i in range(L_HIoI[0], L_HIoI[1] + 1)])]['seed'].tolist()
-    U_seeds = Udf[Udf['seed'].isin([i for U_HIoI in U_HIoIs for i in range(U_HIoI[0], U_HIoI[1] + 1)])]['seed'].tolist()
+    L_seeds = Ldf[Ldf["seed"].isin([i for L_HIoI in L_HIoIs for i in range(L_HIoI[0], L_HIoI[1] + 1)])]["seed"].tolist()
+    U_seeds = Udf[Udf["seed"].isin([i for U_HIoI in U_HIoIs for i in range(U_HIoI[0], U_HIoI[1] + 1)])]["seed"].tolist()
 
     # Classification vectors (predicted):
     L_clas_vec = np.where(np.isin(range(n_bins), L_seeds), 1, 0)
@@ -124,21 +125,21 @@ def retrieve_chromosight(path, chromosome, n_bins, resolution):
     """
 
     # Load predictions -- lower-triangular:
-    Ldf = pd.read_csv(f"{path}/{resolution}/left/output.tsv", sep='\t')
-    Ldf_chr = Ldf[Ldf['chrom1'] == chromosome]
+    Ldf = pd.read_csv(f"{path}/{resolution}/left/output.tsv", sep="\t")
+    Ldf_chr = Ldf[Ldf["chrom1"] == chromosome]
 
     # Load predictions -- upper-triangular:
-    Udf = pd.read_csv(f"{path}/{resolution}/right/output.tsv", sep='\t')
-    Udf_chr = Udf[Udf['chrom1'] == chromosome]
+    Udf = pd.read_csv(f"{path}/{resolution}/right/output.tsv", sep="\t")
+    Udf_chr = Udf[Udf["chrom1"] == chromosome]
 
     # Gather lower- and upper-triangular candidates:
     # NB: Chromosight does not estimate width and length, but just gives a genomic pair (point, pixel) of where a stripe
     # might lie. For visualization purposes, end values are the start values increased by the resolution value.
     # For evaluation purposes, we just select the start values.
-    L_HIoIs = (Ldf_chr[['start1', 'start1']].values / resolution).astype(int).tolist()
-    L_VIoIs = (Ldf_chr[['start2', 'start2']].values / resolution).astype(int).tolist()
-    U_HIoIs = (Udf_chr[['start2', 'start2']].values / resolution).astype(int).tolist()
-    U_VIoIs = (Udf_chr[['start1', 'start1']].values / resolution).astype(int).tolist()
+    L_HIoIs = (Ldf_chr[["start1", "start1"]].values / resolution).astype(int).tolist()
+    L_VIoIs = (Ldf_chr[["start2", "start2"]].values / resolution).astype(int).tolist()
+    U_HIoIs = (Udf_chr[["start2", "start2"]].values / resolution).astype(int).tolist()
+    U_VIoIs = (Udf_chr[["start1", "start1"]].values / resolution).astype(int).tolist()
 
     # Gather anchors:
     L_anchors = [x[0] for x in L_HIoIs]
@@ -166,7 +167,7 @@ def retrieve_stripecaller(path, chromosome, n_bins, resolution):
 
     # Load predictions:
     df = bf.read_table(f"{path}/{resolution}/output.bedpe", schema="bed6")
-    df_chr = df[df['chrom'] == chromosome]
+    df_chr = df[df["chrom"] == chromosome]
     X1 = df_chr["start"].values.tolist()
     X2 = df_chr["end"].values.tolist()
     Y1 = df_chr["score"].values.tolist()
@@ -213,9 +214,9 @@ def retrieve_stripenn(path, chromosome, n_bins, resolution, filter=False):
 
     # Load predictions:
     if filter:
-        df = pd.read_csv(f"{path}/{resolution}/result_filtered.tsv", sep='\t')
+        df = pd.read_csv(f"{path}/{resolution}/result_filtered.tsv", sep="\t")
     else:
-        df = pd.read_csv(f"{path}/{resolution}/result_unfiltered.tsv", sep='\t')
+        df = pd.read_csv(f"{path}/{resolution}/result_unfiltered.tsv", sep="\t")
 
     # Filter rows for the specified chromosome and candidate types (lower- and upper-triangular candidates):
     L_df_chr = df[(df["chr"] == chromosome) & (df["pos1"] == df["pos3"])]
@@ -259,8 +260,11 @@ def is_anchor_in_stripes(GT_anchors, pred_HIoIs):
 
     # Find if each GT anchor is contained in a candidate stripe
     for i, GT_anchor in enumerate(GT_anchors_arr):
-        is_in_interval = (GT_anchor >= pred_HIoIs_arr[:, 0]) & (GT_anchor <= pred_HIoIs_arr[:, 1]) \
-            if pred_HIoIs_arr.shape[0] > 0 else np.array([], dtype=bool)
+        is_in_interval = (
+            (GT_anchor >= pred_HIoIs_arr[:, 0]) & (GT_anchor <= pred_HIoIs_arr[:, 1])
+            if pred_HIoIs_arr.shape[0] > 0
+            else np.array([], dtype=bool)
+        )
 
         if np.any(is_in_interval):
             is_anchor_found[i] = 1
@@ -389,9 +393,11 @@ def LaTex_tables(results, resolutions, contact_densities, noises):
             # Print:
             for num_meas, m in enumerate(["TPR", "TNR", "PPV", "bACC", "GM", "MCC", "AHR", "FGC"]):
                 if num_meas == 0:
-                    this_row = "\\multirow{8}{*}{"f"{round(noise / 1000)}k""}  & ""\\multicolumn{1}{c|}{"""f"{m}""}"" "
+                    this_row = (
+                        "\\multirow{8}{*}{" f"{round(noise / 1000)}k" "}  & " "\\multicolumn{1}{c|}{" "" f"{m}" "}" " "
+                    )
                 else:
-                    this_row = f" & ""\\multicolumn{1}{c|}{"""f"{m}""}"" "
+                    this_row = f" & " "\\multicolumn{1}{c|}{" "" f"{m}" "}" " "
                 for contact in contact_densities:
                     for method in ["stripepy1", "stripepy2", "chromosight", "stripecaller", "stripenn"]:
                         this_row += f" & {sliced_results[
@@ -424,7 +430,7 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
     for n_res, resolution in enumerate(resolutions):
 
         # Extract rows referring to current resolution:
-        sliced_results = results.loc[results['Resolution'] == resolution]
+        sliced_results = results.loc[results["Resolution"] == resolution]
 
         # Medians for current resolution:
         Q2s_this_res = dict()
@@ -435,13 +441,23 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
             Q2s_this_res[clas_meas_name] = []
             for method in ["stripepy1", "stripepy2", "chromosight", "stripecaller", "stripenn"]:
                 Q2s_this_res[clas_meas_name].append(
-                    np.median(sliced_results.loc[sliced_results['Method'] == method][clas_meas_name].values))
+                    np.median(sliced_results.loc[sliced_results["Method"] == method][clas_meas_name].values)
+                )
             Q2s_by_res[clas_meas_name].append(Q2s_this_res[clas_meas_name])
 
             # Box Plots
             ax = axes[n_meas, n_res]
-            sns.boxplot(y=clas_meas_name, x="Method", data=sliced_results, ax=ax, palette=colors, hue="Method",
-                        orient='v', width=.5, fliersize=3)
+            sns.boxplot(
+                y=clas_meas_name,
+                x="Method",
+                data=sliced_results,
+                ax=ax,
+                palette=colors,
+                hue="Method",
+                orient="v",
+                width=0.5,
+                fliersize=3,
+            )
             ax.set(xlabel=None, ylabel=None)
             ax.tick_params(labelbottom=False, bottom=False)
             ax.yaxis.set_tick_params(labelsize=7)
@@ -483,10 +499,10 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
                 major_ticks = np.linspace(0.00, 1.00, 6)
             ax.yaxis.set_major_locator(ticker.FixedLocator(major_ticks))
             ax.yaxis.set_minor_locator(ticker.FixedLocator(minor_ticks))
-            ax.yaxis.grid(True, which='major', linestyle='--', linewidth=0.5)
-            ax.yaxis.grid(True, which='minor', linestyle='--', linewidth=0.5)
+            ax.yaxis.grid(True, which="major", linestyle="--", linewidth=0.5)
+            ax.yaxis.grid(True, which="minor", linestyle="--", linewidth=0.5)
 
-    plt.subplots_adjust(wspace=0., hspace=0.)
+    plt.subplots_adjust(wspace=0.0, hspace=0.0)
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/bp_by_res.jpg", bbox_inches="tight")
     plt.clf()
@@ -496,22 +512,22 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
     fig, axes = plt.subplots(2, 4, figsize=(10, 4.5))
     axes = axes.flatten()
     for ax, meas in zip(axes, ["TPR", "TNR", "PPV", "bACC", "GM", "MCC", "AHR", "FGC"]):
-        ax.plot([5, 10, 25, 50], [x for x, _, _, _, _ in Q2s_by_res[meas]], color=colors[0], linestyle='dashdot')
-        ax.plot([5, 10, 25, 50], [x for _, x, _, _, _ in Q2s_by_res[meas]], color=colors[1], linestyle='dashdot')
-        ax.plot([5, 10, 25, 50], [x for _, _, x, _, _ in Q2s_by_res[meas]], color=colors[2], linestyle='dashdot')
-        ax.plot([5, 10, 25, 50], [x for _, _, _, x, _ in Q2s_by_res[meas]], color=colors[3], linestyle='dashdot')
-        ax.plot([5, 10, 25, 50], [x for _, _, _, _, x in Q2s_by_res[meas]], color=colors[4], linestyle='dashdot')
-        ax.plot([5, 10, 25, 50], [x for x, _, _, _, _ in Q2s_by_res[meas]], 'o', color=colors[0])
-        ax.plot([5, 10, 25, 50], [x for _, x, _, _, _ in Q2s_by_res[meas]], 'o', color=colors[1])
-        ax.plot([5, 10, 25, 50], [x for _, _, x, _, _ in Q2s_by_res[meas]], 'o', color=colors[2])
-        ax.plot([5, 10, 25, 50], [x for _, _, _, x, _ in Q2s_by_res[meas]], 'o', color=colors[3])
-        ax.plot([5, 10, 25, 50], [x for _, _, _, _, x in Q2s_by_res[meas]], 'o', color=colors[4])
+        ax.plot([5, 10, 25, 50], [x for x, _, _, _, _ in Q2s_by_res[meas]], color=colors[0], linestyle="dashdot")
+        ax.plot([5, 10, 25, 50], [x for _, x, _, _, _ in Q2s_by_res[meas]], color=colors[1], linestyle="dashdot")
+        ax.plot([5, 10, 25, 50], [x for _, _, x, _, _ in Q2s_by_res[meas]], color=colors[2], linestyle="dashdot")
+        ax.plot([5, 10, 25, 50], [x for _, _, _, x, _ in Q2s_by_res[meas]], color=colors[3], linestyle="dashdot")
+        ax.plot([5, 10, 25, 50], [x for _, _, _, _, x in Q2s_by_res[meas]], color=colors[4], linestyle="dashdot")
+        ax.plot([5, 10, 25, 50], [x for x, _, _, _, _ in Q2s_by_res[meas]], "o", color=colors[0])
+        ax.plot([5, 10, 25, 50], [x for _, x, _, _, _ in Q2s_by_res[meas]], "o", color=colors[1])
+        ax.plot([5, 10, 25, 50], [x for _, _, x, _, _ in Q2s_by_res[meas]], "o", color=colors[2])
+        ax.plot([5, 10, 25, 50], [x for _, _, _, x, _ in Q2s_by_res[meas]], "o", color=colors[3])
+        ax.plot([5, 10, 25, 50], [x for _, _, _, _, x in Q2s_by_res[meas]], "o", color=colors[4])
         ax.set_title(meas, fontsize=12)
-        ax.grid(color='green', linestyle='--', linewidth=0.5, axis='y')
+        ax.grid(color="green", linestyle="--", linewidth=0.5, axis="y")
         ax.xaxis.set_major_locator(ticker.FixedLocator(np.array([5, 10, 25, 50])))
-        ax.xaxis.grid(True, which='major', linestyle='--', linewidth=0.5)
-    plt.suptitle('Change in resolution', fontsize=16)
-    plt.subplots_adjust(wspace=0., hspace=0.)
+        ax.xaxis.grid(True, which="major", linestyle="--", linewidth=0.5)
+    plt.suptitle("Change in resolution", fontsize=16)
+    plt.subplots_adjust(wspace=0.0, hspace=0.0)
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/median_by_res.jpg", bbox_inches="tight")
     plt.show()
@@ -528,7 +544,7 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
     for n_cd, cd in enumerate(contact_densities):
 
         # Extract rows referring to current contact density:
-        sliced_results = results.loc[results['Contact Density'] == cd]
+        sliced_results = results.loc[results["Contact Density"] == cd]
 
         # Medians for current contact density:
         Q2s_this_cd = dict()
@@ -539,13 +555,23 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
             Q2s_this_cd[clas_meas_name] = []
             for method in ["stripepy1", "stripepy2", "chromosight", "stripecaller", "stripenn"]:
                 Q2s_this_cd[clas_meas_name].append(
-                    np.median(sliced_results.loc[sliced_results['Method'] == method][clas_meas_name].values))
+                    np.median(sliced_results.loc[sliced_results["Method"] == method][clas_meas_name].values)
+                )
             Q2s_by_cd[clas_meas_name].append(Q2s_this_cd[clas_meas_name])
 
             # Box Plots
             ax = axes[n_meas, n_cd]
-            sns.boxplot(y=clas_meas_name, x="Method", data=sliced_results, ax=ax, palette=colors, hue="Method",
-                        orient='v', width=.5, fliersize=3)
+            sns.boxplot(
+                y=clas_meas_name,
+                x="Method",
+                data=sliced_results,
+                ax=ax,
+                palette=colors,
+                hue="Method",
+                orient="v",
+                width=0.5,
+                fliersize=3,
+            )
             ax.set(xlabel=None, ylabel=None)
             ax.tick_params(labelbottom=False, bottom=False)
             ax.yaxis.set_tick_params(labelsize=7)
@@ -553,7 +579,7 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
             if n_cd == 0:
                 ax.set_ylabel(clas_meas_name, fontsize=12)
             if n_meas == 0:
-                ax.set_title(r"$\delta$"f" = {int(cd)}", fontsize=12)
+                ax.set_title(r"$\delta$" f" = {int(cd)}", fontsize=12)
                 ax.set_ylim((-0.02, 0.50))
                 minor_ticks = np.linspace(0.00, 0.50, 11)
                 major_ticks = np.linspace(0.00, 0.50, 6)
@@ -587,10 +613,10 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
                 major_ticks = np.linspace(0.00, 1.00, 6)
             ax.yaxis.set_major_locator(ticker.FixedLocator(major_ticks))
             ax.yaxis.set_minor_locator(ticker.FixedLocator(minor_ticks))
-            ax.yaxis.grid(True, which='major', linestyle='--', linewidth=0.5)
-            ax.yaxis.grid(True, which='minor', linestyle='--', linewidth=0.5)
+            ax.yaxis.grid(True, which="major", linestyle="--", linewidth=0.5)
+            ax.yaxis.grid(True, which="minor", linestyle="--", linewidth=0.5)
 
-    plt.subplots_adjust(wspace=0., hspace=0.)
+    plt.subplots_adjust(wspace=0.0, hspace=0.0)
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/bp_by_cd.jpg", bbox_inches="tight")
     plt.clf()
@@ -600,22 +626,22 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
     fig, axes = plt.subplots(2, 4, figsize=(10, 4.5))
     axes = axes.flatten()
     for ax, meas in zip(axes, ["TPR", "TNR", "PPV", "bACC", "GM", "MCC", "AHR", "FGC"]):
-        ax.plot([1, 5, 10, 15], [x for x, _, _, _, _ in Q2s_by_cd[meas]], color=colors[0], linestyle='dashdot')
-        ax.plot([1, 5, 10, 15], [x for _, x, _, _, _ in Q2s_by_cd[meas]], color=colors[1], linestyle='dashdot')
-        ax.plot([1, 5, 10, 15], [x for _, _, x, _, _ in Q2s_by_cd[meas]], color=colors[2], linestyle='dashdot')
-        ax.plot([1, 5, 10, 15], [x for _, _, _, x, _ in Q2s_by_cd[meas]], color=colors[3], linestyle='dashdot')
-        ax.plot([1, 5, 10, 15], [x for _, _, _, _, x in Q2s_by_cd[meas]], color=colors[4], linestyle='dashdot')
-        ax.plot([1, 5, 10, 15], [x for x, _, _, _, _ in Q2s_by_cd[meas]], 'o', color=colors[0])
-        ax.plot([1, 5, 10, 15], [x for _, x, _, _, _ in Q2s_by_cd[meas]], 'o', color=colors[1])
-        ax.plot([1, 5, 10, 15], [x for _, _, x, _, _ in Q2s_by_cd[meas]], 'o', color=colors[2])
-        ax.plot([1, 5, 10, 15], [x for _, _, _, x, _ in Q2s_by_cd[meas]], 'o', color=colors[3])
-        ax.plot([1, 5, 10, 15], [x for _, _, _, _, x in Q2s_by_cd[meas]], 'o', color=colors[4])
+        ax.plot([1, 5, 10, 15], [x for x, _, _, _, _ in Q2s_by_cd[meas]], color=colors[0], linestyle="dashdot")
+        ax.plot([1, 5, 10, 15], [x for _, x, _, _, _ in Q2s_by_cd[meas]], color=colors[1], linestyle="dashdot")
+        ax.plot([1, 5, 10, 15], [x for _, _, x, _, _ in Q2s_by_cd[meas]], color=colors[2], linestyle="dashdot")
+        ax.plot([1, 5, 10, 15], [x for _, _, _, x, _ in Q2s_by_cd[meas]], color=colors[3], linestyle="dashdot")
+        ax.plot([1, 5, 10, 15], [x for _, _, _, _, x in Q2s_by_cd[meas]], color=colors[4], linestyle="dashdot")
+        ax.plot([1, 5, 10, 15], [x for x, _, _, _, _ in Q2s_by_cd[meas]], "o", color=colors[0])
+        ax.plot([1, 5, 10, 15], [x for _, x, _, _, _ in Q2s_by_cd[meas]], "o", color=colors[1])
+        ax.plot([1, 5, 10, 15], [x for _, _, x, _, _ in Q2s_by_cd[meas]], "o", color=colors[2])
+        ax.plot([1, 5, 10, 15], [x for _, _, _, x, _ in Q2s_by_cd[meas]], "o", color=colors[3])
+        ax.plot([1, 5, 10, 15], [x for _, _, _, _, x in Q2s_by_cd[meas]], "o", color=colors[4])
         ax.set_title(meas, fontsize=12)
-        ax.grid(color='green', linestyle='--', linewidth=0.5, axis='y')
+        ax.grid(color="green", linestyle="--", linewidth=0.5, axis="y")
         ax.xaxis.set_major_locator(ticker.FixedLocator(np.array([1, 5, 10, 15])))
-        ax.xaxis.grid(True, which='major', linestyle='--', linewidth=0.5)
-    plt.suptitle('Change in contact density', fontsize=16)
-    plt.subplots_adjust(wspace=0., hspace=0.)
+        ax.xaxis.grid(True, which="major", linestyle="--", linewidth=0.5)
+    plt.suptitle("Change in contact density", fontsize=16)
+    plt.subplots_adjust(wspace=0.0, hspace=0.0)
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/median_by_cd.jpg", bbox_inches="tight")
     plt.show()
@@ -633,7 +659,7 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
     for n_ns, noise in enumerate(noises):
 
         # Extract rows referring to current noise:
-        sliced_results = results.loc[results['Noise'] == noise]
+        sliced_results = results.loc[results["Noise"] == noise]
 
         # Medians for current contact density:
         Q2s_this_ns = dict()
@@ -644,13 +670,23 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
             Q2s_this_ns[clas_meas_name] = []
             for method in ["stripepy1", "stripepy2", "chromosight", "stripecaller", "stripenn"]:
                 Q2s_this_ns[clas_meas_name].append(
-                    np.median(sliced_results.loc[sliced_results['Method'] == method][clas_meas_name].values))
+                    np.median(sliced_results.loc[sliced_results["Method"] == method][clas_meas_name].values)
+                )
             Q2s_by_ns[clas_meas_name].append(Q2s_this_ns[clas_meas_name])
 
             # Box Plots
             ax = axes[n_meas, n_ns]
-            sns.boxplot(y=clas_meas_name, x="Method", data=sliced_results, ax=ax, palette=colors, hue="Method",
-                        orient='v', width=.5, fliersize=3)
+            sns.boxplot(
+                y=clas_meas_name,
+                x="Method",
+                data=sliced_results,
+                ax=ax,
+                palette=colors,
+                hue="Method",
+                orient="v",
+                width=0.5,
+                fliersize=3,
+            )
             ax.set(xlabel=None, ylabel=None)
             ax.tick_params(labelbottom=False, bottom=False)
             ax.yaxis.set_tick_params(labelsize=7)
@@ -658,7 +694,7 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
             if n_ns == 0:
                 ax.set_ylabel(clas_meas_name, fontsize=12)
             if n_meas == 0:
-                ax.set_title(r"$\sigma$"f" = {int(noise / 1000)}k", fontsize=12)
+                ax.set_title(r"$\sigma$" f" = {int(noise / 1000)}k", fontsize=12)
                 ax.set_ylim((-0.02, 0.500))
                 minor_ticks = np.linspace(0.00, 0.500, 11)
                 major_ticks = np.linspace(0.00, 0.500, 6)
@@ -692,8 +728,8 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
                 major_ticks = np.linspace(0.00, 1.00, 6)
             ax.yaxis.set_major_locator(ticker.FixedLocator(major_ticks))
             ax.yaxis.set_minor_locator(ticker.FixedLocator(minor_ticks))
-            ax.yaxis.grid(True, which='major', linestyle='--', linewidth=0.5)
-            ax.yaxis.grid(True, which='minor', linestyle='--', linewidth=0.5)
+            ax.yaxis.grid(True, which="major", linestyle="--", linewidth=0.5)
+            ax.yaxis.grid(True, which="minor", linestyle="--", linewidth=0.5)
 
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/bp_by_ns.jpg", bbox_inches="tight")
@@ -704,22 +740,22 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
     fig, axes = plt.subplots(2, 4, figsize=(10, 4.5))
     axes = axes.flatten()
     for ax, meas in zip(axes, ["TPR", "TNR", "PPV", "bACC", "GM", "MCC", "AHR", "FGC"]):
-        ax.plot([5, 10, 15, 20], [x for x, _, _, _, _ in Q2s_by_ns[meas]], color=colors[0], linestyle='dashdot')
-        ax.plot([5, 10, 15, 20], [x for _, x, _, _, _ in Q2s_by_ns[meas]], color=colors[1], linestyle='dashdot')
-        ax.plot([5, 10, 15, 20], [x for _, _, x, _, _ in Q2s_by_ns[meas]], color=colors[2], linestyle='dashdot')
-        ax.plot([5, 10, 15, 20], [x for _, _, _, x, _ in Q2s_by_ns[meas]], color=colors[3], linestyle='dashdot')
-        ax.plot([5, 10, 15, 20], [x for _, _, _, _, x in Q2s_by_ns[meas]], color=colors[4], linestyle='dashdot')
-        ax.plot([5, 10, 15, 20], [x for x, _, _, _, _ in Q2s_by_ns[meas]], 'o', color=colors[0])
-        ax.plot([5, 10, 15, 20], [x for _, x, _, _, _ in Q2s_by_ns[meas]], 'o', color=colors[1])
-        ax.plot([5, 10, 15, 20], [x for _, _, x, _, _ in Q2s_by_ns[meas]], 'o', color=colors[2])
-        ax.plot([5, 10, 15, 20], [x for _, _, _, x, _ in Q2s_by_ns[meas]], 'o', color=colors[3])
-        ax.plot([5, 10, 15, 20], [x for _, _, _, _, x in Q2s_by_ns[meas]], 'o', color=colors[4])
+        ax.plot([5, 10, 15, 20], [x for x, _, _, _, _ in Q2s_by_ns[meas]], color=colors[0], linestyle="dashdot")
+        ax.plot([5, 10, 15, 20], [x for _, x, _, _, _ in Q2s_by_ns[meas]], color=colors[1], linestyle="dashdot")
+        ax.plot([5, 10, 15, 20], [x for _, _, x, _, _ in Q2s_by_ns[meas]], color=colors[2], linestyle="dashdot")
+        ax.plot([5, 10, 15, 20], [x for _, _, _, x, _ in Q2s_by_ns[meas]], color=colors[3], linestyle="dashdot")
+        ax.plot([5, 10, 15, 20], [x for _, _, _, _, x in Q2s_by_ns[meas]], color=colors[4], linestyle="dashdot")
+        ax.plot([5, 10, 15, 20], [x for x, _, _, _, _ in Q2s_by_ns[meas]], "o", color=colors[0])
+        ax.plot([5, 10, 15, 20], [x for _, x, _, _, _ in Q2s_by_ns[meas]], "o", color=colors[1])
+        ax.plot([5, 10, 15, 20], [x for _, _, x, _, _ in Q2s_by_ns[meas]], "o", color=colors[2])
+        ax.plot([5, 10, 15, 20], [x for _, _, _, x, _ in Q2s_by_ns[meas]], "o", color=colors[3])
+        ax.plot([5, 10, 15, 20], [x for _, _, _, _, x in Q2s_by_ns[meas]], "o", color=colors[4])
         ax.set_title(meas, fontsize=12)
-        ax.grid(color='green', linestyle='--', linewidth=0.5, axis='y')
+        ax.grid(color="green", linestyle="--", linewidth=0.5, axis="y")
         ax.xaxis.set_major_locator(ticker.FixedLocator(np.array([5, 10, 15, 20])))
-        ax.xaxis.grid(True, which='major', linestyle='--', linewidth=0.5)
-    plt.suptitle('Change in noise level', fontsize=16)
-    plt.subplots_adjust(wspace=0., hspace=0.)
+        ax.xaxis.grid(True, which="major", linestyle="--", linewidth=0.5)
+    plt.suptitle("Change in noise level", fontsize=16)
+    plt.subplots_adjust(wspace=0.0, hspace=0.0)
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/median_by_ns.jpg", bbox_inches="tight")
     plt.show()
@@ -737,15 +773,24 @@ def global_boxplots(results, path2output):
     fig, axes = plt.subplots(2, 4, figsize=(10, 4.5))
     axes = axes.flatten()
     for ax, clas_meas_name in zip(axes, ["TPR", "TNR", "PPV", "AHR", "bACC", "GM", "MCC", "FGC"]):
-        sns.boxplot(y=clas_meas_name, x="Method", data=results, ax=ax, palette=colors, hue="Method",
-                    orient='v', width=.5, fliersize=3)
+        sns.boxplot(
+            y=clas_meas_name,
+            x="Method",
+            data=results,
+            ax=ax,
+            palette=colors,
+            hue="Method",
+            orient="v",
+            width=0.5,
+            fliersize=3,
+        )
         ax.set(xlabel=None, ylabel=None)
         ax.tick_params(labelbottom=False, bottom=False)
         ax.set_yticks([0.05 * i for i in range(21)], minor=True)
         ax.set_yticks([0.2 * i for i in range(6)], minor=False)
-        ax.yaxis.grid(True, which='major', linestyle='--', linewidth=0.5)
-        ax.yaxis.grid(True, which='minor', linestyle='--', linewidth=0.5)
-        ax.yaxis.set_tick_params(labelsize='medium')
+        ax.yaxis.grid(True, which="major", linestyle="--", linewidth=0.5)
+        ax.yaxis.grid(True, which="minor", linestyle="--", linewidth=0.5)
+        ax.yaxis.set_tick_params(labelsize="medium")
         ax.axes.get_xaxis().set_visible(False)
         ax.set_title(clas_meas_name, fontsize=12)
         ax.set_ylim((-0.05, 1.05))
@@ -768,11 +813,11 @@ def heatmaps(results, resolutions, contact_densities, noises, path2output):
     """
 
     # Retrieve results of each method:
-    M1 = results.loc[results['Method'] == "stripepy1"]
-    M2 = results.loc[results['Method'] == "stripepy2"]
-    M3 = results.loc[results['Method'] == "chromosight"]
-    M4 = results.loc[results['Method'] == "stripecaller"]
-    M5 = results.loc[results['Method'] == "stripenn"]
+    M1 = results.loc[results["Method"] == "stripepy1"]
+    M2 = results.loc[results["Method"] == "stripepy2"]
+    M3 = results.loc[results["Method"] == "chromosight"]
+    M4 = results.loc[results["Method"] == "stripecaller"]
+    M5 = results.loc[results["Method"] == "stripenn"]
 
     # RECOGNITION
 
@@ -794,53 +839,87 @@ def heatmaps(results, resolutions, contact_densities, noises, path2output):
                 # Retrieve all entries in M1,...,M5 with key "is_anchor_found"
                 V = []
                 for M in [M1, M2, M3, M4, M5]:
-                    v = M.loc[(M['Resolution'] == resolution) &
-                              (M['Contact Density'] == contact_density) &
-                              (M['Noise'] == noise)][f"{key}"].values[0]
+                    v = M.loc[
+                        (M["Resolution"] == resolution)
+                        & (M["Contact Density"] == contact_density)
+                        & (M["Noise"] == noise)
+                    ][f"{key}"].values[0]
                     V.append(v)
                 V = np.array(V)
 
                 # Analyse the four possible scenarios:
-                for (i, j) in np.ndindex(2, 3):
-                    CFR[i][j] += np.array([[np.sum((V[i] == 0) & (V[j + 2] == 0)) / len(V[i]) * 100,
-                                            np.sum((V[i] == 1) & (V[j + 2] == 0)) / len(V[i]) * 100],
-                                           [np.sum((V[i] == 0) & (V[j + 2] == 1)) / len(V[i]) * 100,
-                                            np.sum((V[i] == 1) & (V[j + 2] == 1)) / len(V[i]) * 100]])
+                for i, j in np.ndindex(2, 3):
+                    CFR[i][j] += np.array(
+                        [
+                            [
+                                np.sum((V[i] == 0) & (V[j + 2] == 0)) / len(V[i]) * 100,
+                                np.sum((V[i] == 1) & (V[j + 2] == 0)) / len(V[i]) * 100,
+                            ],
+                            [
+                                np.sum((V[i] == 0) & (V[j + 2] == 1)) / len(V[i]) * 100,
+                                np.sum((V[i] == 1) & (V[j + 2] == 1)) / len(V[i]) * 100,
+                            ],
+                        ]
+                    )
 
             else:
 
                 # Retrieve all entries in M1,...,M5 with key "classification_vector"
                 V = []
                 for M in [M1, M2, M3, M4, M5]:
-                    v = M.loc[(M['Resolution'] == resolution) &
-                              (M['Contact Density'] == contact_density) &
-                              (M['Noise'] == noise)][f"{key}"].values[0]
+                    v = M.loc[
+                        (M["Resolution"] == resolution)
+                        & (M["Contact Density"] == contact_density)
+                        & (M["Noise"] == noise)
+                    ][f"{key}"].values[0]
                     V.append(v)
                 V = np.array(V)
 
                 # Retrieve ground truth classification:
-                GT = np.array(M1.loc[(M1['Resolution'] == resolution) &
-                                     (M1['Contact Density'] == contact_density) &
-                                     (M1['Noise'] == noise)][f"GT_{key}"].values[0])
+                GT = np.array(
+                    M1.loc[
+                        (M1["Resolution"] == resolution)
+                        & (M1["Contact Density"] == contact_density)
+                        & (M1["Noise"] == noise)
+                    ][f"GT_{key}"].values[0]
+                )
                 is_anchor = np.where(GT == 1)[0]
 
                 # Analyse the four possible scenarios:
-                for (i, j) in np.ndindex(2, 3):
+                for i, j in np.ndindex(2, 3):
                     CFR[i][j] += np.array(
-                        [[np.sum((V[i][is_anchor] == 0) & (V[j + 2][is_anchor] == 0)) / len(is_anchor) * 100,
-                          np.sum((V[i][is_anchor] == 1) & (V[j + 2][is_anchor] == 0)) / len(is_anchor) * 100],
-                         [np.sum((V[i][is_anchor] == 0) & (V[j + 2][is_anchor] == 1)) / len(is_anchor) * 100,
-                          np.sum((V[i][is_anchor] == 1) & (V[j + 2][is_anchor] == 1)) / len(is_anchor) * 100]])
+                        [
+                            [
+                                np.sum((V[i][is_anchor] == 0) & (V[j + 2][is_anchor] == 0)) / len(is_anchor) * 100,
+                                np.sum((V[i][is_anchor] == 1) & (V[j + 2][is_anchor] == 0)) / len(is_anchor) * 100,
+                            ],
+                            [
+                                np.sum((V[i][is_anchor] == 0) & (V[j + 2][is_anchor] == 1)) / len(is_anchor) * 100,
+                                np.sum((V[i][is_anchor] == 1) & (V[j + 2][is_anchor] == 1)) / len(is_anchor) * 100,
+                            ],
+                        ]
+                    )
 
         fig, axes = plt.subplots(2, 3)
         axes = axes.flatten()
         categories = ["Not Identified", "Identified"]
 
         for num_CFR, (CFR, ax) in enumerate(
-                zip([CFR[0][0], CFR[0][1], CFR[0][2], CFR[1][0], CFR[1][1], CFR[1][2]], axes)):
-            sns.heatmap(CFR.transpose() / (len(resolutions) * len(contact_densities) * len(noises)), annot=True, ax=ax,
-                        cmap='Blues', xticklabels=categories, yticklabels=categories, cbar=False, vmin=0, vmax=100,
-                        fmt='.1f', annot_kws={"size": 12})
+            zip([CFR[0][0], CFR[0][1], CFR[0][2], CFR[1][0], CFR[1][1], CFR[1][2]], axes)
+        ):
+            sns.heatmap(
+                CFR.transpose() / (len(resolutions) * len(contact_densities) * len(noises)),
+                annot=True,
+                ax=ax,
+                cmap="Blues",
+                xticklabels=categories,
+                yticklabels=categories,
+                cbar=False,
+                vmin=0,
+                vmax=100,
+                fmt=".1f",
+                annot_kws={"size": 12},
+            )
             for t in ax.texts:
                 t.set_text(t.get_text() + " %")
 
@@ -859,9 +938,9 @@ def heatmaps(results, resolutions, contact_densities, noises, path2output):
             # Reduce the size of xtick labels for each subplot
             ax.set_xticklabels(ax.get_xticklabels(), fontsize=8)
             ax.set_yticklabels(ax.get_yticklabels(), fontsize=8)
-            ax.axis('scaled')
+            ax.axis("scaled")
             ax.invert_xaxis()
-            ax.xaxis.set_label_position('top')
+            ax.xaxis.set_label_position("top")
             plt.setp(ax.xaxis.get_majorticklabels(), rotation=0)
             plt.setp(ax.yaxis.get_majorticklabels(), rotation=90)
         plt.tight_layout()
@@ -870,8 +949,9 @@ def heatmaps(results, resolutions, contact_densities, noises, path2output):
         plt.close(fig)
 
 
-def recoverable_anchors_recognition(M1, resolutions, contact_densities, noises, base_path, file_name_base, GT_name,
-                                    probability_threshold):
+def recoverable_anchors_recognition(
+    M1, resolutions, contact_densities, noises, base_path, file_name_base, GT_name, probability_threshold
+):
     """
     Quantify the percentage of stripepy's anchor points that can be recovered by lowering the threshold of the
     topological persistence:
@@ -906,9 +986,9 @@ def recoverable_anchors_recognition(M1, resolutions, contact_densities, noises, 
         c_pairs = list(zip(c_ids, c_names))
 
         # Retrieve 0-1 vector that states whether an anchor was found or not. NB: it is NOT the classification vector!
-        is_anchor_found = M1.loc[(M1['Resolution'] == resolution) &
-                                 (M1['Contact Density'] == contact_density) &
-                                 (M1['Noise'] == noise)]["is_anchor_found"].values[0]
+        is_anchor_found = M1.loc[
+            (M1["Resolution"] == resolution) & (M1["Contact Density"] == contact_density) & (M1["Noise"] == noise)
+        ]["is_anchor_found"].values[0]
 
         # Number of GT anchors per chromosome and per part of the matrix:
         num_GT_anchors_per_chrom_LT = [0] * len(c_names)
@@ -917,8 +997,8 @@ def recoverable_anchors_recognition(M1, resolutions, contact_densities, noises, 
         # Total number of ground-truth anchors per chromosome:
         for i, chr in enumerate(c_names):
             GT = retrieve_ground_truth(path2GT, GT_name, chr, resolution, probability_threshold, False)
-            num_GT_anchors_per_chrom_LT[i] = len(GT['L_anchors'])
-            num_GT_anchors_per_chrom_UT[i] = len(GT['U_anchors'])
+            num_GT_anchors_per_chrom_LT[i] = len(GT["L_anchors"])
+            num_GT_anchors_per_chrom_UT[i] = len(GT["U_anchors"])
 
         # Total number of ground-truth anchors -- lower-triangular:
         LT_num_anchors = np.sum(num_GT_anchors_per_chrom_LT)
@@ -942,8 +1022,8 @@ def recoverable_anchors_recognition(M1, resolutions, contact_densities, noises, 
             GT = retrieve_ground_truth(path2GT, GT_name, chr, resolution, probability_threshold, False)
 
             # Slice 0-1 vectors:
-            LT_is_anchor_found_loc = is_anchor_found[LT_start:LT_start + num_GT_anchors_per_chrom_LT[i]]
-            UT_is_anchor_found_loc = is_anchor_found[UT_start:UT_start + num_GT_anchors_per_chrom_UT[i]]
+            LT_is_anchor_found_loc = is_anchor_found[LT_start : LT_start + num_GT_anchors_per_chrom_LT[i]]
+            UT_is_anchor_found_loc = is_anchor_found[UT_start : UT_start + num_GT_anchors_per_chrom_UT[i]]
 
             # Update indices to slice is_anchor_found and retrieve lower- and upper-triangular parts:
             LT_start += num_GT_anchors_per_chrom_LT[i]
@@ -964,7 +1044,7 @@ def recoverable_anchors_recognition(M1, resolutions, contact_densities, noises, 
             for n_e1, e1 in enumerate(LT_is_anchor_found_loc):
                 if e1 == 0:
                     LT_num_anchors_undetected += 1
-                    missed_anchor = int(GT['L_anchors'][n_e1])
+                    missed_anchor = int(GT["L_anchors"][n_e1])
                     if missed_anchor in LT_MPs:
                         LT_num_anchors_undetected_but_detectable += 1
                         persistences_to_analyze += [LT_pers_of_MPs[LT_MPs.index(missed_anchor)]]
@@ -977,7 +1057,7 @@ def recoverable_anchors_recognition(M1, resolutions, contact_densities, noises, 
             for n_e1, e1 in enumerate(UT_is_anchor_found_loc):
                 if e1 == 0:
                     UT_num_anchors_undetected += 1
-                    missed_anchor = int(GT['U_anchors'][n_e1])
+                    missed_anchor = int(GT["U_anchors"][n_e1])
                     if missed_anchor in UT_MPs:
                         UT_num_anchors_undetected_but_detectable += 1
                         persistences_to_analyze += [UT_pers_of_MPs[UT_MPs.index(missed_anchor)]]
@@ -992,25 +1072,26 @@ def recoverable_anchors_recognition(M1, resolutions, contact_densities, noises, 
         num_anchors = LT_num_anchors + UT_num_anchors
         # num_anchors_detected = LT_num_anchors_detected + UT_num_anchors_detected
         num_anchors_undetected_but_detectable = (
-                LT_num_anchors_undetected_but_detectable + UT_num_anchors_undetected_but_detectable)
+            LT_num_anchors_undetected_but_detectable + UT_num_anchors_undetected_but_detectable
+        )
         num_anchors_undetected = LT_num_anchors_undetected + UT_num_anchors_undetected
-        ratio_recoverable_over_undetected += [
-            num_anchors_undetected_but_detectable / num_anchors_undetected]
+        ratio_recoverable_over_undetected += [num_anchors_undetected_but_detectable / num_anchors_undetected]
         ratio_recoverable_over_all_anchors += [num_anchors_undetected_but_detectable / num_anchors]
 
     print("---ratio_recoverable_over_undetected---")
-    df = pd.DataFrame({'ratio_recoverable_over_undetected': np.array(ratio_recoverable_over_undetected) * 100})
+    df = pd.DataFrame({"ratio_recoverable_over_undetected": np.array(ratio_recoverable_over_undetected) * 100})
     quartiles = df.quantile([0.00, 0.25, 0.5, 0.75, 1.00])
     print("Quartiles:", quartiles)
 
     print("---ratio_recoverable_over_all_anchors---")
-    df = pd.DataFrame({'ratio_recoverable_over_all_anchors': np.array(ratio_recoverable_over_all_anchors) * 100})
+    df = pd.DataFrame({"ratio_recoverable_over_all_anchors": np.array(ratio_recoverable_over_all_anchors) * 100})
     quartiles = df.quantile([0.00, 0.25, 0.5, 0.75, 1.00])
     print("Quartiles:", quartiles)
 
 
-def recoverable_anchors_classification(M1, resolutions, contact_densities, noises, base_path, file_name_base, GT_name,
-                                       probability_threshold):
+def recoverable_anchors_classification(
+    M1, resolutions, contact_densities, noises, base_path, file_name_base, GT_name, probability_threshold
+):
     """
     Quantify the percentage of stripepy's anchor points that can be recovered by lowering the threshold of the
     topological persistence:
@@ -1045,14 +1126,16 @@ def recoverable_anchors_classification(M1, resolutions, contact_densities, noise
         c_pairs = list(zip(c_ids, c_names))
 
         # Retrieve 0-1 vector that states whether an anchor was found or not:
-        pred_clas_vec = M1.loc[(M1['Resolution'] == resolution) &
-                               (M1['Contact Density'] == contact_density) &
-                               (M1['Noise'] == noise)]["classification_vector"].values[0]
+        pred_clas_vec = M1.loc[
+            (M1["Resolution"] == resolution) & (M1["Contact Density"] == contact_density) & (M1["Noise"] == noise)
+        ]["classification_vector"].values[0]
 
         # Retrieve ground truth classification:
-        GT_clas_vec = np.array(M1.loc[(M1['Resolution'] == resolution) &
-                                      (M1['Contact Density'] == contact_density) &
-                                      (M1['Noise'] == noise)]["GT_classification_vector"].values[0])
+        GT_clas_vec = np.array(
+            M1.loc[
+                (M1["Resolution"] == resolution) & (M1["Contact Density"] == contact_density) & (M1["Noise"] == noise)
+            ]["GT_classification_vector"].values[0]
+        )
 
         # Classification vectors obtained when lowering the admitting maxima points with lower topological persistence:
         LT_new_clas_vector = []
@@ -1063,7 +1146,7 @@ def recoverable_anchors_classification(M1, resolutions, contact_densities, noise
 
             # Number of bins:
             bins = c.bins()[:]
-            n_bins = len(bins[bins['chrom'] == chr])
+            n_bins = len(bins[bins["chrom"] == chr])
 
             # Retrieve maxima points and update the new classification vectors:
             path2persistence = f"output/MoDLE-benchmark/stripepy/{file_name}/{resolution}/{chr}/global/all"
@@ -1078,18 +1161,17 @@ def recoverable_anchors_classification(M1, resolutions, contact_densities, noise
         # Computing the percentages:
         num_lost_anchors = np.sum((np.array(pred_clas_vec) == 0) & (np.array(GT_clas_vec) == 1))
         num_lost_but_recoverable_anchors = np.sum(
-            (np.array(new_clas_vector) == 1) & (np.array(pred_clas_vec) == 0) & (
-                        np.array(GT_clas_vec) == 1))
+            (np.array(new_clas_vector) == 1) & (np.array(pred_clas_vec) == 0) & (np.array(GT_clas_vec) == 1)
+        )
         ratio_recoverable_over_undetected.append(num_lost_but_recoverable_anchors / num_lost_anchors)
-        ratio_recoverable_over_all_anchors.append(
-            num_lost_but_recoverable_anchors / np.sum(np.array(GT_clas_vec) == 1))
+        ratio_recoverable_over_all_anchors.append(num_lost_but_recoverable_anchors / np.sum(np.array(GT_clas_vec) == 1))
 
     print("---ratio_recoverable_over_undetected---")
-    df = pd.DataFrame({'ratio_recoverable_over_undetected': np.array(ratio_recoverable_over_undetected) * 100})
+    df = pd.DataFrame({"ratio_recoverable_over_undetected": np.array(ratio_recoverable_over_undetected) * 100})
     quartiles = df.quantile([0.00, 0.25, 0.5, 0.75, 1.00])
     print("Quartiles:", quartiles)
 
     print("---ratio_recoverable_over_all_anchors---")
-    df = pd.DataFrame({'ratio_recoverable_over_all_anchors': np.array(ratio_recoverable_over_all_anchors) * 100})
+    df = pd.DataFrame({"ratio_recoverable_over_all_anchors": np.array(ratio_recoverable_over_all_anchors) * 100})
     quartiles = df.quantile([0.00, 0.25, 0.5, 0.75, 1.00])
     print("Quartiles:", quartiles)
