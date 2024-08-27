@@ -1,6 +1,10 @@
 import numpy as np
-from persistence1d import (FilterExtremumPointsByPersistence, RunPersistence, DiversifyExtremumPointsAndPersistence,
-                           plot_persistence)
+from persistence1d import (
+    DiversifyExtremumPointsAndPersistence,
+    FilterExtremumPointsByPersistence,
+    RunPersistence,
+    plot_persistence,
+)
 
 
 def TDA(marginal_pd, min_persistence=None):
@@ -10,13 +14,16 @@ def TDA(marginal_pd, min_persistence=None):
 
     # Keep only those extremum points with persistence above a given value:
     ThreshExtremumPointsAndPersistence = FilterExtremumPointsByPersistence(
-        ExtremumPointsAndPersistence, Threshold=min_persistence)
+        ExtremumPointsAndPersistence, Threshold=min_persistence
+    )
 
     # Split extremum points into minimum and maximum points:
-    (MinimumPointsAndPersistence, MaximumPointsAndPersistence) = \
-        DiversifyExtremumPointsAndPersistence(ExtremumPointsAndPersistence, level_set="upper")
-    (ThreshMinimumPointsAndPersistence, ThreshMaximumPointsAndPersistence) = \
-        DiversifyExtremumPointsAndPersistence(ThreshExtremumPointsAndPersistence, level_set="upper")
+    (MinimumPointsAndPersistence, MaximumPointsAndPersistence) = DiversifyExtremumPointsAndPersistence(
+        ExtremumPointsAndPersistence, level_set="upper"
+    )
+    (ThreshMinimumPointsAndPersistence, ThreshMaximumPointsAndPersistence) = DiversifyExtremumPointsAndPersistence(
+        ThreshExtremumPointsAndPersistence, level_set="upper"
+    )
 
     # Sorting maximum points (and, as a consequence, the corresponding minimum points) w.r.t. persistence:
     argsorting = np.argsort(list(zip(*MaximumPointsAndPersistence))[1]).tolist()
@@ -27,9 +34,11 @@ def TDA(marginal_pd, min_persistence=None):
         pers_of_ThreshMinimumPoints = []
     else:
         ThreshMinimumPoints = np.array(list(zip(*ThreshMinimumPointsAndPersistence))[0])[
-            argsorting_thresh[:-1]].tolist()
+            argsorting_thresh[:-1]
+        ].tolist()
         pers_of_ThreshMinimumPoints = np.array(list(zip(*ThreshMinimumPointsAndPersistence))[1])[
-            argsorting_thresh[:-1]].tolist()
+            argsorting_thresh[:-1]
+        ].tolist()
 
     # Indices of maximum points and their persistence:
     ThreshMaximumPoints = np.array(list(zip(*ThreshMaximumPointsAndPersistence))[0])[argsorting_thresh].tolist()

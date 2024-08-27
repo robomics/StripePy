@@ -1,6 +1,7 @@
 # Implementation from the library by Tino Weinkauf downloadable at:
 # https://www.csc.kth.se/~weinkauf/notes/persistence1d.html
 
+
 class UnionFind:
     """
     Implements the Union-Find data structure.
@@ -14,6 +15,7 @@ class UnionFind:
 
     Author: Tino Weinkauf
     """
+
     NOSET = -1
 
     def __init__(self, NumElements):
@@ -44,8 +46,9 @@ class UnionFind:
         @note The element identified by @idxElementTo cannot belong to a set.
         """
         self._assert(self.Domain[idxElementTo] == UnionFind.NOSET, "You cannot call ExtendSet() on an existing set.")
-        self._assert(self.Domain[idxElementFrom] != UnionFind.NOSET,
-                     "You cannot call ExtendSet() without an existing set.")
+        self._assert(
+            self.Domain[idxElementFrom] != UnionFind.NOSET, "You cannot call ExtendSet() without an existing set."
+        )
 
         idxRoot = self.Find(idxElementFrom)
         self.Domain[idxElementTo] = idxRoot
@@ -60,10 +63,12 @@ class UnionFind:
 
         @note The element identified by @idxElementTo cannot belong to a set.
         """
-        self._assert(self.Domain[idxElementTo] == UnionFind.NOSET,
-                     "You cannot call ExtendSetByID() on an existing set.")
-        self._assert(self.Domain[idxRoot] != UnionFind.NOSET,
-                     "You cannot call ExtendSetByID() without an existing set.")
+        self._assert(
+            self.Domain[idxElementTo] == UnionFind.NOSET, "You cannot call ExtendSetByID() on an existing set."
+        )
+        self._assert(
+            self.Domain[idxRoot] != UnionFind.NOSET, "You cannot call ExtendSetByID() without an existing set."
+        )
         self._assert(idxRoot == self.Find(idxRoot), "Please call the function ExtendSetByID() with an existing set ID.")
 
         self.Domain[idxElementTo] = idxRoot
@@ -77,8 +82,10 @@ class UnionFind:
 
         This function uses a lot of compression to speed-up later calls to any Find*() function.
         """
-        self._assert(idxElementMergeThisOne != UnionFind.NOSET and idxElementIntoThisOne != UnionFind.NOSET,
-                     "You can only call Union() on existing sets.")
+        self._assert(
+            idxElementMergeThisOne != UnionFind.NOSET and idxElementIntoThisOne != UnionFind.NOSET,
+            "You can only call Union() on existing sets.",
+        )
 
         # ~ Find the root that will survive this union
         SetIDB = self.FindAndCompress(idxElementIntoThisOne)
@@ -159,7 +166,7 @@ class UnionFind:
             if idxElement == self.Domain[idxElement]:
                 break
 
-        bIsSameSet = (idxElement == idxRoot)
+        bIsSameSet = idxElement == idxRoot
 
         # ~ Compress the path
         for idxStep in Path:

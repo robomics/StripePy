@@ -11,16 +11,8 @@ class Stripe:
         self.U_bound = upp_bw
         self.D_bound = low_bw
         self.where = where
-        self.inner_descriptors = {
-            "five-number": [],
-            "mean": None,
-            "std": None
-        }
-        self.outer_descriptors = {
-            "l-mean": None,
-            "r-mean": None,
-            "mean": None
-        }
+        self.inner_descriptors = {"five-number": [], "mean": None, "std": None}
+        self.outer_descriptors = {"l-mean": None, "r-mean": None, "mean": None}
         self.rel_change = None
         self.RoI = None
 
@@ -40,7 +32,6 @@ class Stripe:
             print("Set one between lower_triangular and upper_triangular")
             exit(1)
 
-
         # ATT This can avoid empty stripes, which can occur e.g. when the column has (approximately) constant entries
         if np.prod(restrI.shape) > 0:
 
@@ -54,7 +45,8 @@ class Stripe:
                 np.percentile(restrI, 25),
                 np.percentile(restrI, 50),
                 np.percentile(restrI, 75),
-                np.max(restrI)]
+                np.max(restrI),
+            ]
             self.inner_descriptors["mean"] = np.mean(restrI)
             self.inner_descriptors["std"] = np.std(restrI)
 
@@ -62,22 +54,34 @@ class Stripe:
             if self.where == "lower_triangular":
 
                 # Mean intensity - left neighborhood:
-                self.outer_descriptors["l-mean"] = np.mean(I[convex_comb:self.D_bound, enl_HIoI_1:self.L_bound]) \
-                    if enl_HIoI_1 != self.L_bound else np.nan
+                self.outer_descriptors["l-mean"] = (
+                    np.mean(I[convex_comb : self.D_bound, enl_HIoI_1 : self.L_bound])
+                    if enl_HIoI_1 != self.L_bound
+                    else np.nan
+                )
 
                 # Mean intensity - right neighborhood:
-                self.outer_descriptors["r-mean"] = np.mean(I[convex_comb:self.D_bound, self.R_bound:enl_HIoI_2]) \
-                    if enl_HIoI_2 != self.R_bound else np.nan
+                self.outer_descriptors["r-mean"] = (
+                    np.mean(I[convex_comb : self.D_bound, self.R_bound : enl_HIoI_2])
+                    if enl_HIoI_2 != self.R_bound
+                    else np.nan
+                )
 
             elif self.where == "upper_triangular":
 
                 # Mean intensity - left neighborhood:
-                self.outer_descriptors["l-mean"] = np.mean(I[self.U_bound:convex_comb, enl_HIoI_1:self.L_bound]) \
-                    if enl_HIoI_1 != self.L_bound else np.nan
+                self.outer_descriptors["l-mean"] = (
+                    np.mean(I[self.U_bound : convex_comb, enl_HIoI_1 : self.L_bound])
+                    if enl_HIoI_1 != self.L_bound
+                    else np.nan
+                )
 
                 # Mean intensity - right neighborhood:
-                self.outer_descriptors["r-mean"] = np.mean(I[self.U_bound:convex_comb, self.R_bound:enl_HIoI_2]) \
-                    if enl_HIoI_2 != self.R_bound else np.nan
+                self.outer_descriptors["r-mean"] = (
+                    np.mean(I[self.U_bound : convex_comb, self.R_bound : enl_HIoI_2])
+                    if enl_HIoI_2 != self.R_bound
+                    else np.nan
+                )
 
             # Mean intensity:
             if self.outer_descriptors["r-mean"] == np.nan:
@@ -85,11 +89,20 @@ class Stripe:
             elif self.outer_descriptors["l-mean"] == np.nan:
                 self.outer_descriptors["mean"] = self.outer_descriptors["r-mean"]
             else:
-                self.outer_descriptors["mean"] = (self.outer_descriptors["l-mean"] + self.outer_descriptors["r-mean"]) / 2
+                self.outer_descriptors["mean"] = (
+                    self.outer_descriptors["l-mean"] + self.outer_descriptors["r-mean"]
+                ) / 2
 
             # Relative change in mean intensity:
-            self.rel_change = (abs(self.inner_descriptors["mean"] - self.outer_descriptors["mean"])
-                               / (self.outer_descriptors["mean"]) * 100) if self.outer_descriptors["mean"] != 0 else -1.0
+            self.rel_change = (
+                (
+                    abs(self.inner_descriptors["mean"] - self.outer_descriptors["mean"])
+                    / (self.outer_descriptors["mean"])
+                    * 100
+                )
+                if self.outer_descriptors["mean"] != 0
+                else -1.0
+            )
 
         else:
             self.inner_descriptors["five-number"] = [-1, -1, -1, -1, -1]
@@ -99,4 +112,3 @@ class Stripe:
             self.outer_descriptors["l-mean"] = -1
             self.outer_descriptors["mean"] = -1
             self.rel_change = -1
-
