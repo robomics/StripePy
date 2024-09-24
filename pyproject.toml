@@ -52,6 +52,8 @@ keywords = [
 Source = "https://github.com/paulsengroup/StripePy"
 Issues = "https://github.com/paulsengroup/StripePy/issues"
 
+
+
 [tool.hatch.version]
 source = "versioningit"
 
