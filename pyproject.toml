@@ -6,7 +6,7 @@ requires = [
 build-backend = "hatchling.build"
 
 [project]
-name = "stripepy_raffo"
+name = "stripepy"
 dynamic = ["version"]
 authors = [
     {name="Andrea Raffo", email="andrea.raffo@ibv.no"},
@@ -62,15 +62,18 @@ source = "versioningit"
 [tool.versioningit.format]
 
 # Format used when there have been commits since the most recent tag:
-distance = "{base_version}.post{distance}+{vcs}{rev}"
+# distance = "{base_version}.post{distance}+{vcs}{rev}"
+distance = "{base_version}.post{distance}"
 # Example formatted version: 1.2.3.post42+ge174a1f
 
 # Format used when there are uncommitted changes:
-dirty = "{base_version}+d{build_date:%Y%m%d}"
+# dirty = "{base_version}+d{build_date:%Y%m%d}"
+dirty = "{base_version}"
 # Example formatted version: 1.2.3+d20230922
 
 # Format used when there are both commits and uncommitted changes:
-distance-dirty = "{base_version}.post{distance}+{vcs}{rev}.d{build_date:%Y%m%d}"
+# distance-dirty = "{base_version}.post{distance}+{vcs}{rev}.d{build_date:%Y%m%d}"
+distance-dirty = "{base_version}.post{distance}"
 # Example formatted version: 1.2.3.post42+ge174a1f.d20230922
 
 [tool.hatch.build.targets.wheel]
