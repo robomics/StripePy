@@ -12,7 +12,6 @@ from sklearn.metrics import confusion_matrix
 
 sys.path.append("utils")
 import IO
-
 from utils.evaluate import *
 
 # Colors

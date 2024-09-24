@@ -6,9 +6,9 @@ import numpy as np
 
 sys.path.append("utils")
 
-import IO
-import others
-import stripepy
+import utils.IO as IO
+import utils.others as others
+import utils.stripepy as stripepy
 
 if __name__ == "__main__":
 

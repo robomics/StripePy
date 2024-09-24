@@ -1,22 +1,24 @@
 [build-system]
-requires = ["hatchling"]?
-build-backend = "hatchling.build"?
+requires = [
+    "hatchling",
+    "versioningit",
+]
+build-backend = "hatchling.build"
 
 [project]
-name = "stripepy_obikenobi23"?
-version = ""?
+name = "stripepy_raffo"
 dynamic = ["version"]
-authors = [?
-    {name="Roberto Rossini", email=""},
-    {name="Andrea Raffo", email=""},
-    {name="Bendik Berg", email=""},
+authors = [
+    {name="Andrea Raffo", email="andrea.raffo@ibv.no"},
+    {name="Bendik Berg", email="bendber@ifi.uio.no"},
 ]
-maintainers = [?
-    {name="", email="},
+maintainers = [
+    {name="Roberto Rossini", email="roberto.rossini@ibv.uio.no"},
+    {name="Andrea Raffo", email="andrea.raffo@ibv.no"},
 ]
-description = "A stripe recognition tool developed by Paulsen Group @University of Oslo"?
+description = "A stripe recognition tool developed by Paulsen Group @University of Oslo"
 readme = "README.md"
-requires-pyhton = ">=3.0"?
+requires-pyhton = ">=3.0"
 dependencies = [
     "bioframe >0.7, <1",
     "h5py >3, <4",
@@ -29,14 +31,44 @@ dependencies = [
     "seaborn >=0.13, <1"
 ]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: ",?
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-keywords = []
+keywords = [
+    "Hi-C",
+    "hic",
+    "stripe",
+    "stripes",
+    "stripe recognition",
+]
 
 [project.urls]
-Source = ""?
-Issues = ""?
+Source = "https://github.com/paulsengroup/StripePy"
+Issues = "https://github.com/paulsengroup/StripePy/issues"
+
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.versioningit]
+
+[tool.versioningit.format]
+
+# Format used when there have been commits since the most recent tag:
+distance = "{base_version}.post{distance}+{vcs}{rev}"
+# Example formatted version: 1.2.3.post42+ge174a1f
+
+# Format used when there are uncommitted changes:
+dirty = "{base_version}+d{build_date:%Y%m%d}"
+# Example formatted version: 1.2.3+d20230922
+
+# Format used when there are both commits and uncommitted changes:
+distance-dirty = "{base_version}.post{distance}+{vcs}{rev}.d{build_date:%Y%m%d}"
+# Example formatted version: 1.2.3.post42+ge174a1f.d20230922
 
 [project.scripts]
