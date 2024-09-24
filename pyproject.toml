@@ -6,7 +6,7 @@ requires = [
 build-backend = "hatchling.build"
 
 [project]
-name = "stripepy"
+name = "stripepy-hic"
 dynamic = ["version"]
 authors = [
     {name="Andrea Raffo", email="andrea.raffo@ibv.no"},
