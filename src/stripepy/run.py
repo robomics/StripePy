@@ -1,3 +1,3 @@
-from stripepy.stripepy import Stripepy
+from stripepy.main import Stripepy
 
 stripeCaller = Stripepy()
