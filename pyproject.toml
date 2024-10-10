@@ -29,10 +29,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 keywords = [
-    "Hi-C",
+    "hi-c",
     "hic",
     "stripe",
     "stripes",
+    "architectural stripe",
+    "contact map",
+    "cooler",
     "stripe recognition",
 ]
 
