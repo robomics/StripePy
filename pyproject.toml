@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "hatchling",
-    "versioningit",
+    "hatch-vcs",
 ]
 build-backend = "hatchling.build"
 
@@ -52,29 +52,9 @@ keywords = [
 Source = "https://github.com/paulsengroup/StripePy"
 Issues = "https://github.com/paulsengroup/StripePy/issues"
 
-
-
 [tool.hatch.version]
-source = "versioningit"
-
-[tool.versioningit]
-
-[tool.versioningit.format]
-
-# Format used when there have been commits since the most recent tag:
-# distance = "{base_version}.post{distance}+{vcs}{rev}"
-distance = "{base_version}.post{distance}"
-# Example formatted version: 1.2.3.post42+ge174a1f
-
-# Format used when there are uncommitted changes:
-# dirty = "{base_version}+d{build_date:%Y%m%d}"
-dirty = "{base_version}"
-# Example formatted version: 1.2.3+d20230922
-
-# Format used when there are both commits and uncommitted changes:
-# distance-dirty = "{base_version}.post{distance}+{vcs}{rev}.d{build_date:%Y%m%d}"
-distance-dirty = "{base_version}.post{distance}"
-# Example formatted version: 1.2.3.post42+ge174a1f.d20230922
+source = "vcs"
+fallback-version = "unknown"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/stripepy"]
