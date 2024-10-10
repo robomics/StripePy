@@ -18,7 +18,7 @@ maintainers = [
 ]
 description = "A stripe recognition tool developed by Paulsen Group @University of Oslo"
 readme = "README.md"
-requires-pyhton = ">=3.0"
+requires-pyhton = ">=3.9"
 dependencies = [
     "bioframe >0.7, <1",
     "h5py >3, <4",
