@@ -1,5 +1,6 @@
 import argparse
 import pathlib
+from importlib.metadata import version
 
 
 # Create a custom formatter to allow multiline and bulleted descriptions
@@ -124,6 +125,13 @@ def parse_args():
         "the higher this value, the shorter the stripe; it is always used when --constrain-heights is set to "
         "'False', but could be necessary also when --constrain-heights is 'True' and no persistent maximum other "
         "than the global maximum is found.",
+    )
+
+    cli.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version="%(prog)s {version}".format(version=version("stripepy")),
     )
 
     # Parse the input parameters:

@@ -1,5 +1,6 @@
 import numpy as np
-import stripe
+
+from . import stripe
 
 
 def filter_stripes(candida_stripes, threshold):

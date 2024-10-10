@@ -1,18 +1,13 @@
-import os
 import time
 
-import finders
-import hictkpy
-import IO
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import regressions
 import seaborn as sns
-import stripe
-import TDA
-from configs import be_verbose
 from scipy import sparse
+
+from . import IO, TDA, finders, regressions, stripe
+from .configs import be_verbose
 
 
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):

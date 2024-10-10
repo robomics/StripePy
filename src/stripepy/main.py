@@ -1,14 +1,11 @@
-import sys
 import time
 
 import h5py
 import numpy as np
 
-sys.path.insert(1, "./utils")
-import cli
-import IO
-import others
-import stripepy
+import stripepy as stripepy
+
+from .utils import IO, cli, others
 
 MIN_SIZE_CHROMOSOME = 2000000
 
@@ -36,7 +33,7 @@ def print_all_attributes(obj, parent=""):
             print(f"{parent}/{key}: {val}")
 
 
-if __name__ == "__main__":
+def main():
 
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
@@ -95,7 +92,11 @@ if __name__ == "__main__":
         if all(param is not None for param in [RoI, configs_output["output_folder"]]):
             output_folder_1 = f"{configs_output['output_folder']}/plots/{this_chr}/1_preprocessing/"
             LT_Iproc, UT_Iproc, Iproc_RoI = stripepy.step_1(
-                I, configs_input["genomic_belt"], configs_input["resolution"], RoI=RoI, output_folder=output_folder_1
+                I,
+                configs_input["genomic_belt"],
+                configs_input["resolution"],
+                RoI=RoI,
+                output_folder=output_folder_1,
             )
         else:
             LT_Iproc, UT_Iproc, _ = stripepy.step_1(I, configs_input["genomic_belt"], configs_input["resolution"])
@@ -214,3 +215,7 @@ if __name__ == "__main__":
 
     print(f"\n\n{IO.ANSI.RED}The code has run for {(time.time() - start_global_time) / 60} minutes{IO.ANSI.ENDC}")
     hf.close()
+
+
+if __name__ == "__main__":
+    main()
