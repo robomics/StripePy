@@ -60,4 +60,4 @@ fallback-version = "unknown"
 packages = ["src/stripepy"]
 
 [project.scripts]
-stripepy = "stripepy:run"
+stripepy = "stripepy:main"

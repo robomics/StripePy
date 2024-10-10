@@ -1,5 +1,5 @@
 from importlib.metadata import version
 
-from .main import run
+from .main import main
 
 __version__ = version("stripepy")

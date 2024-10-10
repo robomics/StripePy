@@ -37,7 +37,7 @@ def print_all_attributes(obj, parent=""):
             print(f"{parent}/{key}: {val}")
 
 
-def run():
+def main():
 
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
@@ -222,4 +222,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    main()
