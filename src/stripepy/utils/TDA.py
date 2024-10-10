@@ -4,7 +4,6 @@ from .persistence1d import (
     DiversifyExtremumPointsAndPersistence,
     FilterExtremumPointsByPersistence,
     RunPersistence,
-    plot_persistence,
 )
 
 
