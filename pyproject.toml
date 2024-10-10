@@ -7,6 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stripepy"
+description = "A stripe recognition tool developed by Paulsen Group @University of Oslo"
 dynamic = ["version"]
 authors = [
     {name="Andrea Raffo", email="andrea.raffo@ibv.no"},
@@ -16,20 +17,7 @@ maintainers = [
     {name="Roberto Rossini", email="roberto.rossini@ibv.uio.no"},
     {name="Andrea Raffo", email="andrea.raffo@ibv.no"},
 ]
-description = "A stripe recognition tool developed by Paulsen Group @University of Oslo"
 readme = "README.md"
-requires-pyhton = ">=3.9"
-dependencies = [
-    "bioframe >0.7, <1",
-    "h5py >3, <4",
-    "hictkpy >=0.0.5, <1",
-    "matplotlib >=3.8, <4",
-    "numpy >=1.26, <2",
-    "pandas >=2.0, <3",
-    "scikit-learn >=1.5, <2",
-    "scipy >=1.10, <2",
-    "seaborn >=0.13, <1"
-]
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
@@ -48,9 +36,35 @@ keywords = [
     "stripe recognition",
 ]
 
+requires-pyhton = ">=3.9"
+dependencies = [
+    "bioframe >0.7, <1",
+    "h5py >3, <4",
+    "hictkpy >=0.0.5, <1",
+    "matplotlib >=3.8, <4",
+    "numpy >=1.26, <2",
+    "pandas >=2.0, <3",
+    "scikit-learn >=1.5, <2",
+    "scipy >=1.10, <2",
+    "seaborn >=0.13, <1"
+]
+
+[project.optional-dependencies]
+dev = [
+    "stripepy",
+    "black",
+    "isort",
+    "pre-commit",
+]
+
+[project.scripts]
+stripepy = "stripepy:main"
+
 [project.urls]
-Source = "https://github.com/paulsengroup/StripePy"
+Homepage = "https://github.com/paulsengroup/StripePy"
 Issues = "https://github.com/paulsengroup/StripePy/issues"
+Repository = "https://github.com/paulsengroup/StripePy.git"
+Source = "https://github.com/paulsengroup/StripePy"
 
 [tool.hatch.version]
 source = "vcs"
@@ -59,5 +73,5 @@ fallback-version = "unknown"
 [tool.hatch.build.targets.wheel]
 packages = ["src/stripepy"]
 
-[project.scripts]
-stripepy = "stripepy:main"
+[[tool.hatch.envs.test.matrix]]
+python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
