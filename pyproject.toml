@@ -10,12 +10,12 @@ name = "stripepy"
 description = "A stripe recognition tool developed by Paulsen Group @University of Oslo"
 dynamic = ["version"]
 authors = [
-    {name="Andrea Raffo", email="andrea.raffo@ibv.no"},
+    {name="Andrea Raffo", email="andrea.raffo@ibv.uio.no"},
     {name="Bendik Berg", email="bendber@ifi.uio.no"},
 ]
 maintainers = [
     {name="Roberto Rossini", email="roberto.rossini@ibv.uio.no"},
-    {name="Andrea Raffo", email="andrea.raffo@ibv.no"},
+    {name="Andrea Raffo", email="andrea.raffo@ibv.uio.no"},
 ]
 readme = "README.md"
 classifiers = [
