@@ -1,15 +1,11 @@
-import sys
 import time
 
 import h5py
 import numpy as np
 
-sys.path.insert(1, "src\\stripepy\\utils")
-import cli as cli
-import IO as IO
-import others as others
-
 import stripepy as stripepy
+
+from .utils import IO, cli, others
 
 MIN_SIZE_CHROMOSOME = 2000000
 

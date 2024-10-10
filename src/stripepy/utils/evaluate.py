@@ -1,5 +1,4 @@
 import itertools
-import sys
 
 import bioframe as bf
 import hictkpy
@@ -10,9 +9,7 @@ import pandas as pd
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
-sys.path.append("utils")
-import IO
-from utils.evaluate import *
+from . import IO
 
 # Colors
 colors = ["#e76f51", "#f4a261", "#e9c46a", "#2a9d8f", "#669bbc"]

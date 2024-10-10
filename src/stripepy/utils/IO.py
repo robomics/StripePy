@@ -4,8 +4,9 @@ import shutil
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from configs import no_frills_in_images
 from matplotlib.ticker import EngFormatter, ScalarFormatter
+
+from .configs import no_frills_in_images
 
 fruit_punch = sns.blend_palette(["white", "red"], as_cmap=True)
 

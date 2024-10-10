@@ -1,5 +1,6 @@
 import numpy as np
-from persistence1d import (
+
+from .persistence1d import (
     DiversifyExtremumPointsAndPersistence,
     FilterExtremumPointsByPersistence,
     RunPersistence,

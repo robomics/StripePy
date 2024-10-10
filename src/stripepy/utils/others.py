@@ -2,8 +2,9 @@ import os
 
 import h5py
 import hictkpy
-import IO
 import numpy as np
+
+from . import IO
 
 
 def cmap_loading(path, resolution):

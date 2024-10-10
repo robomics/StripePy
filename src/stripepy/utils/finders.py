@@ -4,7 +4,8 @@ from multiprocessing import Pool, freeze_support
 import matplotlib.pyplot as plt
 import numpy as np
 import TDA
-from regressions import compute_predictions, compute_wQISA_predictions
+
+from .regressions import compute_predictions, compute_wQISA_predictions
 
 
 def find_horizontal_domain(pd, coarse_h_domain, max_width=1e9):

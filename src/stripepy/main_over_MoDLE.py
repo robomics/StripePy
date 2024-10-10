@@ -1,14 +1,8 @@
-import sys
 import time
 
 import h5py
 import numpy as np
-
-sys.path.append("utils")
-
-import utils.IO as IO
-import utils.others as others
-import utils.stripepy as stripepy
+from utils import IO, others, stripepy
 
 if __name__ == "__main__":
 
