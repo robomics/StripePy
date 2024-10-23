@@ -9,28 +9,27 @@ from . import IO
 
 def cmap_loading(path, resolution):
     # Retrieve metadata:
-    file_name, file_ext = os.path.splitext(path)
-    file_format = file_ext.lower()[1:]  # Remove the dot from the extension and convert to lowercase
-
-    if file_format == "cool" or file_format == "hic":
-        c = hictkpy.File(path, resolution)
-    elif file_format == "mcool":
-        c = hictkpy.File(f"{path}::/resolutions/{resolution}", resolution)
+    if hictkpy.is_scool_file(path):
+        raise RuntimeError(".scool files are not currently supported.")
+    if hictkpy.is_cooler(path):
+        f = hictkpy.File(path)
+        if f.resolution() != resolution:
+            raise RuntimeError(f"error opening file \"{f}\": expected {resolution} resolution, found {f.resolution()}.")
     else:
-        raise ValueError("Unsupported file format: " + file_format)
+        f = hictkpy.MultiResFile(path)[resolution]
 
     # Retrieve metadata:
     chr_starts = [0]  # left ends of each chromosome  (in matrix coordinates)
     chr_ends = []  # right ends of each chromosome (in matrix coordinates)
     chr_sizes = []  # integer bp lengths, one per chromosome
-    for _, bp_length in c.chromosomes().items():
+    for bp_length in f.chromosomes().values():
         chr_sizes.append(bp_length)
         chr_ends.append(chr_starts[-1] + int(np.ceil(bp_length / resolution)))
         chr_starts.append(chr_ends[-1])
         # print(f"{chr_starts[-2]}-{chr_ends[-1]}-{chr_sizes[-1]}")
     chr_starts.pop(-1)
 
-    return c, chr_starts, chr_ends, chr_sizes
+    return f, chr_starts, chr_ends, chr_sizes
 
 
 def chromosomes_to_study(chromosomes, length_in_bp, min_size_allowed):

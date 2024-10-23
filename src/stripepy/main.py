@@ -42,14 +42,14 @@ def main():
     configs_input, configs_thresholds, configs_output = cli.parse_args()
 
     # Data loading:
-    c, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact-map"], configs_input["resolution"])
+    f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact-map"], configs_input["resolution"])
 
     # Remove existing folders:
     configs_output["output_folder"] = f"{configs_output['output_folder']}/{configs_input['resolution']}"
     IO.remove_and_create_folder(configs_output["output_folder"])
 
     # Extract a list of tuples where each tuple is (index, chr), e.g. (2,'chr3'):
-    c_pairs = others.chromosomes_to_study(list(c.chromosomes().keys()), bp_lengths, MIN_SIZE_CHROMOSOME)
+    c_pairs = others.chromosomes_to_study(list(f.chromosomes().keys()), bp_lengths, MIN_SIZE_CHROMOSOME)
 
     # Create HDF5 file to store candidate stripes:
     hf = h5py.File(f"{configs_output['output_folder']}/results.hdf5", "w")
@@ -75,11 +75,7 @@ def main():
         if configs_input["roi"] is not None:
             IO.create_folders_for_plots(f"{configs_output['output_folder']}/plots/{this_chr}")
 
-        # Extract current chromosome (only the upper-triangular part is stored by hictkpy!):
-        I = c.fetch(this_chr).to_coo().tolil()
-        I += I.T
-        I.setdiag(I.diagonal() / 2)
-        I = I.tocsr()
+        I = f.fetch(this_chr).to_csr("full")
 
         # RoI:
         RoI = others.define_RoI(
