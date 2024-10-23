@@ -43,7 +43,7 @@ requires-pyhton = ">=3.9"
 dependencies = [
     "bioframe >0.7, <1",
     "h5py >3, <4",
-    "hictkpy >=0.0.5, <1",
+    "hictkpy[scipy] >=1, <2",
     "matplotlib >=3.8, <4",
     "numpy >=1.26, <2",
     "pandas >=2.0, <3",
