@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from unionfind import UnionFind
+
+from .unionfind import UnionFind
 
 # Implementation adapted from the library by Tino Weinkauf downloadable at:
 # https://www.csc.kth.se/~weinkauf/notes/persistence1d.html
