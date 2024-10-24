@@ -6,8 +6,9 @@ import pandas as pd
 import seaborn as sns
 from scipy import sparse
 
-from . import IO, TDA, finders, regressions, stripe
+from . import IO
 from .configs import be_verbose
+from .utils import TDA, finders, regressions, stripe
 
 
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):

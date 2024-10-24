@@ -3,8 +3,8 @@ from multiprocessing import Pool
 
 import matplotlib.pyplot as plt
 import numpy as np
-import TDA
 
+from . import TDA
 from .regressions import compute_wQISA_predictions
 
 
