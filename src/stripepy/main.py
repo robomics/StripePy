@@ -3,9 +3,7 @@ import time
 import h5py
 import numpy as np
 
-import stripepy as stripepy
-
-from .utils import IO, cli, others
+from . import IO, cli, others, stripepy
 
 MIN_SIZE_CHROMOSOME = 2000000
 
