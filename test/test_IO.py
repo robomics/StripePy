@@ -7,18 +7,24 @@ import pytest
 
 sys.path.insert(0, "./utils")
 
-directory_name = 0
-while os.path.exists(str(directory_name)):
-    directory_name += 1
-directory_name = str(directory_name)
+
+def generate_directory_name():
+    directory_name = 0
+    while os.path.exists(str(directory_name)):
+        directory_name += 1
+    directory_name = str(directory_name)
+    return directory_name
 
 
+"""
 def _find_directory(dir) -> bool:
     return os.path.exists(dir)
+"""
 
 
-def designated_directory_exists() -> bool:
-    return _find_directory(directory_name)
+def designated_directory_exists(directory_name) -> bool:
+    return os.path.exists(directory_name)
+    # return _find_directory(directory_name)
 
 
 def test_list_folders_for_plots():
@@ -54,17 +60,19 @@ def test_list_folders_for_plots():
 def test_remove_and_create_folder():
     from IO import remove_and_create_folder
 
+    directory_name = generate_directory_name()
+
     # Create directory
-    assert not (designated_directory_exists())
     remove_and_create_folder(directory_name)
+    assert designated_directory_exists(directory_name)
 
     # Directory already exists
     # TODO: Expand create-delete cycle when test object is given decision input
-    assert designated_directory_exists()
     remove_and_create_folder(directory_name)
+    assert designated_directory_exists(directory_name)
 
     # Remove directory
-    assert designated_directory_exists()
+    assert designated_directory_exists(directory_name)
     shutil.rmtree(directory_name)
     return
 
@@ -72,13 +80,14 @@ def test_remove_and_create_folder():
 def test_create_folders_for_plots():
     from IO import create_folders_for_plots
 
-    assert not designated_directory_exists()
+    directory_name = generate_directory_name()
+
+    assert not designated_directory_exists(directory_name)
     result = create_folders_for_plots(directory_name)
     assert isinstance(result, list)
-
-    assert designated_directory_exists()
+    assert designated_directory_exists(directory_name)
     shutil.rmtree(directory_name)
-    assert not designated_directory_exists()
+    assert not designated_directory_exists(directory_name)
     return
 
 
