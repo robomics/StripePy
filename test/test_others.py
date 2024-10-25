@@ -150,9 +150,9 @@ class Test_cmap_loading:
                 startList.append((startList[-1] + startCount))
             startList.pop(-1)
 
-            endList = [-1]
+            endList = [0]
             for endCount in chromosomeLengths:
-                endList.append((endList[-1] + endCount))
+                endList.append(endList[-1] + ceil(endCount / resolution))
             endList.pop(0)
 
             chr_sizes = chromosomeLengths
@@ -171,7 +171,9 @@ class Test_cmap_loading:
         for path in paths:
             for resolution in resolutions:
                 results[(str(path), resolution)] = cmap_loading(str(path), resolution)
-
+        for item in results.items():
+            print(item)
+            print("\n\n")
         # Assert
         ## mcool
         ### res 1000
@@ -214,7 +216,7 @@ class Test_cmap_loading:
         assert resultsMcool1000[3] == expectedOutputMcool1000[3]
 
         ### res 25000
-        resultsMcool25000 = results["4DNFI6HDY7WZ.mcool", 25000]
+        resultsMcool25000 = results["test\\data\\4DNFI6HDY7WZ.mcool", 25000]
         expectedOutputMcool25000 = _expectOutput(
             [
                 248956422,
@@ -250,7 +252,7 @@ class Test_cmap_loading:
         assert resultsMcool25000[3] == expectedOutputMcool25000[3]
 
         # res 100_000
-        resultsMcool100_000 = results["4DNFI6HDY7WZ.mcool", 100_000]
+        resultsMcool100_000 = results["test\\data\\4DNFI6HDY7WZ.mcool", 100_000]
         expectedOutputMcool100_000 = _expectOutput(
             [
                 248956422,
@@ -288,7 +290,7 @@ class Test_cmap_loading:
         _compare(resultsMcool100_000, expectedOutputMcool100_000)
 
         ### res 500_000
-        resultsMcool500_000 = results["4DNFI6HDY7WZ.mcool", 500_000]
+        resultsMcool500_000 = results["test\\data\\4DNFI6HDY7WZ.mcool", 500_000]
         expectedOutputMcool500_000 = _expectOutput(
             [
                 248956422,
@@ -320,7 +322,7 @@ class Test_cmap_loading:
         _compare(resultsMcool500_000, expectedOutputMcool500_000)
 
         ### res 10_000_000
-        resultsMcool10_000_000 = results["4DNFI6HDY7WZ.mcool", 10_000_000]
+        resultsMcool10_000_000 = results["test\\data\\4DNFI6HDY7WZ.mcool", 10_000_000]
         expectedOutputMcool10_000_000 = _expectOutput(
             [
                 248956422,
@@ -352,13 +354,41 @@ class Test_cmap_loading:
         _compare(resultsMcool10_000_000, expectedOutputMcool10_000_000)
 
         ## hic
-        """
-        assert results["4DNFIOTPSS3L.hic", 1000] =
-        assert results["4DNFIOTPSS3L.hic", 25000] =
-        assert results["4DNFIOTPSS3L.hic", 100_000] =
-        assert results["4DNFIOTPSS3L.hic", 500_000] =
-        assert results["4DNFIOTPSS3L.hic", 10_000_000] =
-        """
+        ### res 1000
+        resultsHic1000 = results["test\\data\\4DNFIOTPSS3L.hic", 1000]
+        expectedOutputHic1000 = _expectOutput(
+            [23513712, 25286936, 28110227, 32079331, 1348131, 23542271, 3667352], 1000
+        )
+        _compare(resultsHic1000, expectedOutputHic1000)
+
+        ### res 25000
+        resultsHic25000 = results["test\\data\\4DNFIOTPSS3L.hic", 25000]
+        expectedOutputHic25000 = _expectOutput(
+            [23513712, 25286936, 28110227, 32079331, 1348131, 23542271, 3667352], 25000
+        )
+        _compare(resultsHic25000, expectedOutputHic25000)
+
+        ### res 100_000
+        resultsHic100_000 = results["test\\data\\4DNFIOTPSS3L.hic", 100_000]
+        expectedOutputHic100_000 = _expectOutput(
+            [23513712, 25286936, 28110227, 32079331, 1348131, 23542271, 3667352], 100_000
+        )
+        _compare(resultsHic100_000, expectedOutputHic100_000)
+
+        ### res 500_000
+        resultsHic500_000 = results["test\\data\\4DNFIOTPSS3L.hic", 500_000]
+        expectedOutputHic500_000 = _expectOutput(
+            [23513712, 25286936, 28110227, 32079331, 1348131, 23542271, 3667352], 500_000
+        )
+        _compare(resultsHic500_000, expectedOutputHic500_000)
+
+        ### res 10_000_000
+        resultshic10_000_000 = results["test\\data\\4DNFIOTPSS3L.hic", 10_000_000]
+        expectedOutputHic10_000_000 = _expectOutput(
+            [23513712, 25286936, 28110227, 32079331, 1348131, 23542271, 3667352], 10_000_000
+        )
+        _compare(resultshic10_000_000, expectedOutputHic10_000_000)
+
         # Cleanup
 
         pass
