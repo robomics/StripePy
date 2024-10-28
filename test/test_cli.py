@@ -331,3 +331,26 @@ class Test_configs_thresholds:
         variant = None
         testNr = None
         sys.argv = [""]
+
+
+class Test_configs_output:
+    def test_output_folder(self):
+        # Arrange
+        argument = "--output-folder"
+        variations = "test\\data"
+
+        # Act
+        output = []
+        sys.argv = ["", "test\\data\\4DNFI6HDY7WZ.mcool", "10000", argument, variations]
+        output.append(cli_parse_args()[2])
+
+        # Assert
+        assert output[0] == {
+            "output_folder": "test\\data",
+        }
+
+        # Cleanup
+        argument = None
+        variations = None
+        output = None
+        sys.argv = [""]
