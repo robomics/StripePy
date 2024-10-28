@@ -9,7 +9,7 @@ from cli import parse_args as cli_parse_args
 
 
 class Test_configs_input:
-    # TODO: contact-map in output should be contact_map. Ask Andrea
+
     def test_contact_map(self):
         # Arrange
         argument = "--contact-map"
@@ -209,7 +209,6 @@ class Test_configs_thresholds:
     def test_constrain_heights(self):
         # Arrange
         argument = "--constrain-heights"
-        # variations = ("False", "True")
 
         # Act
         output = []
