@@ -10,7 +10,8 @@ from statistics import median
 
 import hictkpy as htk
 import pytest
-from others import cmap_loading
+
+from stripepy.others import cmap_loading
 
 
 class Test_cmap_loading:
