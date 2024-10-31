@@ -81,7 +81,7 @@ class TestCmapLoading:
         resolution = 1000
         path_to_clr = _generate_singleres_test_file(tmpdir / "test.cool", resolution, chromosomes)
 
-        f, starts, ends, sizes = cmap_loading(str(path_to_clr), resolution)
+        f, starts, ends, sizes = cmap_loading(path_to_clr, resolution)
         assert f.resolution() == 1000
         assert len(starts) == len(chromosomes)
         assert len(starts) == len(ends)
