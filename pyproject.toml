@@ -53,8 +53,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+
+test = [
+    "pytest",
     "stripepy",
+]
+
+dev = [
+    "stripepy[test]",
     "black",
     "isort",
     "pre-commit",
