@@ -1,6 +1,7 @@
 import os
 import pathlib
 import shutil
+from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,18 +25,20 @@ class ANSI:
     ENDC = "\033[0m"
 
 
-def list_folders_for_plots(path: str) -> list:
+# TODO: Rename function
+# The current name gives the impression that calling this function will list existing folders
+# while in reality the function **generate** a list of folder (names)
+def list_folders_for_plots(path: os.PathLike) -> List[pathlib.Path]:
+    # TODO: should this function check that path exists and is an existing folder?
     path = pathlib.Path(path)
-    # Folders:
-    folders4plots = [path]
-    folders4plots += [
-        folders4plots[0] / "1_preprocessing",
-        folders4plots[0] / "2_TDA",
-        folders4plots[0] / "3_shape_analysis",
-        folders4plots[0] / "4_biological_analysis",
-        folders4plots[0] / "3_shape_analysis" / "local_pseudodistributions",
+    return [
+        path,
+        path / "1_preprocessing",
+        path / "2_TDA",
+        path / "3_shape_analysis",
+        path / "4_biological_analysis",
+        path / "3_shape_analysis" / "local_pseudodistributions",
     ]
-    return folders4plots
 
 
 def remove_and_create_folder(path):
