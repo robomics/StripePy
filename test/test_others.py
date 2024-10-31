@@ -1,14 +1,9 @@
-import sys
-
-sys.path.insert(0, "utils/others")
-
 import os
 import pathlib
 from math import log
 from random import randrange
 from statistics import median
 
-import hictkpy as htk
 import pytest
 
 from stripepy.others import cmap_loading

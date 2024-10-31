@@ -1,11 +1,8 @@
 import os
 import pathlib
 import shutil
-import sys
 
 import pytest
-
-sys.path.insert(0, "./utils")
 
 
 def generate_directory_name():
@@ -29,7 +26,7 @@ def designated_directory_exists(directory_name) -> bool:
 
 def test_list_folders_for_plots():
     # TODO: Add invalid characters in string cycle.
-    from IO import list_folders_for_plots
+    from stripepy.IO import list_folders_for_plots
 
     invalid_types_list = [int, float, bool]
     for types in invalid_types_list:
@@ -58,7 +55,7 @@ def test_list_folders_for_plots():
 
 
 def test_remove_and_create_folder():
-    from IO import remove_and_create_folder
+    from stripepy.IO import remove_and_create_folder
 
     directory_name = generate_directory_name()
 
@@ -78,7 +75,7 @@ def test_remove_and_create_folder():
 
 
 def test_create_folders_for_plots():
-    from IO import create_folders_for_plots
+    from stripepy.IO import create_folders_for_plots
 
     directory_name = generate_directory_name()
 
