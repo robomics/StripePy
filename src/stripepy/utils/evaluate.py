@@ -976,7 +976,7 @@ def recoverable_anchors_recognition(
         path2GT = f"{base_path}/MoDLE-benchmark/"
         file_name = f"{file_name_base}_{contact_density}_{noise}"
         path2mcool = f"{base_path}/MoDLE-benchmark/data/{file_name}/"
-        c = hictkpy.File(f"{path2mcool}{file_name}.mcool::resolutions/{resolution}", resolution)
+        c = hictkpy.File(f"{path2mcool}{file_name}.mcool", resolution)
         c_names = list(c.chromosomes().keys())
         c_ids = list(range(len(c_names)))
         c_pairs = list(zip(c_ids, c_names))
@@ -1116,7 +1116,7 @@ def recoverable_anchors_classification(
         path2GT = f"{base_path}/MoDLE-benchmark/"
         file_name = f"{file_name_base}_{contact_density}_{noise}"
         path2mcool = f"{base_path}/MoDLE-benchmark/data/{file_name}/"
-        c = hictkpy.File(f"{path2mcool}{file_name}.mcool::resolutions/{resolution}", resolution)
+        c = hictkpy.File(f"{path2mcool}{file_name}.mcool", resolution)
         c_names = list(c.chromosomes().keys())
         c_ids = list(range(len(c_names)))
         c_pairs = list(zip(c_ids, c_names))
