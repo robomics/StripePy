@@ -2,7 +2,7 @@ import functools
 import gc
 import pathlib
 import tempfile
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import hictkpy as htk
 import pandas as pd
@@ -26,7 +26,7 @@ def _generate_chromosomes() -> Dict[str, int]:
 
 
 def _generate_singleres_test_file(
-    path: pathlib.Path, resolution: int, chromosomes: Dict[str, int] | None = None
+    path: pathlib.Path, resolution: int, chromosomes: Union[Dict[str, int], None] = None
 ) -> pathlib.Path:
     if chromosomes is None:
         chromosomes = _generate_chromosomes()
@@ -65,7 +65,7 @@ class TestCmapLoading:
 
     def test_invalid_resolutions(self, tmpdir):
         invalid_resolutions = [-1, 0, 1000.0, 5000]
-        with tempfile.NamedTemporaryFile(dir=tmpdir, delete_on_close=True) as clr:
+        with tempfile.NamedTemporaryFile(dir=tmpdir) as clr:
             clr.close()
             path_to_clr = _generate_singleres_test_file(pathlib.Path(clr.name), 1000)
 
