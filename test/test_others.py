@@ -65,8 +65,9 @@ class TestCmapLoading:
 
     def test_invalid_resolutions(self, tmpdir):
         invalid_resolutions = [-1, 0, 1000.0, 5000]
-        with tempfile.NamedTemporaryFile(dir=tmpdir, delete_on_close=True) as clr:
+        with tempfile.NamedTemporaryFile(dir=tmpdir) as clr:
             clr.close()
+            pathlib.Path(clr.name).unlink()
             path_to_clr = _generate_singleres_test_file(pathlib.Path(clr.name), 1000)
 
             for res in invalid_resolutions:
