@@ -7,16 +7,24 @@ import numpy as np
 from . import IO
 
 
-def cmap_loading(path, resolution):
-    # Retrieve metadata:
-    if hictkpy.is_scool_file(path):
-        raise RuntimeError(".scool files are not currently supported.")
-    if hictkpy.is_cooler(path):
-        f = hictkpy.File(path)
-        if f.resolution() != resolution:
-            raise RuntimeError(f"error opening file \"{f}\": expected {resolution} resolution, found {f.resolution()}.")
-    else:
-        f = hictkpy.MultiResFile(path)[resolution]
+def cmap_loading(path: os.PathLike, resolution: int):
+    try:
+        if not isinstance(resolution, int):
+            raise TypeError("resolution must be an integer.")
+
+        if resolution <= 0:
+            raise ValueError("resolution must be greater than zero.")
+
+        if hictkpy.is_scool_file(path):
+            raise RuntimeError(".scool files are not currently supported.")
+        if hictkpy.is_cooler(path):
+            f = hictkpy.File(path)
+            if f.resolution() != resolution:
+                raise RuntimeError(f"expected {resolution} resolution, found {f.resolution()}.")
+        else:
+            f = hictkpy.MultiResFile(path)[resolution]
+    except RuntimeError as e:
+        raise RuntimeError(f'error opening file "{path}"') from e
 
     # Retrieve metadata:
     chr_starts = [0]  # left ends of each chromosome  (in matrix coordinates)
