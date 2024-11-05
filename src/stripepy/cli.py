@@ -56,6 +56,14 @@ def parse_args():
     )
 
     cli.add_argument(
+        "-n",
+        "--normalization",
+        type=str,
+        default="NONE",
+        help="Normalization to fetch (default: 'NONE').",
+    )
+
+    cli.add_argument(
         "-b",
         "--genomic-belt",
         type=int,
@@ -143,7 +151,7 @@ def parse_args():
         args = vars(cli.parse_args())
 
     # Gather input parameters in dictionaries:
-    configs_input = {key: args[key] for key in ["contact-map", "resolution", "genomic_belt", "roi"]}
+    configs_input = {key: args[key] for key in ["contact-map", "resolution", "normalization", "genomic_belt", "roi"]}
     configs_thresholds = {
         key: args[key]
         for key in [
@@ -161,6 +169,7 @@ def parse_args():
     print("\nArguments:")
     print(f"--contact-map: {configs_input['contact-map']}")
     print(f"--resolution: {configs_input['resolution']}")
+    print(f"--normalization: {configs_input['normalization']}")
     print(f"--genomic-belt: {configs_input['genomic_belt']}")
     print(f"--roi: {configs_input['roi']}")
     print(f"--max-width: {configs_thresholds['max_width']}")

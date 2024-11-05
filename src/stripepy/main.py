@@ -73,7 +73,7 @@ def main():
         if configs_input["roi"] is not None:
             IO.create_folders_for_plots(f"{configs_output['output_folder']}/plots/{this_chr}")
 
-        I = f.fetch(this_chr).to_csr("full")
+        I = f.fetch(this_chr, normalization=configs_input["normalization"]).to_csr("full")
 
         # RoI:
         RoI = others.define_RoI(
