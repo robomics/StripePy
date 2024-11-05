@@ -11,7 +11,7 @@ class TestLogTransform:
         Iproc = log_transform(I)
 
         assert Iproc.shape == (0, 0)
-        # assert isinstance(Iproc.dtype, np.floating) # TODO robomics fix me!
+        assert np.issubdtype(I.dtype, np.floating)
 
     def test_all_finite(self):
         I = ss.rand(100, 100, density=0.5, format="csr")
