@@ -3,26 +3,31 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import scipy.sparse as ss
 import seaborn as sns
-from scipy import sparse
 
 from . import IO
 from .configs import be_verbose
 from .utils import TDA, finders, regressions, stripe
 
 
-def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
-
-    print("1.1) Log-transformation...")
+def log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
     I.data[np.isnan(I.data)] = 0
     I.eliminate_zeros()
     Iproc = I.log1p()
+    return Iproc
+
+
+def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
+
+    print("1.1) Log-transformation...")
+    Iproc = log_transform(I)
 
     print("1.2) Focusing on a neighborhood of the main diagonal...")
     matrix_belt = int(genomic_belt / resolution)
 
-    LT_Iproc = sparse.tril(Iproc, k=0, format="csr") - sparse.tril(Iproc, k=-matrix_belt, format="csr")
-    UT_Iproc = sparse.triu(Iproc, k=0, format="csr") - sparse.triu(Iproc, k=matrix_belt, format="csr")
+    LT_Iproc = ss.tril(Iproc, k=0, format="csr") - ss.tril(Iproc, k=-matrix_belt, format="csr")
+    UT_Iproc = ss.triu(Iproc, k=0, format="csr") - ss.triu(Iproc, k=matrix_belt, format="csr")
 
     # Scaling
     print("1.3) Projection onto [0, 1]...")
