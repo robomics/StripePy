@@ -1,4 +1,5 @@
 import argparse
+import math
 import pathlib
 from importlib.metadata import version
 from typing import Any, Dict, Tuple
@@ -30,6 +31,13 @@ def _probability(arg) -> float:
         return n
 
     raise ValueError("Not a valid probability")
+
+
+def _non_zero_positive_float(arg) -> float:
+    if (n := float(arg)) > 0:
+        return n
+
+    raise ValueError("Not a non-zero, positive float")
 
 
 def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
@@ -166,6 +174,13 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         action="store_true",
         default=False,
         help="Print the list of available datasets and return.",
+    )
+
+    sc.add_argument(
+        "--max-size",
+        type=_non_zero_positive_float,
+        default=512.0,
+        help="Upper bound for the size of the files to be considered when --name is not provided.",
     )
     sc.add_argument(
         "-o",
