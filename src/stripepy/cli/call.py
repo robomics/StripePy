@@ -6,19 +6,22 @@ import numpy as np
 
 from stripepy import IO, others, stripepy
 
+# TODO does this need to be global variable?
 MIN_SIZE_CHROMOSOME = 2000000
 
 
+# TODO can we remove this?
 def save_terminal_groups(name, obj):
     if isinstance(obj, h5py.Group):
         has_subgroups = any(isinstance(child_obj, h5py.Group) for _, child_obj in obj.items())
         if not has_subgroups:
-            terminal_group_names.append(name)
+            terminal_group_names.append(name)  # TODO avoid global variables
 
 
+# TODO can we remove this?
 def save_all_datasets(name, obj):
     if isinstance(obj, h5py.Dataset):  # check if obj is a group or dataset
-        dataset_names.append(name)
+        dataset_names.append(name)  # TODO avoid global variables
 
 
 def print_all_attributes(obj, parent=""):
