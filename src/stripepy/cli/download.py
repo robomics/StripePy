@@ -78,10 +78,10 @@ def _download_progress_reporter(chunk_no, max_chunk_size, download_size):
     timepoint = _download_progress_reporter.timepoint
 
     if time.time() - timepoint >= 15:
-        mb_downloaded = (chunk_no * max_chunk_size) / 1.0e6
-        download_size_mb = download_size / 1.0e6
+        mb_downloaded = (chunk_no * max_chunk_size) / (1024 << 10)
+        download_size_mb = download_size / (1024 << 10)
         progress_pct = (mb_downloaded / download_size_mb) * 100
-        logging.info("downloaded %.2f/%.2fMBs (%.2f%%)", mb_downloaded, download_size_mb, progress_pct)
+        logging.info("downloaded %.2f/%.2f MB (%.2f%%)", mb_downloaded, download_size_mb, progress_pct)
         _download_progress_reporter.timepoint = time.time()
 
 
@@ -140,4 +140,4 @@ def run(
     t1 = time.time()
 
     logging.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
-    logging.info(f"file size: %.2fMB. Elapsed time: %.2fs", dest.stat().st_size / 1.0e6, t1 - t0)
+    logging.info(f"file size: %.2fMB. Elapsed time: %.2fs", dest.stat().st_size / (1024 << 10), t1 - t0)
