@@ -114,7 +114,6 @@ def run(
     reference_genome: Union[str, None],
     name: Union[str, None],
     output_path: Union[pathlib.Path, None],
-    random_sample: bool,
     list_only: bool,
     force: bool,
 ):
@@ -122,6 +121,8 @@ def run(
     if list_only:
         _list_configs()
         return
+
+    random_sample = name is None and reference_genome is None
 
     if random_sample:
         dset_name, config = _get_random_dataset()

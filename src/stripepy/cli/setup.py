@@ -157,19 +157,11 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Name of the dataset to be downloaded.",
     )
     grp.add_argument(
-        "--random",
-        action="store_true",
-        default=False,
-        dest="random_sample",
-        help="Randomly select the dataset to be downloaded.",
-    )
-    grp.add_argument(
         "--list-only",
         action="store_true",
         default=False,
         help="Print the list of available datasets and return.",
     )
-
     sc.add_argument(
         "-o",
         "--output",
