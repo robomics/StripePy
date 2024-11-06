@@ -1,6 +1,7 @@
 import argparse
 import pathlib
 from importlib.metadata import version
+from typing import Any, Dict, Tuple
 
 
 # Create a custom formatter to allow multiline and bulleted descriptions
@@ -9,53 +10,51 @@ class CustomFormatter(argparse.RawTextHelpFormatter):
         return "".join([indent + line + "\n" for line in text.splitlines()])
 
 
-def parse_args():
-    def file(arg):
-        if arg is None:
-            return None
+def _existing_file(arg: str) -> pathlib.Path:
+    if (path := pathlib.Path(arg)).is_file():
+        return path
 
-        if (file_ := pathlib.Path(arg)).exists():
-            return file_
+    raise FileNotFoundError(arg)
 
-        raise FileNotFoundError(arg)
 
-    def check_path(arg):
-        path = pathlib.Path(arg).parent
-        if path.exists() and path.is_dir():
-            return arg
+def _output_dir_checked(arg: str) -> pathlib.Path:
+    path = pathlib.Path(arg).parent
+    if path.exists() and path.is_dir():
+        return path
 
-        raise FileNotFoundError(f"Path not reachable: {path}")
+    raise FileNotFoundError(f'Output folder "{path}" is not reachable: parent folder does not exist')
 
-    def probability(arg):
-        if 0 <= (n := float(arg)) <= 1:
-            return n
 
-        raise ValueError("Not a valid probability")
+def _probability(arg) -> float:
+    if 0 <= (n := float(arg)) <= 1:
+        return n
 
-    cli = argparse.ArgumentParser(
-        description="stripepy is designed to recognize linear patterns in contact maps (.hic, .mcool, .cool) "
-        "through the combination of topological persistence and quasi-interpolation. It works in four "
-        "consecutive steps: \n"
+    raise ValueError("Not a valid probability")
+
+
+def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
+    sc: argparse.ArgumentParser = main_parser.add_parser(
+        "call",
+        help="stripepy works in four consecutive steps: \n"
         "• Step 1: Pre-processing\n"
         "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
         "• Step 3: Shape analysis (i.e., width and height estimation)\n"
         "• Step 4: Signal analysis and post-processing\n",
-        formatter_class=CustomFormatter,
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "contact-map",
-        type=file,
+        type=_existing_file,
         help="Path to a .cool, .mcool, or .hic file for input.",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "resolution",
         type=int,
         help="Resolution (in bp).",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "-n",
         "--normalization",
         type=str,
@@ -63,7 +62,7 @@ def parse_args():
         help="Normalization to fetch (default: 'NONE').",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "-b",
         "--genomic-belt",
         type=int,
@@ -71,29 +70,29 @@ def parse_args():
         help="Radius of the band, centred around the diagonal, where the search is restricted to (in bp, default: 5000000).",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "--roi",
         type=str,
         default=None,
         help="Specify 'middle' or input range as 'chr2:10000000-12000000' (default: None)",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "-o",
         "--output-folder",
-        type=check_path,
-        default="./",
+        type=_output_dir_checked,
+        default=pathlib.Path("."),
         help="Path to the folder where the user wants the output to be placed (default: current folder).",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "--max-width",
         type=int,
         default=100000,
         help="Maximum stripe width, in bp.",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "--glob-pers-type",
         type=str,
         choices=["constant", "adaptive"],
@@ -101,39 +100,55 @@ def parse_args():
         help="Type of thresholding to filter persistence maxima points and identify loci of interest (aka seeds).",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "--glob-pers-min",
-        type=probability,
+        type=_probability,
         default=None,
         help="Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest "
         "(aka seeds). The default value depends on the option --glob-pers-type (default: 0.2 if --glob-pers-type "
         "set to 'constant', 0.9 if --glob-pers-type set to 'adaptive').",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "--constrain-heights",
         action="store_true",
         default=False,
         help="Use peaks in signal to constrain the stripe height (default: 'False')",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "--loc-pers-min",
-        type=probability,
+        type=_probability,
         default=0.2,
         help="Threshold value between 0 and 1 to find peaks in signal in a horizontal domain while estimating the "
         "height of a stripe; when --constrain-heights is set to 'False', it is not used (default: 0.2).",
     )
 
-    cli.add_argument(
+    sc.add_argument(
         "--loc-trend-min",
-        type=probability,
+        type=_probability,
         default=0.1,
         help="Threshold value between 0 and 1 to estimate the height of a stripe (default: 0.1); "
         "the higher this value, the shorter the stripe; it is always used when --constrain-heights is set to "
         "'False', but could be necessary also when --constrain-heights is 'True' and no persistent maximum other "
         "than the global maximum is found.",
     )
+
+    return sc
+
+
+def _make_cli() -> argparse.ArgumentParser:
+    cli = argparse.ArgumentParser(
+        description="stripepy is designed to recognize linear patterns in contact maps (.hic, .mcool, .cool) "
+        "through the geometric reasoning, including topological persistence and quasi-interpolation. ",
+        formatter_class=CustomFormatter,
+    )
+
+    sub_parser = cli.add_subparsers(
+        title="subcommands", dest="subcommand", required=True, help="List of available subcommands:"
+    )
+
+    _make_stripepy_call_subcommand(sub_parser)
 
     cli.add_argument(
         "-v",
@@ -142,13 +157,15 @@ def parse_args():
         version="%(prog)s {version}".format(version=version("stripepy")),
     )
 
-    # Parse the input parameters:
-    args = vars(cli.parse_args())
+    return cli
 
+
+def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     if args["glob_pers_min"] is None:
-        default_value = 0.2 if args["glob_pers_type"] == "constant" else 0.9
-        cli.set_defaults(glob_pers_min=default_value)
-        args = vars(cli.parse_args())
+        if args["glob_pers_type"] == "constant":
+            args["glob_pers_min"] = 0.2
+        else:
+            args["glob_pers_min"] = 0.9
 
     # Gather input parameters in dictionaries:
     configs_input = {key: args[key] for key in ["contact-map", "resolution", "normalization", "genomic_belt", "roi"]}
@@ -180,4 +197,15 @@ def parse_args():
     print(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
     print(f"--output-folder: {configs_output['output_folder']}")
 
-    return configs_input, configs_thresholds, configs_output
+    return {"configs_input": configs_input, "configs_thresholds": configs_thresholds, "configs_output": configs_output}
+
+
+def parse_args() -> Tuple[str, Any]:
+    # Parse the input parameters:
+    args = vars(_make_cli().parse_args())
+
+    subcommand = args.pop("subcommand")
+    if subcommand == "call":
+        return subcommand, *_process_stripepy_call_args(args)
+
+    raise NotImplementedError
