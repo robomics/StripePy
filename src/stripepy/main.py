@@ -1,4 +1,4 @@
-from .cli import call, setup
+from .cli import call, download, setup
 
 
 def main():
@@ -6,6 +6,8 @@ def main():
 
     if subcommand == "call":
         return call.run(**args)
+    if subcommand == "download":
+        return download.run(**args)
 
     raise NotImplementedError
 

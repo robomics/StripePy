@@ -1,0 +1,142 @@
+# Copyright (C) 2024 Roberto Rossini <roberros@uio.no>
+#
+# SPDX-License-Identifier: MIT
+
+import functools
+import hashlib
+import json
+import logging
+import pathlib
+import random
+import sys
+import tempfile
+import time
+import urllib.request
+from typing import Dict, Tuple, Union
+
+
+@functools.cache
+def _get_config() -> Dict[str, Dict[str, str]]:
+    return {
+        "4DNFIOTPSS3L": {
+            "url": "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/7386f953-8da9-47b0-acb2-931cba810544/4DNFIOTPSS3L.hic",
+            "md5": "d8b030bec6918bfbb8581c700990f49d",
+            "assembly": "dm6",
+            "format": "hic",
+        },
+    }
+
+
+def _list_configs():
+    json.dump(_get_config(), sys.stdout)
+
+
+def _get_random_dataset() -> Tuple[str, Dict[str, str]]:
+    key = random.sample(list(_get_config().keys()), 1)[0]
+    return key, _get_config()[key]
+
+
+def _lookup_dataset(name: Union[str, None], assembly: Union[str, None]) -> Tuple[str, Dict[str, str]]:
+    if name is not None:
+        try:
+            return name, _get_config()[name]
+        except KeyError as e:
+            raise RuntimeError(
+                f'unable to find dataset "{name}". Please make sure the provided dataset is present in the list produced by stripepy download --list-only.'
+            ) from e
+
+    assert assembly is not None
+
+    dsets = {k: v for k, v in _get_config().items() if v["assembly"] == assembly}
+    if len(dsets) == 0:
+        raise RuntimeError(
+            f'unable to find a dataset using "{assembly}" as reference genome. Please make sure such dataset exists in the list produced by stripepy download --list-only.'
+        )
+
+    key = random.sample(list(dsets.keys()), 1)[0]
+    return key, dsets[key]
+
+
+def _hash_file(path: pathlib.Path, chunk_size=16 << 20) -> str:
+    logging.info('computing MD5 digest for file "%s"...', path)
+    with path.open("rb") as f:
+        hasher = hashlib.md5()
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                return hasher.hexdigest()
+            hasher.update(chunk)
+
+
+def _download_progress_reporter(chunk_no, max_chunk_size, download_size):
+    if download_size == -1:
+        if not _download_progress_reporter.skip_progress_report:
+            _download_progress_reporter.skip_progress_report = True
+            logging.warning("unable to report download progress: remote file size is not known!")
+        return
+
+    timepoint = _download_progress_reporter.timepoint
+
+    if time.time() - timepoint >= 15:
+        mb_downloaded = (chunk_no * max_chunk_size) / 1.0e6
+        download_size_mb = download_size / 1.0e6
+        progress_pct = (mb_downloaded / download_size_mb) * 100
+        logging.info("downloaded %.2f/%.2fMBs (%.2f%%)", mb_downloaded, download_size_mb, progress_pct)
+        _download_progress_reporter.timepoint = time.time()
+
+
+# this is Python's way of defining static variables inside functions
+_download_progress_reporter.skip_progress_report = False
+_download_progress_reporter.timepoint = 0.0
+
+
+def _download_and_checksum(name: str, url: str, md5sum: str, dest: pathlib.Path):
+    with tempfile.NamedTemporaryFile(dir=dest.parent, prefix=f"{dest.stem}.") as tmpfile:
+        tmpfile = pathlib.Path(tmpfile.name)
+
+        logging.info('downloading dataset "%s"...', name)
+        t0 = time.time()
+        urllib.request.urlretrieve(url, tmpfile, reporthook=_download_progress_reporter)
+        t1 = time.time()
+        logging.info('DONE! Downloading dataset "%s" took %ss.', name, t1 - t0)
+
+        digest = _hash_file(tmpfile)
+        if digest == md5sum:
+            logging.info("MD5 checksum match!")
+            return tmpfile.rename(dest)
+
+        raise RuntimeError(
+            f'MD5 checksum for file downloaded from "{url}" does not match: expected {md5sum}, found {digest}.'
+        )
+
+
+def run(
+    reference_genome: Union[str, None],
+    name: Union[str, None],
+    output_path: Union[pathlib.Path, None],
+    random_sample: bool,
+    list_only: bool,
+    force: bool,
+):
+    t0 = time.time()
+    if list_only:
+        _list_configs()
+        return
+
+    if random_sample:
+        dset_name, config = _get_random_dataset()
+    else:
+        dset_name, config = _lookup_dataset(name, reference_genome)
+
+    if output_path is None:
+        output_path = pathlib.Path(f"{dset_name}.{config["format"]}")
+
+    if output_path.exists() and not force:
+        raise RuntimeError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")
+    output_path.unlink(missing_ok=True)
+
+    dest = _download_and_checksum(dset_name, config["url"], config["md5"], output_path)
+    t1 = time.time()
+
+    logging.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
+    logging.info(f"file size: %.2fMB. Elapsed time: %.2fs", dest.stat().st_size / 1.0e6, t1 - t0)

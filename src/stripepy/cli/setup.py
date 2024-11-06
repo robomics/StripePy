@@ -137,6 +137,57 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     return sc
 
 
+def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
+    sc: argparse.ArgumentParser = main_parser.add_parser(
+        "download",
+        help="Helper command to simplify downloading datasets that can be used to test StripePy.",
+    )
+
+    grp = sc.add_mutually_exclusive_group(required=False)
+    grp.add_argument(
+        "--reference-genome",
+        type=str,
+        default="dm6",
+        choices={"dm6"},
+        help="Restrict downloads to the given reference genome.",
+    )
+    grp.add_argument(
+        "--name",
+        type=str,
+        help="Name of the dataset to be downloaded.",
+    )
+    grp.add_argument(
+        "--random",
+        action="store_true",
+        default=False,
+        dest="random_sample",
+        help="Randomly select the dataset to be downloaded.",
+    )
+    grp.add_argument(
+        "--list-only",
+        action="store_true",
+        default=False,
+        help="Print the list of available datasets and return.",
+    )
+
+    sc.add_argument(
+        "-o",
+        "--output",
+        type=pathlib.Path,
+        dest="output_path",
+        help="Path where to store the downloaded file.",
+    )
+    sc.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        default=False,
+        help="Overwrite existing file(s).",
+    )
+
+    return sc
+
+
 def _make_cli() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(
         description="stripepy is designed to recognize linear patterns in contact maps (.hic, .mcool, .cool) "
@@ -149,6 +200,7 @@ def _make_cli() -> argparse.ArgumentParser:
     )
 
     _make_stripepy_call_subcommand(sub_parser)
+    _make_stripepy_download_subcommand(sub_parser)
 
     cli.add_argument(
         "-v",
@@ -207,5 +259,7 @@ def parse_args() -> Tuple[str, Any]:
     subcommand = args.pop("subcommand")
     if subcommand == "call":
         return subcommand, *_process_stripepy_call_args(args)
+    if subcommand == "download":
+        return subcommand, args
 
     raise NotImplementedError
