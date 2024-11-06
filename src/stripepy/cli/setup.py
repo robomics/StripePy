@@ -143,12 +143,16 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Helper command to simplify downloading datasets that can be used to test StripePy.",
     )
 
+    def get_avail_ref_genomes():
+        from .download import _get_datasets
+        return {record["assembly"] for record in _get_datasets(math.inf).values() if "assembly" in record}
+
     grp = sc.add_mutually_exclusive_group(required=False)
     grp.add_argument(
-        "--reference-genome",
+        "--assembly",
         type=str,
-        choices={"dm6"},
-        help="Restrict downloads to the given reference genome.",
+        choices=get_avail_ref_genomes(),
+        help="Restrict downloads to the given reference genome assembly.",
     )
     grp.add_argument(
         "--name",

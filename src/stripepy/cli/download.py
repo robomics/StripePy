@@ -111,23 +111,23 @@ def _download_and_checksum(name: str, url: str, md5sum: str, dest: pathlib.Path)
 
 
 def run(
-    reference_genome: Union[str, None],
     name: Union[str, None],
     output_path: Union[pathlib.Path, None],
+    assembly: Union[str, None],
     list_only: bool,
     force: bool,
 ):
     t0 = time.time()
     if list_only:
-        _list_configs()
+        _list_datasets()
         return
 
-    random_sample = name is None and reference_genome is None
+    do_random_sample = name is None and assembly is None
 
-    if random_sample:
+    if do_random_sample:
         dset_name, config = _get_random_dataset()
     else:
-        dset_name, config = _lookup_dataset(name, reference_genome)
+        dset_name, config = _lookup_dataset(name, assembly)
 
     if output_path is None:
         output_path = pathlib.Path(f"{dset_name}.{config["format"]}")
