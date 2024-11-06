@@ -147,7 +147,6 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     grp.add_argument(
         "--reference-genome",
         type=str,
-        default="dm6",
         choices={"dm6"},
         help="Restrict downloads to the given reference genome.",
     )
