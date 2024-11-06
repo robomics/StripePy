@@ -11,7 +11,7 @@ from .configs import be_verbose
 from .utils import TDA, finders, regressions, stripe
 
 
-def log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
+def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
     I.data[np.isnan(I.data)] = 0
     I.eliminate_zeros()
     Iproc = I.log1p()
@@ -21,7 +21,7 @@ def log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
 
     print("1.1) Log-transformation...")
-    Iproc = log_transform(I)
+    Iproc = _log_transform(I)
 
     print("1.2) Focusing on a neighborhood of the main diagonal...")
     matrix_belt = int(genomic_belt / resolution)
