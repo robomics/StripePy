@@ -18,16 +18,20 @@ def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
     return Iproc
 
 
+def _band_extraction(I: ss.csr_matrix, resolution: int, genomic_belt: int) -> (ss.csr_matrix, ss.csr_matrix):
+    matrix_belt = int(genomic_belt / resolution)
+    LT_I = ss.tril(I, k=0, format="csr") - ss.tril(I, k=-matrix_belt, format="csr")
+    UT_I = ss.triu(I, k=0, format="csr") - ss.triu(I, k=matrix_belt, format="csr")
+    return LT_I, UT_I
+
+
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
 
     print("1.1) Log-transformation...")
     Iproc = _log_transform(I)
 
     print("1.2) Focusing on a neighborhood of the main diagonal...")
-    matrix_belt = int(genomic_belt / resolution)
-
-    LT_Iproc = ss.tril(Iproc, k=0, format="csr") - ss.tril(Iproc, k=-matrix_belt, format="csr")
-    UT_Iproc = ss.triu(Iproc, k=0, format="csr") - ss.triu(Iproc, k=matrix_belt, format="csr")
+    LT_Iproc, UT_Iproc = _band_extraction(Iproc, resolution, genomic_belt)
 
     # Scaling
     print("1.3) Projection onto [0, 1]...")
