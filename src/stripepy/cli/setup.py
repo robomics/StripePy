@@ -22,7 +22,7 @@ def _output_dir_checked(arg: str) -> pathlib.Path:
     if path.exists() and path.is_dir():
         return path
 
-    raise FileNotFoundError(f"Output folder \"{path}\" is not reachable: parent folder does not exist")
+    raise FileNotFoundError(f'Output folder "{path}" is not reachable: parent folder does not exist')
 
 
 def _probability(arg) -> float:
@@ -36,10 +36,10 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "call",
         help="stripepy works in four consecutive steps: \n"
-             "• Step 1: Pre-processing\n"
-             "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
-             "• Step 3: Shape analysis (i.e., width and height estimation)\n"
-             "• Step 4: Signal analysis and post-processing\n",
+        "• Step 1: Pre-processing\n"
+        "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
+        "• Step 3: Shape analysis (i.e., width and height estimation)\n"
+        "• Step 4: Signal analysis and post-processing\n",
     )
 
     sc.add_argument(
