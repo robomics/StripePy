@@ -1,4 +1,5 @@
 import time
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,6 +26,13 @@ def _band_extraction(I: ss.csr_matrix, resolution: int, genomic_belt: int) -> (s
     return LT_I, UT_I
 
 
+def _scale_Iproc(
+    I: ss.csr_matrix, LT_I: ss.csr_matrix, UT_I: ss.csr_matrix
+) -> Tuple[ss.csr_matrix, ss.csr_matrix, ss.csr_matrix]:
+    scaling_factor_Iproc = I.max()
+    return tuple(J / scaling_factor_Iproc for J in [I, LT_I, UT_I])  # noqa
+
+
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
 
     print("1.1) Log-transformation...")
@@ -35,10 +43,7 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
 
     # Scaling
     print("1.3) Projection onto [0, 1]...")
-    scaling_factor_Iproc = Iproc.max()
-    Iproc /= scaling_factor_Iproc
-    LT_Iproc /= scaling_factor_Iproc
-    UT_Iproc /= scaling_factor_Iproc
+    Iproc, LT_Iproc, UT_Iproc = _scale_Iproc(Iproc, LT_Iproc, UT_Iproc)
 
     if RoI is not None:
         print("1.4) Extracting a Region of Interest (RoI) for plot purposes...")
