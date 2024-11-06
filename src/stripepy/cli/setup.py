@@ -38,7 +38,11 @@ def _probability(arg):
 def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "call",
-        help="TODO",  # TODO @rea1991
+        help="stripepy works in four consecutive steps: \n"
+             "• Step 1: Pre-processing\n"
+             "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
+             "• Step 3: Shape analysis (i.e., width and height estimation)\n"
+             "• Step 4: Signal analysis and post-processing\n",
     )
 
     sc.add_argument(
@@ -139,12 +143,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
 def _make_cli() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(
         description="stripepy is designed to recognize linear patterns in contact maps (.hic, .mcool, .cool) "
-        "through the combination of topological persistence and quasi-interpolation. It works in four "
-        "consecutive steps: \n"
-        "• Step 1: Pre-processing\n"
-        "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
-        "• Step 3: Shape analysis (i.e., width and height estimation)\n"
-        "• Step 4: Signal analysis and post-processing\n",
+        "through the geometric reasoning, including topological persistence and quasi-interpolation. ",
         formatter_class=CustomFormatter,
     )
 
