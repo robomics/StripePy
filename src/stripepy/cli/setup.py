@@ -145,6 +145,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
 
     def get_avail_ref_genomes():
         from .download import _get_datasets
+
         return {record["assembly"] for record in _get_datasets(math.inf).values() if "assembly" in record}
 
     grp = sc.add_mutually_exclusive_group(required=False)
@@ -157,7 +158,8 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     grp.add_argument(
         "--name",
         type=str,
-        help="Name of the dataset to be downloaded.",
+        help="Name of the dataset to be downloaded.\n"
+        "When not provided, randomly select and download a dataset based on the provided CLI options (if any).",
     )
     grp.add_argument(
         "--list-only",
