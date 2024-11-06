@@ -159,7 +159,7 @@ def run(
         dset_name, config = _lookup_dataset(name, assembly, max_size)
 
     if output_path is None:
-        output_path = pathlib.Path(f"{dset_name}.{config["format"]}")
+        output_path = pathlib.Path(f"{dset_name}." + config["format"])
 
     if output_path.exists() and not force:
         raise RuntimeError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")
