@@ -10,22 +10,19 @@ class CustomFormatter(argparse.RawTextHelpFormatter):
         return "".join([indent + line + "\n" for line in text.splitlines()])
 
 
-def _file(arg):
-    if arg is None:
-        return None
-
-    if (file_ := pathlib.Path(arg)).exists():
-        return file_
+def _existing_file(arg: str) -> pathlib.Path:
+    if (path := pathlib.Path(arg)).is_file():
+        return path
 
     raise FileNotFoundError(arg)
 
 
-def _check_path(arg):
+def _output_dir_checked(arg: str) -> pathlib.Path:
     path = pathlib.Path(arg).parent
     if path.exists() and path.is_dir():
-        return arg
+        return path
 
-    raise FileNotFoundError(f"Path not reachable: {path}")
+    raise FileNotFoundError(f"Output folder \"{path}\" is not reachable: parent folder does not exist")
 
 
 def _probability(arg):
@@ -47,7 +44,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc.add_argument(
         "contact-map",
-        type=_file,
+        type=_existing_file,
         help="Path to a .cool, .mcool, or .hic file for input.",
     )
 
@@ -83,8 +80,8 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "-o",
         "--output-folder",
-        type=_check_path,
-        default="./",
+        type=_output_dir_checked,
+        default=pathlib.Path("."),
         help="Path to the folder where the user wants the output to be placed (default: current folder).",
     )
 
