@@ -28,6 +28,13 @@ def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
             "format": "hic",
             "size_mb": 248.10,
         },
+        "4DNFIC1CLPK7": {
+            "url": "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/0dc0b1ba-5509-4464-9814-dfe103ff09a0/4DNFIC1CLPK7.hic",
+            "md5": "9648c38d52fb467846cce42a4a072f57",
+            "assembly": "galGal5",
+            "format": "hic",
+            "size_mb": 583.57,
+        },
     }
 
     valid_dsets = {k: v for k, v in datasets.items() if v.get("size_mb", math.inf) < max_size}
