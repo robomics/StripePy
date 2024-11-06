@@ -1,5 +1,5 @@
 import time
-from typing import Tuple
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,6 +33,12 @@ def _scale_Iproc(
     return tuple(J / scaling_factor_Iproc for J in [I, LT_I, UT_I])  # noqa
 
 
+def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> ss.csr_matrix:
+    rows = cols = slice(RoI["matrix"][0], RoI["matrix"][1])
+    I_RoI = I[rows, cols].toarray()
+    return I_RoI
+
+
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
 
     print("1.1) Log-transformation...")
@@ -47,9 +53,8 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
 
     if RoI is not None:
         print("1.4) Extracting a Region of Interest (RoI) for plot purposes...")
-        rows = cols = slice(RoI["matrix"][0], RoI["matrix"][1])
-        I_RoI = I[rows, cols].toarray()
-        Iproc_RoI = Iproc[rows, cols].toarray()
+        I_RoI = _extract_RoIs(Iproc, RoI)
+        Iproc_RoI = _extract_RoIs(Iproc, RoI)
 
         if output_folder is not None:
 
@@ -71,8 +76,8 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
                 compactify=False,
             )
     else:
-        I_RoI = None
-        Iproc_RoI = None
+        I_RoI = None  # TODO handle this case in _extract_RoIs
+        Iproc_RoI = None  # TODO handle this case in _extract_RoIs
 
     return LT_Iproc, UT_Iproc, Iproc_RoI
 
