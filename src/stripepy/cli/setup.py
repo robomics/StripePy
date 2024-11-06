@@ -1,7 +1,7 @@
 import argparse
 import pathlib
 from importlib.metadata import version
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 
 # Create a custom formatter to allow multiline and bulleted descriptions
@@ -25,7 +25,7 @@ def _output_dir_checked(arg: str) -> pathlib.Path:
     raise FileNotFoundError(f"Output folder \"{path}\" is not reachable: parent folder does not exist")
 
 
-def _probability(arg):
+def _probability(arg) -> float:
     if 0 <= (n := float(arg)) <= 1:
         return n
 
@@ -200,7 +200,7 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     return {"configs_input": configs_input, "configs_thresholds": configs_thresholds, "configs_output": configs_output}
 
 
-def parse_args():
+def parse_args() -> Tuple[str, Any]:
     # Parse the input parameters:
     args = vars(_make_cli().parse_args())
 
