@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as ss
 import seaborn as sns
+from numpy.typing import NDArray
 
 from . import IO
 from .configs import be_verbose
@@ -16,6 +17,13 @@ def log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
     I.eliminate_zeros()
     Iproc = I.log1p()
     return Iproc
+
+
+def _compute_global_pseudodistribution(T: ss.csr_matrix) -> NDArray[np.float64]:
+    pd = np.squeeze(np.asarray(np.sum(T, axis=0)))  # marginalization
+    pd /= np.max(pd)  # scaling
+    pd = np.maximum(regressions._compute_wQISA_predictions(pd, 11), pd)  # smoothing
+    return pd
 
 
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
@@ -73,16 +81,8 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     print("2.1) Global 1D pseudo-distributions...")
 
     # Pseudo-distributions:
-    LT_pd = np.squeeze(np.asarray(np.sum(L, axis=0)))
-    UT_pd = np.squeeze(np.asarray(np.sum(U, axis=0)))
-
-    # Scaling:
-    LT_pd /= np.max(LT_pd)
-    UT_pd /= np.max(UT_pd)
-
-    # Smoothing:
-    LT_pd = np.maximum(regressions._compute_wQISA_predictions(LT_pd, 11), LT_pd)
-    UT_pd = np.maximum(regressions._compute_wQISA_predictions(UT_pd, 11), UT_pd)
+    LT_pd = _compute_global_pseudodistribution(L)
+    UT_pd = _compute_global_pseudodistribution(U)
 
     # Keep track of all maxima and persistence values:
     hf["LT/"].create_dataset("pseudo-distribution", data=np.array(LT_pd))
