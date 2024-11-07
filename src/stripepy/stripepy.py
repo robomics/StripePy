@@ -81,8 +81,8 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     UT_pd /= np.max(UT_pd)
 
     # Smoothing:
-    LT_pd = np.maximum(regressions.compute_wQISA_predictions(LT_pd, 11), LT_pd)
-    UT_pd = np.maximum(regressions.compute_wQISA_predictions(UT_pd, 11), UT_pd)
+    LT_pd = np.maximum(regressions._compute_wQISA_predictions(LT_pd, 11), LT_pd)
+    UT_pd = np.maximum(regressions._compute_wQISA_predictions(UT_pd, 11), UT_pd)
 
     # Keep track of all maxima and persistence values:
     hf["LT/"].create_dataset("pseudo-distribution", data=np.array(LT_pd))

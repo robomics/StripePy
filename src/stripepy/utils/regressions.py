@@ -26,7 +26,7 @@ def compute_predictions(X, Y, tau):
     return predictions
 
 
-def compute_wQISA_predictions(Y, k):
+def _compute_wQISA_predictions(Y, k):
 
     # These are actually the control points of a weighted quasi-interpolant spline approximation:
     kernel = np.full((k,), 1 / k)
