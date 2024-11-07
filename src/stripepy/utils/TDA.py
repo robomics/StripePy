@@ -3,14 +3,14 @@ import numpy as np
 from .persistence1d import (
     DiversifyExtremumPointsAndPersistence,
     FilterExtremumPointsByPersistence,
-    RunPersistence,
+    run_persistence,
 )
 
 
 def TDA(marginal_pd, min_persistence=None):
     # Compute the extremum points (i.e., minimum and maximum points) of the marginal pseudo-distribution AND their
     # persistence:
-    ExtremumPointsAndPersistence = RunPersistence(marginal_pd, levelsets="upper")
+    ExtremumPointsAndPersistence = run_persistence(marginal_pd, level_sets="upper")
 
     # Keep only those extremum points with persistence above a given value:
     ThreshExtremumPointsAndPersistence = FilterExtremumPointsByPersistence(
