@@ -128,7 +128,7 @@ class Stripe(object):
 
         return submatrix.mean()
 
-    def _bounds_avail(self) -> bool:
+    def _all_bounds_set(self) -> bool:
         return all((x is not None for x in [self._left_bound, self._right_bound, self._bottom_bound, self._top_bound]))
 
     @property
@@ -228,7 +228,7 @@ class Stripe(object):
 
         left, right = horizontal_bounds
         if not left <= self._seed <= right:
-            raise ValueError(f"horizontal bounds must enclose the seed: seed={self._seed}, {left=}, {right=}")
+            raise ValueError(f"horizontal bounds must enclose the seed position: seed={self._seed}, {left=}, {right=}")
 
         self._left_bound, self._right_bound = horizontal_bounds
 
@@ -251,7 +251,7 @@ class Stripe(object):
         self._where = computed_where
 
     def compute_biodescriptors(self, I: ss.csr_matrix, window: int = 3):
-        if not self._bounds_avail():
+        if not self._all_bounds_set():
             raise RuntimeError("compute_biodescriptors() was called on a bound-less stripe")
 
         if window < 0:
