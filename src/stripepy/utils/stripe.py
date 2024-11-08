@@ -51,7 +51,6 @@ class Stripe(object):
         self._outer_lmean = None
         self._outer_rmean = None
 
-
     @staticmethod
     def _infer_location(seed: int, top_bound: int, bottom_bound: int) -> str:
         # TODO this check is temporarily disabled as it fails when processing stripes from chromosomes that are mostly empty
@@ -254,7 +253,9 @@ class Stripe(object):
         computed_where = self._infer_location(self._seed, self._top_bound, self._bottom_bound)
 
         if self._where is not None and computed_where != self._where:
-            raise RuntimeError(f"computed location does not match the provided stripe location: computed={computed_where}, expected={self._where}")
+            raise RuntimeError(
+                f"computed location does not match the provided stripe location: computed={computed_where}, expected={self._where}"
+            )
 
         self._where = computed_where
 
