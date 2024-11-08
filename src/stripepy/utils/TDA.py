@@ -7,7 +7,7 @@ from .persistence1d import (
 )
 
 
-def TDA(marginal_pd, min_persistence=None):
+def TDA(marginal_pd, min_persistence=0):
 
     # Compute the extremum points (i.e., minimum and maximum points) and their persistence:
     extremum_points_and_persistence = run_persistence(marginal_pd, level_sets="upper")
