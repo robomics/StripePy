@@ -13,6 +13,7 @@ from .utils import TDA, finders, regressions, stripe
 
 
 def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
+    # obikenobi23 This function is already tested inside test_stripepy.py, but it could be useful to have a look
     I.data[np.isnan(I.data)] = 0
     I.eliminate_zeros()
     Iproc = I.log1p()
@@ -20,6 +21,9 @@ def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
 
 
 def _band_extraction(I: ss.csr_matrix, resolution: int, genomic_belt: int) -> (ss.csr_matrix, ss.csr_matrix):
+    # This function takes an input matrix, and returns:
+    # -) a lower-triangular matrix, where only the first int(genomic_belt / resolution) diagonals are kept
+    # -) a upper-triangular matrix, where only the first int(genomic_belt / resolution) diagonals are kept
     matrix_belt = int(genomic_belt / resolution)
     LT_I = ss.tril(I, k=0, format="csr") - ss.tril(I, k=-matrix_belt, format="csr")
     UT_I = ss.triu(I, k=0, format="csr") - ss.triu(I, k=matrix_belt, format="csr")
@@ -29,19 +33,25 @@ def _band_extraction(I: ss.csr_matrix, resolution: int, genomic_belt: int) -> (s
 def _scale_Iproc(
     I: ss.csr_matrix, LT_I: ss.csr_matrix, UT_I: ss.csr_matrix
 ) -> Tuple[ss.csr_matrix, ss.csr_matrix, ss.csr_matrix]:
+    # This function takes three matrices: a matrix I and its lower- and upper-triangular parts denoted by LT_I and UT_I.
+    # It divides the entries by the maximum entry of I
     scaling_factor_Iproc = I.max()
     return tuple(J / scaling_factor_Iproc for J in [I, LT_I, UT_I])  # noqa
 
 
 def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> ss.csr_matrix:
+    # This function takes as input a matrix I and extract a region of interest (i.e., a subregion), whose matricial
+    # coordinates are contained in the dictionary RoI
     rows = cols = slice(RoI["matrix"][0], RoI["matrix"][1])
     I_RoI = I[rows, cols].toarray()
     return I_RoI
 
 
 def _plot_RoIs(I, Iproc, RoI, output_folder):
+    # This function calls _extract_RoIs to extract subregions of the matrices I and Iproc (if RoI is not None). If
+    # output_folder is not None, it generates plots and saves in the fiven path.
 
-    # TODO rea1991 Once there is better test coverage, reqrite this as suggested in in #16
+    # TODO rea1991 Once there is better test coverage, rewrite this as suggested in in #16
     if RoI is not None:
         print("1.4) Extracting a Region of Interest (RoI) for plot purposes...")
         I_RoI = _extract_RoIs(I, RoI)
