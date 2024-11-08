@@ -50,6 +50,22 @@ def _sort_extrema_by_coordinate(ps_ePs: List[int], pers_of_ps_ePs: List[float]) 
     return cs_ePs, cs_pers_of_ePs
 
 
+def _find_seeds_in_RoI(
+    seeds: List[int], left_bound_RoI: int, right_bound_RoI: int
+) -> Tuple[NDArray[np.int64], List[int]]:
+
+    # This function takes as input a list of seeds, the left and right boundaries of the region of interest (RoI) in
+    # matricial coordinates, and returns.
+    # an nd.array that contains the indices of those seeds within the boundaries
+    # a list of int, which are the actual coordinates of the seeds within the boundaries
+
+    # Find sites within the range of interest -- lower-triangular:
+    ids_seeds_in_RoI = np.where((left_bound_RoI <= np.array(seeds)) & (np.array(seeds) <= right_bound_RoI))[0]
+    seeds_in_RoI = np.array(seeds)[ids_seeds_in_RoI].tolist()
+
+    return ids_seeds_in_RoI, seeds_in_RoI
+
+
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
 
     print("1.1) Log-transformation...")
@@ -183,13 +199,8 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     if RoI is not None:
 
         print("2.4) Finding sites inside the region selected above...")
-        # Find sites within the range of interest -- lower-triangular:
-        ids_LT_MPs_in_RoI = np.where((RoI["matrix"][0] <= np.array(LT_MPs)) & (np.array(LT_MPs) <= RoI["matrix"][1]))[0]
-        LT_MPs_in_RoI = np.array(LT_MPs)[ids_LT_MPs_in_RoI].tolist()
-
-        # Find sites within the range of interest -- upper-triangular:
-        ids_UT_MPs_in_RoI = np.where((RoI["matrix"][2] <= np.array(UT_MPs)) & (np.array(UT_MPs) <= RoI["matrix"][3]))[0]
-        UT_MPs_in_RoI = np.array(UT_MPs)[ids_UT_MPs_in_RoI].tolist()
+        ids_LT_MPs_in_RoI, LT_MPs_in_RoI = _find_seeds_in_RoI(LT_MPs, RoI["matrix"][0], RoI["matrix"][1])
+        ids_UT_MPs_in_RoI, UT_MPs_in_RoI = _find_seeds_in_RoI(UT_MPs, RoI["matrix"][0], RoI["matrix"][1])
 
         # Store indices of persistence maxima points inside the RoI:
         pseudo_distributions["lower"]["indices_persistent_maximum_points_in_RoI"] = ids_LT_MPs_in_RoI
