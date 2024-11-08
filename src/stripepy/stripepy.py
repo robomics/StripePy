@@ -39,25 +39,15 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> ss.csr_matrix:
     return I_RoI
 
 
-def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
+def _plot_RoIs(I, Iproc, RoI, output_folder):
 
-    print("1.1) Log-transformation...")
-    Iproc = _log_transform(I)
-
-    print("1.2) Focusing on a neighborhood of the main diagonal...")
-    LT_Iproc, UT_Iproc = _band_extraction(Iproc, resolution, genomic_belt)
-
-    # Scaling
-    print("1.3) Projection onto [0, 1]...")
-    Iproc, LT_Iproc, UT_Iproc = _scale_Iproc(Iproc, LT_Iproc, UT_Iproc)
-
+    # TODO rea1991 Once there is better test coverage, reqrite this as suggested in in #16
     if RoI is not None:
         print("1.4) Extracting a Region of Interest (RoI) for plot purposes...")
-        I_RoI = _extract_RoIs(Iproc, RoI)
+        I_RoI = _extract_RoIs(I, RoI)
         Iproc_RoI = _extract_RoIs(Iproc, RoI)
 
         if output_folder is not None:
-
             # Plots:
             IO.HiC(
                 I_RoI,
@@ -76,8 +66,22 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
                 compactify=False,
             )
     else:
-        I_RoI = None  # TODO handle this case in _extract_RoIs
         Iproc_RoI = None  # TODO handle this case in _extract_RoIs
+    return Iproc_RoI
+
+
+def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
+
+    print("1.1) Log-transformation...")
+    Iproc = _log_transform(I)
+
+    print("1.2) Focusing on a neighborhood of the main diagonal...")
+    LT_Iproc, UT_Iproc = _band_extraction(Iproc, resolution, genomic_belt)
+
+    print("1.3) Projection onto [0, 1]...")
+    Iproc, LT_Iproc, UT_Iproc = _scale_Iproc(Iproc, LT_Iproc, UT_Iproc)
+
+    Iproc_RoI = _plot_RoIs(I, Iproc, RoI, output_folder)
 
     return LT_Iproc, UT_Iproc, Iproc_RoI
 
