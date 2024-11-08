@@ -2,7 +2,7 @@ import numpy as np
 
 from .persistence1d import (
     DiversifyExtremumPointsAndPersistence,
-    FilterExtremumPointsByPersistence,
+    filter_extremum_points_by_persistence,
     run_persistence,
 )
 
@@ -13,8 +13,8 @@ def TDA(marginal_pd, min_persistence=None):
     ExtremumPointsAndPersistence = run_persistence(marginal_pd, level_sets="upper")
 
     # Keep only those extremum points with persistence above a given value:
-    ThreshExtremumPointsAndPersistence = FilterExtremumPointsByPersistence(
-        ExtremumPointsAndPersistence, Threshold=min_persistence
+    ThreshExtremumPointsAndPersistence = filter_extremum_points_by_persistence(
+        ExtremumPointsAndPersistence, threshold=min_persistence
     )
 
     # Split extremum points into minimum and maximum points:

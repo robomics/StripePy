@@ -114,10 +114,12 @@ def DiversifyExtremumPointsAndPersistence(ExtremumPointsAndPersistence, level_se
     return MinimumPointsAndPersistence, MaximumPointsAndPersistence
 
 
-def FilterExtremumPointsByPersistence(ExtremumPointsAndPersistence, Threshold):
+def filter_extremum_points_by_persistence(extremum_points_and_persistence, threshold):
 
-    FilteredExtremumPointsAndPersistence = [t for t in ExtremumPointsAndPersistence if t[1] > Threshold]
-    return FilteredExtremumPointsAndPersistence
+    filtered_extremum_points_and_persistence = [
+        (point, persistence) for point, persistence in extremum_points_and_persistence if persistence > threshold
+    ]
+    return filtered_extremum_points_and_persistence
 
 
 def plot_persistence(
