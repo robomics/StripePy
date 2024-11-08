@@ -141,18 +141,26 @@ class Stripe(object):
 
     @property
     def left_bound(self) -> int:
+        if self._left_bound is None:
+            raise RuntimeError("left_bound has not been set")
         return self._left_bound
 
     @property
     def right_bound(self) -> int:
+        if self._right_bound is None:
+            raise RuntimeError("right_bound has not been set")
         return self._right_bound
 
     @property
     def top_bound(self) -> int:
+        if self._top_bound is None:
+            raise RuntimeError("top_bound has not been set")
         return self._top_bound
 
     @property
     def bottom_bound(self) -> int:
+        if self._bottom_bound is None:
+            raise RuntimeError("bottom_bound has not been set")
         return self._bottom_bound
 
     @property
