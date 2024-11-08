@@ -122,7 +122,7 @@ def filter_U_stripes(I, sites, HIoIs, VIoIs, threshold, output_folder=None):
     for num_cand, (site, HIoI, VIoI) in enumerate(zip(sites, HIoIs, VIoIs)):
 
         # Update list of candidate stripes:
-        candida_stripe = stripe.Stripe(site, HIoI[0], HIoI[1], VIoI[0], VIoI[1])
+        candida_stripe = stripe.Stripe(HIoI[0], HIoI[1], VIoI[0], VIoI[1], seed=site)
 
         # Restricting Iproc1 to the rectangular domain defined by current HIoI and VIoI:
         convex_comb = int(round(0.01 * VIoI[0] + 0.99 * VIoI[1]))
