@@ -51,7 +51,6 @@ class Stripe(object):
         self._outer_lmean = None
         self._outer_rmean = None
 
-        # self._RoI = None
 
     @staticmethod
     def _infer_location(seed: int, top_bound: int, bottom_bound: int) -> str:
@@ -244,14 +243,8 @@ class Stripe(object):
 
         computed_where = self._infer_location(self._seed, self._top_bound, self._bottom_bound)
 
-        print(f"debugging: {self._seed=}; {self._top_bound=}; {self._bottom_bound=}; {computed_where=}; {self._where=}")
-
         if self._where is not None and computed_where != self._where:
-            # pass
-            raise RuntimeError(
-                f"debugging: {self._seed=}; {self._top_bound=}; {self._bottom_bound=}; {computed_where=}; {self._where=}"
-            )
-            # raise RuntimeError(f"computed location does not match the provided stripe location: computed={computed_where}, expected={self._where}")
+            raise RuntimeError(f"computed location does not match the provided stripe location: computed={computed_where}, expected={self._where}")
 
         self._where = computed_where
 
