@@ -21,6 +21,7 @@ def log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
 
 
 def _compute_global_pseudodistribution(T: ss.csr_matrix) -> NDArray[np.float64]:
+    # This function takes as input a matrix marginalize it, scales it so that maximum is 1, and then smooth it
     pd = np.squeeze(np.asarray(np.sum(T, axis=0)))  # marginalization
     pd /= np.max(pd)  # scaling
     pd = np.maximum(regressions._compute_wQISA_predictions(pd, 11), pd)  # smoothing
@@ -28,6 +29,17 @@ def _compute_global_pseudodistribution(T: ss.csr_matrix) -> NDArray[np.float64]:
 
 
 def _sort_extrema_by_coordinate(ps_ePs: List[int], pers_of_ps_ePs: List[float]) -> Tuple[List[int], List[float]]:
+
+    # This function takes:
+    # -) a list containing the location of the local maximum points, and
+    # -) a list containing the corresponding values of topological persistence (so, they have same length).
+    # The input maximum points (and the topological persistences) are sorted w.r.t. their topological persistence.
+    # The aim of the function is to permute these lists so that local maximum points are now sorted w.r.t.
+    # their coordinates (from smallest to highest)
+    # Some notation:
+    # ps = persistence-sorted
+    # ePs = extremum points
+    # pers = topological persistence
 
     permutation_ps2cs_ePs = np.argsort(ps_ePs)
 
@@ -106,7 +118,7 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     all_LT_ps_mPs, all_pers_of_LT_ps_mPs, all_LT_ps_MPs, all_pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=0)
     all_UT_ps_mPs, all_pers_of_UT_ps_mPs, all_UT_ps_MPs, all_pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=0)
 
-    # TODO: this flag is always used as constant in experiments, check if still necessary/useful
+    # TODO: rea1991 this flag is always used as constant in experiments, check if still necessary/useful
     if thresh_pers_type == "constant":
         min_persistence = thresh_pers_value
     else:
