@@ -54,12 +54,14 @@ class Stripe(object):
 
     @staticmethod
     def _infer_location(seed: int, top_bound: int, bottom_bound: int) -> str:
+        # TODO this check is temporarily disabled as it fails when processing stripes from chromosomes that are mostly empty
         # if bottom_bound == top_bound:
         #    raise ValueError(f"unable to infer stripe location: stripe bottom and top bounds are identical ({top_bound})")
 
         if bottom_bound > seed:
             return "lower_triangular"
-        if top_bound <= seed:  # TODO revise
+        # TODO the equal check should be removed as is not correct
+        if top_bound <= seed:
             return "upper_triangular"
 
         NotImplementedError
