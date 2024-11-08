@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 
 from .unionfind import UnionFind
@@ -120,56 +119,3 @@ def filter_extremum_points_by_persistence(extremum_points_and_persistence, thres
         (point, persistence) for point, persistence in extremum_points_and_persistence if persistence > threshold
     ]
     return filtered_extremum_points_and_persistence
-
-
-def plot_persistence(
-    birth_levels,
-    death_levels,
-    thresh_birth_levels,
-    thresh_death_levels,
-    output_folder=None,
-    file_name=None,
-    title=None,
-    display=False,
-):
-    """
-    Plot persistence pairs, i.e., (birth_level, death_level) pair of each maximum.
-    :param birth_levels:
-    :param death_levels:
-    :param thresh_birth_levels:
-    :param thresh_death_levels:
-    :param output_folder:
-    :param file_name:
-    :param title:
-    :param display:
-    :return: -
-    """
-
-    # Setup figure
-    fig, ax = plt.subplots(1, 1)
-
-    # Plot the persistence
-    plt.scatter(birth_levels, death_levels, marker=".", linewidths=1, color="red", label="discarded")
-    plt.scatter(thresh_birth_levels, thresh_death_levels, marker=".", linewidths=1, color="blue", label="selected")
-
-    X = np.c_[birth_levels, death_levels]
-    ax.plot([0, 1], [0, 1], "-", c="grey")
-    ax.set_xlabel("Birth level")
-    ax.set_ylabel("Death level")
-    ax.set_xlim((0, 1))
-    ax.set_ylim((0, 1))
-    ax.grid(True)
-    ax.legend(loc="upper left")
-    plt.axis("scaled")
-
-    if title is not None:
-        fig.suptitle(title)
-    fig.tight_layout()
-
-    if output_folder is not None and file_name is not None:
-        plt.savefig(output_folder + "/" + file_name)
-
-    if display is True:
-        plt.show()
-    else:
-        plt.close()

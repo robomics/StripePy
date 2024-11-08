@@ -51,11 +51,4 @@ def TDA(marginal_pd, min_persistence=None):
         MaximumPoints = np.array(list(zip(*MaximumPointsAndPersistence))[0])[argsorting].tolist()
         # pers_of_MaximumPoints = np.array(list(zip(*MaximumPointsAndPersistence))[1])[argsorting].tolist()
 
-        # # Plot persistence diagram (NB: global maximum is NOT included)
-        # if output_folder is not None:
-        #     plot_persistence(
-        #         marginal_pd[MaximumPoints[:-1]], marginal_pd[MinimumPoints],
-        #         marginal_pd[ThreshMaximumPoints[:-1]], marginal_pd[ThreshMinimumPoints],
-        #         output_folder=output_folder, file_name=file_name, title=title, display=display)
-
     return ThreshMinimumPoints, pers_of_ThreshMinimumPoints, ThreshMaximumPoints, pers_of_ThreshMaximumPoints
