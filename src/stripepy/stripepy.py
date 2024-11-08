@@ -84,35 +84,26 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     LT_pd = _compute_global_pseudodistribution(L)
     UT_pd = _compute_global_pseudodistribution(U)
 
-    # Keep track of all maxima and persistence values:
-    hf["LT/"].create_dataset("pseudo-distribution", data=np.array(LT_pd))
-    hf["UT/"].create_dataset("pseudo-distribution", data=np.array(UT_pd))
-
     print("2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...")
 
     print("2.2.0) All maxima and their persistence")
     # NOTATION: mPs = minimum points, MPs = maximum Points, ps = persistence-sorted
     # NB: MPs are the actual sites of interest, i.e., the sites hosting linear patterns
-    LT_ps_mPs, pers_of_LT_ps_mPs, LT_ps_MPs, pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=0)
-    UT_ps_mPs, pers_of_UT_ps_mPs, UT_ps_MPs, pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=0)
 
-    # Store results:
-    hf["LT/"].create_dataset("minima_pts_and_persistence", data=np.array([LT_ps_mPs, pers_of_LT_ps_mPs]))
-    hf["LT/"].create_dataset("maxima_pts_and_persistence", data=np.array([LT_ps_MPs, pers_of_LT_ps_MPs]))
-    hf["UT/"].create_dataset("minima_pts_and_persistence", data=np.array([UT_ps_mPs, pers_of_UT_ps_mPs]))
-    hf["UT/"].create_dataset("maxima_pts_and_persistence", data=np.array([UT_ps_MPs, pers_of_UT_ps_MPs]))
+    # All local minimum and maximum points:
+    all_LT_ps_mPs, all_pers_of_LT_ps_mPs, all_LT_ps_MPs, all_pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=0)
+    all_UT_ps_mPs, all_pers_of_UT_ps_mPs, all_UT_ps_MPs, all_pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=0)
 
+    # TODO: this flag is always used as constant in experiments, check if still necessary/useful
     if thresh_pers_type == "constant":
         min_persistence = thresh_pers_value
     else:
         # min_persistence = (np.quantile(LT_pers_of_MPs, 0.75) +
         #                    1.5 * (np.quantile(LT_pers_of_MPs, 0.75) - np.quantile(LT_pers_of_MPs, 0.25)))
-        min_persistence_LT = np.quantile(pers_of_LT_ps_MPs, thresh_pers_value)
-        min_persistence_UT = np.quantile(pers_of_UT_ps_MPs, thresh_pers_value)
+        min_persistence_LT = np.quantile(all_pers_of_LT_ps_MPs, thresh_pers_value)
+        min_persistence_UT = np.quantile(all_pers_of_UT_ps_MPs, thresh_pers_value)
         min_persistence = np.max(min_persistence_LT, min_persistence_UT)
         print(f"This quantile is used: {thresh_pers_value}")
-    hf.attrs["thresholding_type"] = thresh_pers_type
-    hf.attrs["min_persistence_used"] = min_persistence
 
     print("2.2.1) Lower triangular part")
     LT_ps_mPs, pers_of_LT_ps_mPs, LT_ps_MPs, pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=min_persistence)
@@ -161,6 +152,16 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     pseudo_distributions["upper"]["persistent_maximum_points"] = UT_MPs
     pseudo_distributions["lower"]["persistence_of_maximum_points"] = LT_pers_of_MPs
     pseudo_distributions["upper"]["persistence_of_maximum_points"] = UT_pers_of_MPs
+
+    # Store results:
+    hf["LT/"].create_dataset("pseudo-distribution", data=np.array(LT_pd))
+    hf["UT/"].create_dataset("pseudo-distribution", data=np.array(UT_pd))
+    hf["LT/"].create_dataset("minima_pts_and_persistence", data=np.array([all_LT_ps_mPs, all_pers_of_LT_ps_mPs]))
+    hf["LT/"].create_dataset("maxima_pts_and_persistence", data=np.array([all_LT_ps_MPs, all_pers_of_LT_ps_MPs]))
+    hf["UT/"].create_dataset("minima_pts_and_persistence", data=np.array([all_UT_ps_mPs, all_pers_of_UT_ps_mPs]))
+    hf["UT/"].create_dataset("maxima_pts_and_persistence", data=np.array([all_UT_ps_MPs, all_pers_of_UT_ps_MPs]))
+    hf.attrs["thresholding_type"] = thresh_pers_type
+    hf.attrs["min_persistence_used"] = min_persistence
 
     if RoI is not None:
 
