@@ -84,9 +84,9 @@ class Stripe:
                 )
 
             # Mean intensity:
-            if self.outer_descriptors["r-mean"] == np.nan:
+            if np.isnan(self.outer_descriptors["r-mean"]):
                 self.outer_descriptors["mean"] = self.outer_descriptors["l-mean"]
-            elif self.outer_descriptors["l-mean"] == np.nan:
+            elif np.isnan(self.outer_descriptors["l-mean"]):
                 self.outer_descriptors["mean"] = self.outer_descriptors["r-mean"]
             else:
                 self.outer_descriptors["mean"] = (
