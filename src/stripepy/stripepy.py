@@ -302,9 +302,9 @@ def step_3(
 
     print("3.1.2) Updating list of Stripe objects with HIoIs...")
     for num_cand_stripe, (LT_L_bound, LT_R_bound) in enumerate(zip(LT_L_bounds, LT_R_bounds)):
-        candidate_stripes["lower"][num_cand_stripe].set_horizontal_bounds((LT_L_bound, LT_R_bound))
+        candidate_stripes["lower"][num_cand_stripe].set_horizontal_bounds(LT_L_bound, LT_R_bound)
     for num_cand_stripe, (UT_L_bound, UT_R_bound) in enumerate(zip(UT_L_bounds, UT_R_bounds)):
-        candidate_stripes["upper"][num_cand_stripe].set_horizontal_bounds((UT_L_bound, UT_R_bound))
+        candidate_stripes["upper"][num_cand_stripe].set_horizontal_bounds(UT_L_bound, UT_R_bound)
 
     if all([param is not None for param in [RoI, output_folder]]):
 
@@ -480,9 +480,9 @@ def step_3(
 
     print("3.2.2) Updating list of Stripe objects with VIoIs...")
     for num_cand_stripe, (LT_U_bound, LT_D_bound) in enumerate(zip(LT_U_bounds, LT_D_bounds)):
-        candidate_stripes["lower"][num_cand_stripe].set_vertical_bounds((LT_U_bound, LT_D_bound))
+        candidate_stripes["lower"][num_cand_stripe].set_vertical_bounds(LT_U_bound, LT_D_bound)
     for num_cand_stripe, (UT_U_bound, UT_D_bound) in enumerate(zip(UT_U_bounds, UT_D_bounds)):
-        candidate_stripes["upper"][num_cand_stripe].set_vertical_bounds((UT_U_bound, UT_D_bound))
+        candidate_stripes["upper"][num_cand_stripe].set_vertical_bounds(UT_U_bound, UT_D_bound)
 
     print(f"Execution time: {time.time() - start_time} seconds ---")
 

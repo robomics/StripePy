@@ -38,12 +38,12 @@ class Stripe(object):
         self._left_bound = None
         self._right_bound = None
         if horizontal_bounds is not None:
-            self.set_horizontal_bounds(horizontal_bounds)
+            self.set_horizontal_bounds(*horizontal_bounds)
 
         self._bottom_bound = None
         self._top_bound = None
         if vertical_bounds is not None:
-            self.set_vertical_bounds(vertical_bounds)
+            self.set_vertical_bounds(*vertical_bounds)
 
         self._five_number = None
         self._inner_mean = None
@@ -228,27 +228,31 @@ class Stripe(object):
 
         return abs(self.inner_mean - self.outer_mean) / self.outer_mean * 100
 
-    def set_horizontal_bounds(self, horizontal_bounds: Tuple[int, int]):
+    def set_horizontal_bounds(self, left_bound: int, right_bound: int):
         if self._left_bound is not None:
             assert self._right_bound is not None
             raise RuntimeError("horizontal stripe bounds have already been set")
 
-        left, right = horizontal_bounds
-        if not left <= self._seed <= right:
-            raise ValueError(f"horizontal bounds must enclose the seed position: seed={self._seed}, {left=}, {right=}")
+        if not left_bound <= self._seed <= right_bound:
+            raise ValueError(
+                f"horizontal bounds must enclose the seed position: seed={self._seed}, {left_bound=}, {right_bound=}"
+            )
 
-        self._left_bound, self._right_bound = horizontal_bounds
+        self._left_bound = left_bound
+        self._right_bound = right_bound
 
-    def set_vertical_bounds(self, vertical_bounds: Tuple[int, int]):
+    def set_vertical_bounds(self, top_bound: int, bottom_bound: int):
         if self._bottom_bound is not None:
             assert self._top_bound is not None
             raise RuntimeError("vertical stripe bounds have already been set")
 
-        top, bottom = vertical_bounds
-        if top > bottom:
-            raise ValueError("the lower vertical bound must be greater than the upper vertical bound")
+        if top_bound > bottom_bound:
+            raise ValueError(
+                f"the lower vertical bound must be greater than the upper vertical bound: {top_bound=}, {bottom_bound=}"
+            )
 
-        self._top_bound, self._bottom_bound = vertical_bounds
+        self._top_bound = top_bound
+        self._bottom_bound = bottom_bound
 
         computed_where = self._infer_location(self._seed, self._top_bound, self._bottom_bound)
 
