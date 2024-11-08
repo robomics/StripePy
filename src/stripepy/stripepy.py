@@ -1,6 +1,7 @@
 import time
 from typing import List, Tuple
 
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -64,6 +65,23 @@ def _find_seeds_in_RoI(
     seeds_in_RoI = np.array(seeds)[ids_seeds_in_RoI].tolist()
 
     return ids_seeds_in_RoI, seeds_in_RoI
+
+
+def _store_results(
+    hf: h5py._hl.group.Group,
+    pd: NDArray[np.float64],
+    min_points: List[int],
+    pers_of_min_points: List[float],
+    max_points: List[int],
+    pers_of_max_points: List[float],
+    thresh_pers_type: str,
+    min_persistence: float,
+):
+    hf.create_dataset("pseudo-distribution", data=np.array(pd))
+    hf.create_dataset("minima_pts_and_persistence", data=np.array([min_points, pers_of_min_points]))
+    hf.create_dataset("maxima_pts_and_persistence", data=np.array([max_points, pers_of_max_points]))
+    hf.parent.attrs["thresholding_type"] = thresh_pers_type
+    hf.parent.attrs["min_persistence_used"] = min_persistence
 
 
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
@@ -187,14 +205,26 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     }
 
     # Store results:
-    hf["LT/"].create_dataset("pseudo-distribution", data=np.array(LT_pd))
-    hf["UT/"].create_dataset("pseudo-distribution", data=np.array(UT_pd))
-    hf["LT/"].create_dataset("minima_pts_and_persistence", data=np.array([all_LT_ps_mPs, all_pers_of_LT_ps_mPs]))
-    hf["LT/"].create_dataset("maxima_pts_and_persistence", data=np.array([all_LT_ps_MPs, all_pers_of_LT_ps_MPs]))
-    hf["UT/"].create_dataset("minima_pts_and_persistence", data=np.array([all_UT_ps_mPs, all_pers_of_UT_ps_mPs]))
-    hf["UT/"].create_dataset("maxima_pts_and_persistence", data=np.array([all_UT_ps_MPs, all_pers_of_UT_ps_MPs]))
-    hf.attrs["thresholding_type"] = thresh_pers_type
-    hf.attrs["min_persistence_used"] = min_persistence
+    _store_results(
+        hf["LT/"],
+        LT_pd,
+        all_LT_ps_mPs,
+        all_pers_of_LT_ps_mPs,
+        all_LT_ps_MPs,
+        all_pers_of_LT_ps_MPs,
+        thresh_pers_type,
+        min_persistence,
+    )
+    _store_results(
+        hf["UT/"],
+        UT_pd,
+        all_UT_ps_mPs,
+        all_pers_of_UT_ps_mPs,
+        all_UT_ps_MPs,
+        all_pers_of_UT_ps_MPs,
+        thresh_pers_type,
+        min_persistence,
+    )
 
     if RoI is not None:
 
