@@ -1,4 +1,5 @@
 import time
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,6 +25,17 @@ def _compute_global_pseudodistribution(T: ss.csr_matrix) -> NDArray[np.float64]:
     pd /= np.max(pd)  # scaling
     pd = np.maximum(regressions._compute_wQISA_predictions(pd, 11), pd)  # smoothing
     return pd
+
+
+def _sort_extrema_by_coordinate(ps_ePs: List[int], pers_of_ps_ePs: List[float]) -> Tuple[List[int], List[float]]:
+
+    permutation_ps2cs_ePs = np.argsort(ps_ePs)
+
+    # Maximum and minimum points sorted w.r.t. coordinates: actual application of permutations
+    cs_ePs = np.array(ps_ePs)[permutation_ps2cs_ePs].tolist()
+    cs_pers_of_ePs = np.array(pers_of_ps_ePs)[permutation_ps2cs_ePs].tolist()
+
+    return cs_ePs, cs_pers_of_ePs
 
 
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
@@ -109,25 +121,17 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     LT_ps_mPs, pers_of_LT_ps_mPs, LT_ps_MPs, pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=min_persistence)
 
     print("2.2.2) Upper triangular part")
+    # Here, LT_ps_mPs means that the lower-triangular minimum points are sorted w.r.t. persistence
+    # (NOTATION: ps = persistence-sorted)
     UT_ps_mPs, pers_of_UT_ps_mPs, UT_ps_MPs, pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=min_persistence)
-
     # NB: Maxima are sorted w.r.t. their persistence... and this sorting is applied to minima too,
-    # so that each maximum is still paired to its minimum!
+    # so that each maximum is still paired to its minimum.
 
-    # Maximum and minimum points sorted w.r.t. coordinates: permutations and inverse permutations
-    # NOTATION: cs = coordinate-sorted
-    LT_permutation_ps2cs_mPs = np.argsort(LT_ps_mPs)
-    LT_permutation_ps2cs_MPs = np.argsort(LT_ps_MPs)
-    UT_permutation_ps2cs_mPs = np.argsort(UT_ps_mPs)
-    UT_permutation_ps2cs_MPs = np.argsort(UT_ps_MPs)
-
-    # Maximum and minimum points sorted w.r.t. coordinates: actual application of permutations
-    LT_mPs = np.array(LT_ps_mPs)[LT_permutation_ps2cs_mPs].tolist()
-    LT_MPs = np.array(LT_ps_MPs)[LT_permutation_ps2cs_MPs].tolist()
-    UT_mPs = np.array(UT_ps_mPs)[UT_permutation_ps2cs_mPs].tolist()
-    UT_MPs = np.array(UT_ps_MPs)[UT_permutation_ps2cs_MPs].tolist()
-    LT_pers_of_MPs = np.array(pers_of_LT_ps_MPs)[LT_permutation_ps2cs_MPs].tolist()
-    UT_pers_of_MPs = np.array(pers_of_UT_ps_MPs)[UT_permutation_ps2cs_MPs].tolist()
+    # Maximum and minimum points sorted w.r.t. coordinates (NOTATION: cs = coordinate-sorted):
+    LT_mPs, _ = _sort_extrema_by_coordinate(LT_ps_mPs, pers_of_LT_ps_mPs)
+    LT_MPs, LT_pers_of_MPs = _sort_extrema_by_coordinate(LT_ps_MPs, pers_of_LT_ps_MPs)
+    UT_mPs, _ = _sort_extrema_by_coordinate(UT_ps_mPs, pers_of_UT_ps_mPs)
+    UT_MPs, UT_pers_of_MPs = _sort_extrema_by_coordinate(UT_ps_MPs, pers_of_UT_ps_MPs)
 
     print("2.3) Storing into a list of Stripe objects...")
     candidate_stripes = dict()
