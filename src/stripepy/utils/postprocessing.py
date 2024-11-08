@@ -2,6 +2,9 @@ import numpy as np
 
 from . import stripe
 
+# TODO All functions defined in this file appear to be unused.
+#      Review!
+
 
 def filter_stripes(candida_stripes, threshold):
     rel_changes = np.array([candida_stripe.rel_change for candida_stripe in candida_stripes])
