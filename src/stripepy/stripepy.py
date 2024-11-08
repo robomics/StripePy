@@ -103,8 +103,6 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
 def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=None, RoI=None, output_folder=None):
 
     print("2.1) Global 1D pseudo-distributions...")
-
-    # Pseudo-distributions:
     LT_pd = _compute_global_pseudodistribution(L)
     UT_pd = _compute_global_pseudodistribution(U)
 
@@ -157,17 +155,20 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     ]
 
     # Dictionary containing everything that should be returned
-    pseudo_distributions = dict()
-    pseudo_distributions["lower"] = dict()
-    pseudo_distributions["upper"] = dict()
-    pseudo_distributions["lower"]["pseudo-distribution"] = LT_pd
-    pseudo_distributions["upper"]["pseudo-distribution"] = UT_pd
-    pseudo_distributions["lower"]["persistent_minimum_points"] = LT_mPs
-    pseudo_distributions["upper"]["persistent_minimum_points"] = UT_mPs
-    pseudo_distributions["lower"]["persistent_maximum_points"] = LT_MPs
-    pseudo_distributions["upper"]["persistent_maximum_points"] = UT_MPs
-    pseudo_distributions["lower"]["persistence_of_maximum_points"] = LT_pers_of_MPs
-    pseudo_distributions["upper"]["persistence_of_maximum_points"] = UT_pers_of_MPs
+    pseudo_distributions = {
+        "lower": {
+            "pseudo-distribution": LT_pd,
+            "persistent_minimum_points": LT_mPs,
+            "persistent_maximum_points": LT_MPs,
+            "persistence_of_maximum_points": LT_pers_of_MPs,
+        },
+        "upper": {
+            "pseudo-distribution": UT_pd,
+            "persistent_minimum_points": UT_mPs,
+            "persistent_maximum_points": UT_MPs,
+            "persistence_of_maximum_points": UT_pers_of_MPs,
+        },
+    }
 
     # Store results:
     hf["LT/"].create_dataset("pseudo-distribution", data=np.array(LT_pd))
