@@ -1,7 +1,7 @@
 import numpy as np
 
 from .persistence1d import (
-    DiversifyExtremumPointsAndPersistence,
+    diversify_extremum_points_and_persistence,
     filter_extremum_points_by_persistence,
     run_persistence,
 )
@@ -18,10 +18,10 @@ def TDA(marginal_pd, min_persistence=None):
     )
 
     # Split extremum points into minimum and maximum points:
-    (MinimumPointsAndPersistence, MaximumPointsAndPersistence) = DiversifyExtremumPointsAndPersistence(
+    (MinimumPointsAndPersistence, MaximumPointsAndPersistence) = diversify_extremum_points_and_persistence(
         ExtremumPointsAndPersistence, level_set="upper"
     )
-    (ThreshMinimumPointsAndPersistence, ThreshMaximumPointsAndPersistence) = DiversifyExtremumPointsAndPersistence(
+    (ThreshMinimumPointsAndPersistence, ThreshMaximumPointsAndPersistence) = diversify_extremum_points_and_persistence(
         ThreshExtremumPointsAndPersistence, level_set="upper"
     )
 

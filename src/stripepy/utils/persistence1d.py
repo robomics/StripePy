@@ -103,15 +103,15 @@ def run_persistence(data, level_sets="lower"):
     return extremum_points_and_persistence
 
 
-def DiversifyExtremumPointsAndPersistence(ExtremumPointsAndPersistence, level_set):
-    MinimumPointsAndPersistence = [t for t in ExtremumPointsAndPersistence[::2]]
-    MaximumPointsAndPersistence = [t for t in ExtremumPointsAndPersistence[1::2]]
+def diversify_extremum_points_and_persistence(extremum_points_and_persistence, level_set):
+    min_points_and_persistence = [t for t in extremum_points_and_persistence[::2]]
+    max_points_and_persistence = [t for t in extremum_points_and_persistence[1::2]]
 
     if level_set == "upper":
-        MaximumPointsAndPersistence = MaximumPointsAndPersistence + [MinimumPointsAndPersistence[-1]]
-        MinimumPointsAndPersistence = MinimumPointsAndPersistence[:-1]
+        max_points_and_persistence = max_points_and_persistence + [min_points_and_persistence[-1]]
+        min_points_and_persistence = min_points_and_persistence[:-1]
 
-    return MinimumPointsAndPersistence, MaximumPointsAndPersistence
+    return min_points_and_persistence, max_points_and_persistence
 
 
 def filter_extremum_points_by_persistence(extremum_points_and_persistence, threshold):
