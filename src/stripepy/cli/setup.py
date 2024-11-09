@@ -270,7 +270,7 @@ def parse_args() -> Tuple[str, Any]:
 
     subcommand = args.pop("subcommand")
     if subcommand == "call":
-        return subcommand, *_process_stripepy_call_args(args)
+        return subcommand, _process_stripepy_call_args(args)
     if subcommand == "download":
         return subcommand, args
 
