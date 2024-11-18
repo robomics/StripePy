@@ -43,7 +43,9 @@ def run(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any], confi
     f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact-map"], configs_input["resolution"])
 
     # Remove existing folders:
-    configs_output["output_folder"] = f"{configs_output['output_folder']}/{configs_input['resolution']}"
+    configs_output["output_folder"] = (
+        f"{configs_output['output_folder']}/{configs_input['contact-map'].stem}/{configs_input['resolution']}"
+    )
     IO.remove_and_create_folder(configs_output["output_folder"])
 
     # Extract a list of tuples where each tuple is (index, chr), e.g. (2,'chr3'):
