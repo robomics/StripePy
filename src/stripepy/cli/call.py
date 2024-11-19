@@ -43,10 +43,13 @@ def run(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any], confi
     f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact-map"], configs_input["resolution"])
 
     # Remove existing folders:
+    # configs_output["output_folder"] = (
+    #     f"{configs_output['output_folder']}/{configs_input['contact-map'].stem}/{configs_input['resolution']}"
+    # )
     configs_output["output_folder"] = (
-        f"{configs_output['output_folder']}/{configs_input['contact-map'].stem}/{configs_input['resolution']}"
+        configs_output["output_folder"] / configs_input["contact-map"].stem / str(configs_input["resolution"])
     )
-    IO.remove_and_create_folder(configs_output["output_folder"])
+    IO.remove_and_create_folder(configs_output["output_folder"], configs_output["force"])
 
     # Extract a list of tuples where each tuple is (index, chr), e.g. (2,'chr3'):
     c_pairs = others.chromosomes_to_study(list(f.chromosomes().keys()), bp_lengths, MIN_SIZE_CHROMOSOME)
@@ -73,7 +76,7 @@ def run(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any], confi
         # Removing and creating folders to store output files:
         # configs_input['roi'] = None
         if configs_input["roi"] is not None:
-            IO.create_folders_for_plots(f"{configs_output['output_folder']}/plots/{this_chr}")
+            IO.create_folders_for_plots(configs_output["output_folder"] / "plots" / this_chr)
 
         I = f.fetch(this_chr, normalization=configs_input["normalization"]).to_csr("full")
 
