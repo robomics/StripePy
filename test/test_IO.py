@@ -46,9 +46,8 @@ class TestRemoveAndCreateFolder:
             assert test_dir.is_dir()
             assert _directory_is_empty(test_dir)
 
-            with pytest.raises(RuntimeError) as e:
+            with pytest.raises(RuntimeError, match="already exists. Pass --force to overwrite it"):
                 remove_and_create_folder(test_dir, force=False)
-            assert "already exists. Pass --force to overwrite it." in str(e.value)
 
     @staticmethod
     def test_overwrite_existing_folder(tmpdir):
