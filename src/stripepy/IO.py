@@ -24,22 +24,6 @@ class ANSI:
     ENDC = "\033[0m"
 
 
-# TODO: Rename function
-# The current name gives the impression that calling this function will list existing folders
-# while in reality the function **generate** a list of folder (names)
-def list_folders_for_plots(path: pathlib.Path) -> List[pathlib.Path]:
-    # TODO: should this function check that path exists and is an existing folder?
-    path = pathlib.Path(path)
-    return [
-        path,
-        path / "1_preprocessing",
-        path / "2_TDA",
-        path / "3_shape_analysis",
-        path / "4_biological_analysis",
-        path / "3_shape_analysis" / "local_pseudodistributions",
-    ]
-
-
 def remove_and_create_folder(path: pathlib.Path, force: bool):
     path = pathlib.Path(path)
 
@@ -54,9 +38,17 @@ def remove_and_create_folder(path: pathlib.Path, force: bool):
     path.mkdir(parents=True)
 
 
-def create_folders_for_plots(path):
+def create_folders_for_plots(path: pathlib.Path):
+    path = pathlib.Path(path)
 
-    folders4plots = list_folders_for_plots(path)
+    folders4plots = [
+        path,
+        path / "1_preprocessing",
+        path / "2_TDA",
+        path / "3_shape_analysis",
+        path / "4_biological_analysis",
+        path / "3_shape_analysis" / "local_pseudodistributions",
+    ]
 
     # Creating folders:
     for folder2create in folders4plots:
