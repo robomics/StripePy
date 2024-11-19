@@ -1,4 +1,3 @@
-import os
 import pathlib
 import shutil
 from typing import List
@@ -25,13 +24,24 @@ class ANSI:
     ENDC = "\033[0m"
 
 
-# TODO: Rename function
-# The current name gives the impression that calling this function will list existing folders
-# while in reality the function **generate** a list of folder (names)
-def list_folders_for_plots(path: os.PathLike) -> List[pathlib.Path]:
-    # TODO: should this function check that path exists and is an existing folder?
+def remove_and_create_folder(path: pathlib.Path, force: bool):
     path = pathlib.Path(path)
-    return [
+
+    # Deleting folders:
+    if path.exists():
+        if not force:
+            raise RuntimeError(f"output folder {path} already exists. Pass --force to overwrite it.")
+        else:
+            shutil.rmtree(path)
+
+    # Create the folder:
+    path.mkdir(parents=True)
+
+
+def create_folders_for_plots(path: pathlib.Path):
+    path = pathlib.Path(path)
+
+    folders4plots = [
         path,
         path / "1_preprocessing",
         path / "2_TDA",
@@ -40,37 +50,9 @@ def list_folders_for_plots(path: os.PathLike) -> List[pathlib.Path]:
         path / "3_shape_analysis" / "local_pseudodistributions",
     ]
 
-
-def remove_and_create_folder(path):
-
-    # Deleting folders:
-    if os.path.exists(path):
-
-        # TODO: in release, ask to confirm deletion...
-        # confirm = input("The output folder already exists. Do you want to delete it? (y/n) ")
-        confirm = "y"
-
-        if confirm.lower() == "y":
-            # Remove the folder and its contents
-            shutil.rmtree(path)
-            print("Output folder and its contents have been deleted.")
-        else:
-            print("Deletion of output folder canceled.")
-            exit(0)
-
-    # Create the folder:
-    os.makedirs(path)
-
-
-def create_folders_for_plots(path):
-
-    folders4plots = list_folders_for_plots(path)
-
     # Creating folders:
     for folder2create in folders4plots:
-        isExist = os.path.exists(folder2create)
-        if not isExist:
-            os.makedirs(folder2create)
+        folder2create.mkdir(parents=True)
 
     return folders4plots
 
