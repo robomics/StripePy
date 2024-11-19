@@ -2,6 +2,8 @@ import pathlib
 import shutil
 import tempfile
 
+import pytest
+
 from stripepy.IO import create_folders_for_plots, remove_and_create_folder
 
 
@@ -33,6 +35,7 @@ def test_folders_for_plots(tmpdir):
 
 
 class TestRemoveAndCreateFolder:
+    # RuntimeError(f"output folder {path} already exists. Pass --force to overwrite it.")
     @staticmethod
     def test_create_new_folder(tmpdir):
         with tempfile.TemporaryDirectory(dir=tmpdir) as tmpdir:
@@ -42,6 +45,10 @@ class TestRemoveAndCreateFolder:
             remove_and_create_folder(test_dir, force=True)
             assert test_dir.is_dir()
             assert _directory_is_empty(test_dir)
+
+            with pytest.raises(RuntimeError) as e:
+                remove_and_create_folder(test_dir, force=False)
+            assert "already exists. Pass --force to overwrite it." in str(e.value)
 
     @staticmethod
     def test_overwrite_existing_folder(tmpdir):

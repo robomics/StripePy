@@ -30,7 +30,7 @@ def remove_and_create_folder(path: pathlib.Path, force: bool):
     # Deleting folders:
     if path.exists():
         if not force:
-            raise RuntimeError(f"refusing to overwrite file {path}. Pass --force to overwrite.")
+            raise RuntimeError(f"output folder {path} already exists. Pass --force to overwrite it.")
         else:
             shutil.rmtree(path)
 
