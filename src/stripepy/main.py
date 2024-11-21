@@ -1,10 +1,11 @@
 import logging
 import pathlib
+from typing import Union
 
 from .cli import call, download, setup
 
 
-def _setup_logger(level: str, file: pathlib.Path | None = None):
+def _setup_logger(level: str, file: Union[pathlib.Path, None] = None):
     fmt = "[%(asctime)s] %(levelname)s: %(message)s"
     try:
         if file is not None:
