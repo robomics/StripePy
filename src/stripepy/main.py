@@ -11,7 +11,7 @@ def _setup_logger(level: str):
 
 def main():
     subcommand, args = setup.parse_args()
-    _setup_logger("INFO")  # TODO make tunable
+    _setup_logger(args["verbosity"].upper())
 
     if subcommand == "call":
         return call.run(**args)

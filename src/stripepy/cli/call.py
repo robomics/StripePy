@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Any, Dict
 
@@ -35,9 +36,31 @@ def print_all_attributes(obj, parent=""):
             print(f"{parent}/{key}: {val}")
 
 
+def write_param_summary(
+    configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any], configs_output: Dict[str, Any]
+):
+    logging.info("Arguments:")
+    logging.info(f"--contact-map: {configs_input['contact-map']}")
+    logging.info(f"--resolution: {configs_input['resolution']}")
+    logging.info(f"--normalization: {configs_input['normalization']}")
+    logging.info(f"--genomic-belt: {configs_input['genomic_belt']}")
+    logging.info(f"--roi: {configs_input['roi']}")
+    logging.info(f"--max-width: {configs_thresholds['max_width']}")
+    logging.info(f"--glob-pers-type: {configs_thresholds['glob_pers_type']}")
+    logging.info(f"--glob-pers-min: {configs_thresholds['glob_pers_min']}")
+    logging.info(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
+    logging.info(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
+    logging.info(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
+    logging.info(f"--output-folder: {configs_output['output_folder']}")
+    logging.info(f"--force: {configs_output['force']}")
+    logging.info(f"--verbosity: {configs_output['verbosity']}")
+
+
 def run(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any], configs_output: Dict[str, Any]):
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
+
+    write_param_summary(configs_input, configs_thresholds, configs_output)
 
     # Data loading:
     f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact-map"], configs_input["resolution"])

@@ -150,6 +150,14 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Overwrite existing file(s).",
     )
 
+    sc.add_argument(
+        "--verbosity",
+        type=str,
+        choices=["debug", "info", "warning", "error", "critical"],
+        default="info",
+        help="Set verbosity of output to the console.",
+    )
+
     return sc
 
 
@@ -204,6 +212,13 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         default=False,
         help="Overwrite existing file(s).",
     )
+    sc.add_argument(
+        "--verbosity",
+        type=str,
+        choices=["debug", "info", "warning", "error", "critical"],
+        default="info",
+        help="Set verbosity of output to the console.",
+    )
 
     return sc
 
@@ -252,23 +267,7 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
             "max_width",
         ]
     }
-    configs_output = {key: args[key] for key in ["output_folder", "force"]}
-
-    # Print the used parameters (chosen or default-ones):
-    print("\nArguments:")
-    print(f"--contact-map: {configs_input['contact-map']}")
-    print(f"--resolution: {configs_input['resolution']}")
-    print(f"--normalization: {configs_input['normalization']}")
-    print(f"--genomic-belt: {configs_input['genomic_belt']}")
-    print(f"--roi: {configs_input['roi']}")
-    print(f"--max-width: {configs_thresholds['max_width']}")
-    print(f"--glob-pers-type: {configs_thresholds['glob_pers_type']}")
-    print(f"--glob-pers-min: {configs_thresholds['glob_pers_min']}")
-    print(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
-    print(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
-    print(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
-    print(f"--output-folder: {configs_output['output_folder']}")
-    print(f"--force: {configs_output['force']}")
+    configs_output = {key: args[key] for key in ["output_folder", "force", "verbosity"]}
 
     return {"configs_input": configs_input, "configs_thresholds": configs_thresholds, "configs_output": configs_output}
 
