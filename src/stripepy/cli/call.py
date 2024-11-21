@@ -69,9 +69,7 @@ def run(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any], confi
     # configs_output["output_folder"] = (
     #     f"{configs_output['output_folder']}/{configs_input['contact-map'].stem}/{configs_input['resolution']}"
     # )
-    configs_output["output_folder"] = (
-        configs_output["output_folder"] / configs_input["contact-map"].stem / str(configs_input["resolution"])
-    )
+
     IO.remove_and_create_folder(configs_output["output_folder"], configs_output["force"])
 
     # Extract a list of tuples where each tuple is (index, chr), e.g. (2,'chr3'):

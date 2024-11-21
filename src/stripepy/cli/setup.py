@@ -269,6 +269,10 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     }
     configs_output = {key: args[key] for key in ["output_folder", "force", "verbosity"]}
 
+    configs_output["output_folder"] = (
+        configs_output["output_folder"] / configs_input["contact-map"].stem / str(configs_input["resolution"])
+    )
+
     return {"configs_input": configs_input, "configs_thresholds": configs_thresholds, "configs_output": configs_output}
 
 
