@@ -97,6 +97,8 @@ def HiC(I, RoI, plot_in_bp=False, output_folder=None, file_name=None, title=None
     :param compactify:          if False, it adds axes ticks, color bars
     :return:                    -
     """
+    if output_folder is None or file_name is None:
+        return
 
     fig, ax = plt.subplots(1, 1)
     img = ax.matshow(I, vmax=np.amax(I), extent=(RoI[0], RoI[1], RoI[3], RoI[2]), cmap=fruit_punch)
@@ -114,11 +116,9 @@ def HiC(I, RoI, plot_in_bp=False, output_folder=None, file_name=None, title=None
     plt.axis("scaled")
     fig.tight_layout()
 
-    if output_folder is not None and file_name is not None:
-        plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
+    plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
 
     plt.close()
-    plt.clf()
 
 
 def pseudodistrib(
@@ -189,11 +189,9 @@ def pseudodistrib(
     if output_folder is not None and file_name is not None:
         plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
 
-    if display is True:
+    if display:
         plt.show()
-    else:
-        plt.close()
-    plt.clf()
+    plt.close()
 
 
 def pseudodistrib_and_HIoIs(
@@ -240,11 +238,9 @@ def pseudodistrib_and_HIoIs(
     if output_folder is not None and file_name is not None:
         plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
 
-    if display is True:
+    if display:
         plt.show()
-    else:
-        plt.close()
-    plt.clf()
+    plt.close()
 
 
 def HiC_and_sites(
@@ -313,9 +309,7 @@ def HiC_and_sites(
 
     if display is True:
         plt.show()
-    else:
-        plt.close()
-    plt.clf()
+    plt.close()
 
 
 def HiC_and_HIoIs(
@@ -412,11 +406,9 @@ def HiC_and_HIoIs(
     if output_folder is not None and file_name is not None:
         plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
 
-    if display is True:
+    if display:
         plt.show()
-    else:
-        plt.close()
-    plt.clf()
+    plt.close()
 
 
 def plot_stripes(
@@ -539,11 +531,9 @@ def plot_stripes(
     if output_folder is not None and file_name is not None:
         plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
 
-    if display is True:
+    if display:
         plt.show()
-    else:
-        plt.close()
-    plt.clf()
+    plt.close()
 
 
 def plot_stripes_and_peaks(
@@ -676,11 +666,9 @@ def plot_stripes_and_peaks(
     if output_folder is not None and file_name is not None:
         plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
 
-    if display is True:
+    if display:
         plt.show()
-    else:
-        plt.close()
-    plt.clf()
+    plt.close()
 
 
 def save_candidates_bedpe(HIoIs, VIoIs, resolution, chr, output_folder, file_name):
@@ -700,4 +688,3 @@ def save_candidates_bedpe(HIoIs, VIoIs, resolution, chr, output_folder, file_nam
                 f"{chr}\t{resolution * HIoI[0]}\t{resolution * HIoI[1]}\t"
                 f"{chr}\t{resolution * VIoI[0]}\t{resolution * VIoI[1]}\n"
             )
-    f.close()
