@@ -179,7 +179,7 @@ def find_upper_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
     return Vdomain_and_peaks
 
 
-def find_HIoIs(pd, seed_sites, seed_site_bounds, max_width):
+def find_HIoIs(pd, seed_sites, seed_site_bounds, max_width, map=map):
     """
     :param pd:                  acronym for pseudo-distribution, but can be any 1D array representing a uniformly-sample
                                 scalar function works
@@ -189,6 +189,7 @@ def find_HIoIs(pd, seed_sites, seed_site_bounds, max_width):
                                 (*) seed_site_bounds[i] is the left boundary
                                 (*) seed_site_bounds[i+1] is the right boundary
     :param max_width:           maximum width allowed
+    :param map:                 alternative implementation of the built-in map function. Can be used to e.g. run this step in parallel by passing multiprocessing.Pool().map.
     :return:
     HIoIs                       list of lists, where each sublist is a pair consisting of the left and right boundaries
     """
@@ -197,10 +198,8 @@ def find_HIoIs(pd, seed_sites, seed_site_bounds, max_width):
         (seed_site, seed_site_bounds[num_MP], seed_site_bounds[num_MP + 1])
         for num_MP, seed_site in enumerate(seed_sites)
     ]
-    with Pool() as pool:
-        HIoIs = pool.map(partial(find_horizontal_domain, pd, max_width=max_width), iterable_input)
-        pool.close()
-        pool.join()
+
+    HIoIs = map(partial(find_horizontal_domain, pd, max_width=max_width), iterable_input)
 
     # Handle possible overlapping intervals:
     for i in range(len(HIoIs) - 1):
@@ -223,6 +222,7 @@ def find_VIoIs(
     VIoIs2plot=None,
     output_folder=None,
     where="lower",
+    map=map,
 ):
 
     # Triplets to use in multiprocessing:
@@ -230,24 +230,20 @@ def find_VIoIs(
 
     # Lower-triangular part of the Hi-C matrix:
     if where == "lower":
-
-        with Pool() as pool:
-            Vdomains_and_peaks = pool.map(
-                partial(find_lower_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
-                iterable_input,
-            )
+        Vdomains_and_peaks = map(
+            partial(find_lower_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
+            iterable_input,
+        )
 
         VIoIs, peak_locs = list(zip(*Vdomains_and_peaks))
 
     # Upper-triangular part of the Hi-C matrix:
     elif where == "upper":
-
-        with Pool() as pool:
-            # HIoIs = pool.map(partial(find_h_domain, pd), iterable_input)
-            Vdomains_and_peaks = pool.map(
-                partial(find_upper_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
-                iterable_input,
-            )
+        # HIoIs = pool.map(partial(find_h_domain, pd), iterable_input)
+        Vdomains_and_peaks = map(
+            partial(find_upper_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
+            iterable_input,
+        )
 
         VIoIs, peak_locs = list(zip(*Vdomains_and_peaks))
 

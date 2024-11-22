@@ -1,5 +1,6 @@
 import argparse
 import math
+import multiprocessing as mp
 import pathlib
 from importlib.metadata import version
 from typing import Any, Dict, Tuple
@@ -9,6 +10,17 @@ from typing import Any, Dict, Tuple
 class CustomFormatter(argparse.RawTextHelpFormatter):
     def _fill_text(self, text, width, indent):
         return "".join([indent + line + "\n" for line in text.splitlines()])
+
+
+def _num_cpus(arg: str) -> int:
+    try:
+        n = int(arg)
+        if 0 < n <= mp.cpu_count():
+            return n
+    except:  # noqa
+        pass
+
+    raise ValueError(f"Not a valid number of CPU cores (allowed values are integers between 1 and {mp.cpu_count()})")
 
 
 def _existing_file(arg: str) -> pathlib.Path:
@@ -150,6 +162,14 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Overwrite existing file(s).",
     )
 
+    sc.add_argument(
+        "-p",
+        "--nproc",
+        type=_num_cpus,
+        default=1,
+        help="Maximum number of parallel processes to use.",
+    )
+
     return sc
 
 
@@ -254,6 +274,8 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     }
     configs_output = {key: args[key] for key in ["output_folder", "force"]}
 
+    configs_other = {"nproc": args["nproc"]}
+
     # Print the used parameters (chosen or default-ones):
     print("\nArguments:")
     print(f"--contact-map: {configs_input['contact-map']}")
@@ -269,8 +291,14 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     print(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
     print(f"--output-folder: {configs_output['output_folder']}")
     print(f"--force: {configs_output['force']}")
+    print(f"--nproc: {configs_other['nproc']}")
 
-    return {"configs_input": configs_input, "configs_thresholds": configs_thresholds, "configs_output": configs_output}
+    return {
+        "configs_input": configs_input,
+        "configs_thresholds": configs_thresholds,
+        "configs_output": configs_output,
+        "configs_other": configs_other,
+    }
 
 
 def parse_args() -> Tuple[str, Any]:
