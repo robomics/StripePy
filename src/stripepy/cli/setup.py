@@ -19,11 +19,11 @@ def _existing_file(arg: str) -> pathlib.Path:
 
 
 def _output_dir_checked(arg: str) -> pathlib.Path:
-    path = pathlib.Path(arg).parent
-    if path.exists() and path.is_dir():
-        return path
+    parent = pathlib.Path(arg).parent
+    if parent.exists() and parent.is_dir():
+        return pathlib.Path(arg)
 
-    raise FileNotFoundError(f'Output folder "{path}" is not reachable: parent folder does not exist')
+    raise FileNotFoundError(f'Output folder "{arg}" is not reachable: parent folder does not exist')
 
 
 def _probability(arg) -> float:
