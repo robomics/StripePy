@@ -104,8 +104,6 @@ def find_lower_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
             fig.tight_layout()
             plt.savefig(f"{output_folder}/LT_local-pseudo-distrib_{seed_site}.jpg")
             plt.close()
-            plt.clf()
-
     return Vdomain_and_peaks
 
 
@@ -177,7 +175,6 @@ def find_upper_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
             fig.tight_layout()
             plt.savefig(f"{output_folder}/UT_local-pseudo-distrib_{seed_site}.jpg")
             plt.close()
-            plt.clf()
 
     return Vdomain_and_peaks
 
@@ -235,13 +232,10 @@ def find_VIoIs(
     if where == "lower":
 
         with Pool() as pool:
-
             Vdomains_and_peaks = pool.map(
                 partial(find_lower_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
                 iterable_input,
             )
-            pool.close()
-            pool.join()
 
         VIoIs, peak_locs = list(zip(*Vdomains_and_peaks))
 
@@ -250,13 +244,10 @@ def find_VIoIs(
 
         with Pool() as pool:
             # HIoIs = pool.map(partial(find_h_domain, pd), iterable_input)
-
             Vdomains_and_peaks = pool.map(
                 partial(find_upper_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
                 iterable_input,
             )
-            pool.close()
-            pool.join()
 
         VIoIs, peak_locs = list(zip(*Vdomains_and_peaks))
 
