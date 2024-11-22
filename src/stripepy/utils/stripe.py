@@ -25,6 +25,10 @@ class Stripe(object):
     Attributes
     ----------
 
+    seed: int
+        the stripe seed
+    top_persistence: Union[float, None]
+        the topological persistence
     lower_triangular: bool
         true when the stripe extends in the lower-triangular portion of the matrix
     upper_triangular: bool
@@ -183,6 +187,14 @@ class Stripe(object):
 
     def _all_bounds_set(self) -> bool:
         return all((x is not None for x in [self._left_bound, self._right_bound, self._bottom_bound, self._top_bound]))
+
+    @property
+    def seed(self) -> int:
+        return self._seed
+
+    @property
+    def top_persistence(self) -> Union[float, None]:
+        return self._persistence
 
     @property
     def lower_triangular(self) -> bool:

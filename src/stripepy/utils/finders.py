@@ -104,8 +104,6 @@ def find_lower_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
             fig.tight_layout()
             plt.savefig(f"{output_folder}/LT_local-pseudo-distrib_{seed_site}.jpg")
             plt.close()
-            plt.clf()
-
     return Vdomain_and_peaks
 
 
@@ -177,7 +175,6 @@ def find_upper_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
             fig.tight_layout()
             plt.savefig(f"{output_folder}/UT_local-pseudo-distrib_{seed_site}.jpg")
             plt.close()
-            plt.clf()
 
     return Vdomain_and_peaks
 
@@ -243,7 +240,6 @@ def find_VIoIs(
     # Upper-triangular part of the Hi-C matrix:
     elif where == "upper":
         # HIoIs = pool.map(partial(find_h_domain, pd), iterable_input)
-
         Vdomains_and_peaks = map(
             partial(find_upper_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
             iterable_input,

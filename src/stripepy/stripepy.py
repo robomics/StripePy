@@ -878,7 +878,6 @@ def step_3(
         plt.title("Widths")
         plt.savefig(f"{output_folder}/LT_histogram_widths.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(UT_widths),
@@ -894,7 +893,6 @@ def step_3(
         plt.title("Widths")
         plt.savefig(f"{output_folder}/UT_histogram_widths.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(LT_heights),
@@ -910,7 +908,6 @@ def step_3(
         plt.title("Heights")
         plt.savefig(f"{output_folder}/LT_histogram_heights.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(UT_heights),
@@ -926,7 +923,6 @@ def step_3(
         plt.title("Heights")
         plt.savefig(f"{output_folder}/UT_histogram_heights.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
 
 
 def step_4(
