@@ -99,7 +99,7 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> npt.NDArray:
     I: ss.csr_matrix
         the sparse matrix to be processed
     RoI: Dict[str, List[int]]
-        dictionary with the regions of interest
+        dictionary with the region of interest in matrix ('matrix') and genomic ('genomic') coordinates
 
     Returns
     -------
@@ -129,7 +129,7 @@ def _plot_RoIs(
     Iproc: ss.csr_matrix
         the processed input sparse matrix
     RoI: Union[npt.NDArray, None]
-        the regions of interest to be plotted
+        the region of interest to be plotted in matrix ('matrix') and genomic ('genomic') coordinates
     output_folder: pathlib.Path
         folder where to save the plots
 
