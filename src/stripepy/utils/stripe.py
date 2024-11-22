@@ -2,13 +2,55 @@ import math
 from typing import Tuple, Union
 
 import numpy as np
-import numpy.typing as npt
 import scipy.sparse as ss
+from numpy.typing import NDArray
 
 
 class Stripe(object):
     """
-    TODO document
+    A class used to represent architectural stripes.
+    This class takes care of validating stripe coordinates and computing several descriptive statistics.
+
+    This is how this class should be used:
+
+        * Initialize the class by providing at least the seed position
+        * At a later time, set the vertical and horizontal boundaries by calling `set_horizontal_bounds()` and `set_vertical_bounds()`
+        * Finally, call `compute_biodescriptors()` to compute and store the descriptive statistics
+
+    The stripe properties and statistics can now be accessed through the attributes listed below.
+
+    Attributes representing the descriptive statistics return negative values to signal that it was not
+    possible to compute the statistics for the current Stripe instance.
+
+    Attributes
+    ----------
+
+    lower_triangular: bool
+        true when the stripe extends in the lower-triangular portion of the matrix
+    upper_triangular: bool
+        true when the stripe extends in the upper-triangular portion of the matrix
+    left_bound: int
+        the left bound of the stripe
+    right_bound: int
+        the right bound of the stripe
+    top_bound: int
+        the top bound of the stripe
+    bottom_bound: int
+        the bottom bound of the stripe
+    inner_mean: float
+        the average number of interactions within the stripe
+    inner_std: float
+        the standard deviation of the number of interactions within the stripe
+    five_number: NDArray[float]
+        a vector of five numbers corresponding to the 0, 25, 50, 75, and 100 percentiles of the number of within-stripe interactions
+    outer_lmean: float
+        the average number of interactions in the band to the left of the stripe
+    outer_rmean: float
+        the average number of interactions in the band to the right of the stripe
+    outer_mean: float
+        the average number of interactions in the bands to the left and right of the stripe
+    rel_change: float
+        the ratio of the average number of interactions within the stripe and in the neighborhood outside of the stripe
     """
 
     def __init__(
@@ -20,7 +62,19 @@ class Stripe(object):
         where: Union[str, None] = None,
     ):
         """
-        TODO document
+        Parameters
+        ----------
+        seed: int
+            the stripe seed position
+        top_pers: Union[float, None]
+            the stripe topological persistence
+        horizontal_bounds: Union[Tuple[int, int], None]
+            the horizontal bounds of the stripe
+        vertical_bounds: Union[Tuple[int, int], None]
+            the_vertical bounds of the stripe
+        where: Union[str, None]
+            the location of the stripe: should be "upper_triangular" or "lower_triangular".
+            When provided, this is validate the coordinates set when calling `set_horizontal_bounds()` and `set_vertical_bounds()`.
         """
         if seed < 0:
             raise ValueError("seed must be a non-negative integral number")
@@ -74,7 +128,7 @@ class Stripe(object):
 
         return int(round(cfx1 * self._top_bound + cfx2 * self._bottom_bound))
 
-    def _slice_matrix(self, I: ss.csr_matrix) -> npt.NDArray:
+    def _slice_matrix(self, I: ss.csr_matrix) -> NDArray:
         convex_comb = self._compute_convex_comp()
 
         if self.lower_triangular:
@@ -87,7 +141,7 @@ class Stripe(object):
         return I[rows, :].tocsc()[:, cols].toarray()
 
     @staticmethod
-    def _compute_inner_descriptors(I: npt.NDArray) -> Tuple[npt.NDArray[float], float, float]:
+    def _compute_inner_descriptors(I: NDArray) -> Tuple[NDArray[float], float, float]:
         return np.percentile(I, [0, 25, 50, 75, 100]), np.mean(I), np.std(I)
 
     def _compute_lmean(self, I: ss.csr_matrix, window: int) -> float:
@@ -181,7 +235,7 @@ class Stripe(object):
         return self._inner_std
 
     @property
-    def five_number(self) -> npt.NDArray[float]:  # TODO find a better name
+    def five_number(self) -> NDArray[float]:
         if self._five_number is None:
             raise RuntimeError(
                 "caught an attempt to access five_number property before compute_biodescriptors() was called"
@@ -229,6 +283,16 @@ class Stripe(object):
         return abs(self.inner_mean - self.outer_mean) / self.outer_mean * 100
 
     def set_horizontal_bounds(self, left_bound: int, right_bound: int):
+        """
+        Set the horizontal bounds for the stripe.
+        This function raises an exception when the coordinates have already been set or when the
+        given coordinates are incompatible with the seed position.
+
+        Parameters
+        ----------
+        left_bound: int
+        right_bound: int
+        """
         if self._left_bound is not None:
             assert self._right_bound is not None
             raise RuntimeError("horizontal stripe bounds have already been set")
@@ -242,6 +306,16 @@ class Stripe(object):
         self._right_bound = right_bound
 
     def set_vertical_bounds(self, top_bound: int, bottom_bound: int):
+        """
+        Set the vertical bounds for the stripe.
+        This function raises an exception when the coordinates have already been set or when the
+        given coordinates are incompatible with the seed position and/or the where location.
+
+        Parameters
+        ----------
+        top_bound: int
+        bottom_bound: int
+        """
         if self._bottom_bound is not None:
             assert self._top_bound is not None
             raise RuntimeError("vertical stripe bounds have already been set")
@@ -264,6 +338,18 @@ class Stripe(object):
         self._where = computed_where
 
     def compute_biodescriptors(self, I: ss.csr_matrix, window: int = 3):
+        """
+        Use the sparse matrix I to compute various descriptive statistics.
+        Statistics are stored in the current Stripe instance.
+        This function raises an exception when it is called before the stripe bounds have been set.
+
+        Parameters
+        ----------
+        I: ss.csr_matrix
+            the sparse matrix from which the stripe originated
+        window: int
+            window size used to compute statistics to the left and right of the stripe
+        """
         if not self._all_bounds_set():
             raise RuntimeError("compute_biodescriptors() was called on a bound-less stripe")
 
