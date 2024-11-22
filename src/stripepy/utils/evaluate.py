@@ -501,7 +501,6 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
     plt.subplots_adjust(wspace=0.0, hspace=0.0)
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/bp_by_res.jpg", bbox_inches="tight")
-    plt.clf()
     plt.close(fig)
 
     # Plots of medians:
@@ -615,7 +614,6 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
     plt.subplots_adjust(wspace=0.0, hspace=0.0)
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/bp_by_cd.jpg", bbox_inches="tight")
-    plt.clf()
     plt.close(fig)
 
     # Plots of medians:
@@ -729,7 +727,6 @@ def marginal_plots(results, resolutions, contact_densities, noises, path2output)
 
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/bp_by_ns.jpg", bbox_inches="tight")
-    plt.clf()
     plt.close(fig)
 
     # Plots of medians:
@@ -792,7 +789,6 @@ def global_boxplots(results, path2output):
         ax.set_ylim((-0.05, 1.05))
     plt.tight_layout()
     plt.savefig(f"{path2output}boxplots/bp.jpg", bbox_inches="tight")
-    plt.clf()
     plt.close(fig)
 
 
@@ -941,7 +937,6 @@ def heatmaps(results, resolutions, contact_densities, noises, path2output):
             plt.setp(ax.yaxis.get_majorticklabels(), rotation=90)
         plt.tight_layout()
         plt.savefig(f"{path2output}heatmap_{key}.jpg")
-        plt.clf()
         plt.close(fig)
 
 

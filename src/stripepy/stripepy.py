@@ -472,6 +472,7 @@ def step_3(
     Iproc_RoI=None,
     RoI=None,
     output_folder=None,
+    map=map,
 ):
 
     # Retrieve data:
@@ -507,8 +508,12 @@ def step_3(
     # Choose the variable criterion between max_ascent and max_perc_descent
     # ---> When variable criterion is set to max_ascent, set the variable max_ascent
     # ---> When variable criterion is set to max_perc_descent, set the variable max_perc_descent
-    LT_HIoIs = finders.find_HIoIs(LT_pseudo_distrib, LT_MPs, LT_bounded_mPs, int(max_width / (2 * resolution)) + 1)
-    UT_HIoIs = finders.find_HIoIs(UT_pseudo_distrib, UT_MPs, UT_bounded_mPs, int(max_width / (2 * resolution)) + 1)
+    LT_HIoIs = finders.find_HIoIs(
+        LT_pseudo_distrib, LT_MPs, LT_bounded_mPs, int(max_width / (2 * resolution)) + 1, map=map
+    )
+    UT_HIoIs = finders.find_HIoIs(
+        UT_pseudo_distrib, UT_MPs, UT_bounded_mPs, int(max_width / (2 * resolution)) + 1, map=map
+    )
 
     # List of left or right boundaries:
     LT_L_bounds, LT_R_bounds = map(list, zip(*LT_HIoIs))
@@ -652,6 +657,7 @@ def step_3(
             min_persistence=loc_pers_min,
             where="lower",
             output_folder=f"{output_folder}local_pseudodistributions/",
+            map=map,
         )
         UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
             U,
@@ -663,6 +669,7 @@ def step_3(
             min_persistence=loc_pers_min,
             where="upper",
             output_folder=f"{output_folder}local_pseudodistributions/",
+            map=map,
         )
     else:
         LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
@@ -675,6 +682,7 @@ def step_3(
             min_persistence=loc_pers_min,
             where="lower",
             output_folder=None,
+            map=map,
         )
         UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
             U,
@@ -686,6 +694,7 @@ def step_3(
             min_persistence=loc_pers_min,
             where="upper",
             output_folder=None,
+            map=map,
         )
 
     # List of left or right boundaries:
@@ -869,7 +878,6 @@ def step_3(
         plt.title("Widths")
         plt.savefig(f"{output_folder}/LT_histogram_widths.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(UT_widths),
@@ -885,7 +893,6 @@ def step_3(
         plt.title("Widths")
         plt.savefig(f"{output_folder}/UT_histogram_widths.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(LT_heights),
@@ -901,7 +908,6 @@ def step_3(
         plt.title("Heights")
         plt.savefig(f"{output_folder}/LT_histogram_heights.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(UT_heights),
@@ -917,7 +923,6 @@ def step_3(
         plt.title("Heights")
         plt.savefig(f"{output_folder}/UT_histogram_heights.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
 
 
 def step_4(
