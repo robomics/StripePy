@@ -67,7 +67,7 @@ class Stripe(object):
         seed: int
             the stripe seed position
         top_pers: Union[float, None]
-            the stripe topological persistence
+            the topological persistence of the seed
         horizontal_bounds: Union[Tuple[int, int], None]
             the horizontal bounds of the stripe
         vertical_bounds: Union[Tuple[int, int], None]
