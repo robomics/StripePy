@@ -172,7 +172,7 @@ def _plot_RoIs(
 
 def _compute_global_pseudodistribution(T: ss.csr_matrix) -> NDArray[np.float64]:
     """
-    Given a sparse matrix T, marginalize it, scale it so that maximum is 1, and then smooth it.
+    Given a sparse matrix T, marginalize it, scale the marginal so that maximum is 1, and then smooth it.
 
     Parameters
     ----------
@@ -200,7 +200,7 @@ def _sort_extrema_by_coordinate(ps_ePs: List[int], pers_of_ps_ePs: List[float]) 
     ps_ePs: List[int]
         the location of the local maximum points
     pers_of_ps_ePs: List[float]
-        the values of topoligical persistance corresponding to the locations listed in ps_ePs
+        the values of topological persistence corresponding to the locations listed in ps_ePs
 
     Returns
     -------
