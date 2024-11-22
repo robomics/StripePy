@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import time
 from typing import Any, Dict
 
@@ -35,7 +36,12 @@ def print_all_attributes(obj, parent=""):
             print(f"{parent}/{key}: {val}")
 
 
-def run(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any], configs_output: Dict[str, Any]):
+def run(
+    configs_input: Dict[str, Any],
+    configs_thresholds: Dict[str, Any],
+    configs_output: Dict[str, Any],
+    configs_other: Dict[str, Any],
+):
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
 
@@ -143,38 +149,41 @@ def run(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any], confi
         hf.create_group(f"{this_chr}/stripes/LT/")
         hf.create_group(f"{this_chr}/stripes/UT/")
         start_time = time.time()
-        if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-            output_folder_3 = f"{configs_output['output_folder']}/plots/{this_chr}/3_shape_analysis/"
-            stripepy.step_3(
-                LT_Iproc,
-                UT_Iproc,
-                configs_input["resolution"],
-                configs_input["genomic_belt"],
-                configs_thresholds["max_width"],
-                configs_thresholds["constrain_heights"],
-                configs_thresholds["loc_pers_min"],
-                configs_thresholds["loc_trend_min"],
-                pseudo_distributions,
-                candidate_stripes,
-                hf[f"{this_chr}/stripes/"],
-                Iproc_RoI=Iproc_RoI,
-                RoI=RoI,
-                output_folder=output_folder_3,
-            )
-        else:
-            stripepy.step_3(
-                LT_Iproc,
-                UT_Iproc,
-                configs_input["resolution"],
-                configs_input["genomic_belt"],
-                configs_thresholds["max_width"],
-                configs_thresholds["constrain_heights"],
-                configs_thresholds["loc_pers_min"],
-                configs_thresholds["loc_trend_min"],
-                pseudo_distributions,
-                candidate_stripes,
-                hf[f"{this_chr}/stripes/"],
-            )
+        with mp.Pool(configs_other["nproc"]) as pool:
+            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
+                output_folder_3 = f"{configs_output['output_folder']}/plots/{this_chr}/3_shape_analysis/"
+                stripepy.step_3(
+                    LT_Iproc,
+                    UT_Iproc,
+                    configs_input["resolution"],
+                    configs_input["genomic_belt"],
+                    configs_thresholds["max_width"],
+                    configs_thresholds["constrain_heights"],
+                    configs_thresholds["loc_pers_min"],
+                    configs_thresholds["loc_trend_min"],
+                    pseudo_distributions,
+                    candidate_stripes,
+                    hf[f"{this_chr}/stripes/"],
+                    Iproc_RoI=Iproc_RoI,
+                    RoI=RoI,
+                    output_folder=output_folder_3,
+                    map=pool.map,
+                )
+            else:
+                stripepy.step_3(
+                    LT_Iproc,
+                    UT_Iproc,
+                    configs_input["resolution"],
+                    configs_input["genomic_belt"],
+                    configs_thresholds["max_width"],
+                    configs_thresholds["constrain_heights"],
+                    configs_thresholds["loc_pers_min"],
+                    configs_thresholds["loc_trend_min"],
+                    pseudo_distributions,
+                    candidate_stripes,
+                    hf[f"{this_chr}/stripes/"],
+                    map=pool.map,
+                )
 
         print(f"Execution time of step 3: {time.time() - start_time} seconds ---")
 

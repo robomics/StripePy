@@ -272,7 +272,9 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
             "max_width",
         ]
     }
-    configs_output = {key: args[key] for key in ["output_folder", "force", "nproc"]}
+    configs_output = {key: args[key] for key in ["output_folder", "force"]}
+
+    configs_other = {"nproc": args["nproc"]}
 
     # Print the used parameters (chosen or default-ones):
     print("\nArguments:")
@@ -289,9 +291,14 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     print(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
     print(f"--output-folder: {configs_output['output_folder']}")
     print(f"--force: {configs_output['force']}")
-    print(f"--nproc: {configs_output['nproc']}")
+    print(f"--nproc: {configs_other['nproc']}")
 
-    return {"configs_input": configs_input, "configs_thresholds": configs_thresholds, "configs_output": configs_output}
+    return {
+        "configs_input": configs_input,
+        "configs_thresholds": configs_thresholds,
+        "configs_output": configs_output,
+        "configs_other": configs_other,
+    }
 
 
 def parse_args() -> Tuple[str, Any]:
