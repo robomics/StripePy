@@ -171,25 +171,48 @@ def _plot_RoIs(
 
 
 def _compute_global_pseudodistribution(T: ss.csr_matrix) -> NDArray[np.float64]:
-    # This function takes as input a matrix marginalize it, scales it so that maximum is 1, and then smooth it
-    pd = np.squeeze(np.asarray(np.sum(T, axis=0)))  # marginalization
-    pd /= np.max(pd)  # scaling
-    pd = np.maximum(regressions._compute_wQISA_predictions(pd, 11), pd)  # smoothing
-    return pd
+    """
+    Given a sparse matrix T, marginalize it, scale it so that maximum is 1, and then smooth it.
+
+    Parameters
+    ----------
+    T: ss.csr_matrix
+        the sparse matrix to be processed
+
+    Returns
+    -------
+    NDArray[np.float64]
+        a vector with the re-scaled and smoothed marginals.
+    """
+
+    pseudo_dist = np.squeeze(np.asarray(np.sum(T, axis=0)))  # marginalization
+    pseudo_dist /= np.max(pseudo_dist)  # scaling
+    pseudo_dist = np.maximum(regressions._compute_wQISA_predictions(pseudo_dist, 11), pseudo_dist)  # smoothing
+    return pseudo_dist
 
 
 def _sort_extrema_by_coordinate(ps_ePs: List[int], pers_of_ps_ePs: List[float]) -> Tuple[List[int], List[float]]:
+    """
+    Sort the two lists given as input in ascending order based on values from ps_ePs.
 
-    # This function takes:
-    # -) a list containing the location of the local maximum points, and
-    # -) a list containing the corresponding values of topological persistence (so, they have same length).
-    # The input maximum points (and the topological persistences) are sorted w.r.t. their topological persistence.
-    # The aim of the function is to permute these lists so that local maximum points are now sorted w.r.t.
-    # their coordinates (from smallest to highest)
+    Parameters
+    ----------
+    ps_ePs: List[int]
+        the location of the local maximum points
+    pers_of_ps_ePs: List[float]
+        the values of topoligical persistance corresponding to the locations listed in ps_ePs
+
+    Returns
+    -------
+    Tuple[List[int], List[float]]
+        the two input lists sorted based on ps_ePs
+    """
     # Some notation:
     # ps = persistence-sorted
     # ePs = extremum points
     # pers = topological persistence
+
+    assert len(ps_ePs) == len(pers_of_ps_ePs)
 
     permutation_ps2cs_ePs = np.argsort(ps_ePs)
 
@@ -203,11 +226,29 @@ def _sort_extrema_by_coordinate(ps_ePs: List[int], pers_of_ps_ePs: List[float]) 
 def _find_seeds_in_RoI(
     seeds: List[int], left_bound_RoI: int, right_bound_RoI: int
 ) -> Tuple[NDArray[np.int64], List[int]]:
+    """
+    Select seed coordinates that fall within the given left and right boundaries.
 
-    # This function takes as input a list of seeds, the left and right boundaries of the region of interest (RoI) in
-    # matricial coordinates, and returns.
-    # an nd.array that contains the indices of those seeds within the boundaries
-    # a list of int, which are the actual coordinates of the seeds within the boundaries
+    Parameters
+    ----------
+    seeds: List[int]
+        a list with the seed coordinates
+    left_bound_RoI: int
+        left bound of the region of interest
+    right_bound_RoI: int
+        right bound of the region of interest
+
+    Returns
+    -------
+    Tuple[NDArray[np.int64], List[int]]
+        a tuple consisting of:
+
+         * the indices of seed coordinates falling within the given boundaries
+         * the coordinates of the selected seeds
+    """
+
+    assert left_bound_RoI >= 0
+    assert right_bound_RoI >= left_bound_RoI
 
     # Find sites within the range of interest -- lower-triangular:
     ids_seeds_in_RoI = np.where((left_bound_RoI <= np.array(seeds)) & (np.array(seeds) <= right_bound_RoI))[0]
