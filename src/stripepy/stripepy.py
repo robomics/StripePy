@@ -28,6 +28,7 @@ def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
     ss.csr_matrix
         the log-transformed sparse matrix
     """
+
     I.data[np.isnan(I.data)] = 0
     I.eliminate_zeros()
     Iproc = I.log1p()
@@ -55,6 +56,7 @@ def _band_extraction(I: ss.csr_matrix, resolution: int, genomic_belt: int) -> Tu
     Tuple[ss.csr_matrix, ss.csr_matrix]
         2 elements tuple with the lower-triangular and upper-triangular matrix after band extraction
     """
+
     assert resolution > 0
     assert genomic_belt > 0
 
@@ -84,8 +86,7 @@ def _scale_Iproc(
     Tuple[ss.csr_matrix, ss.csr_matrix]
         the rescaled lower and upper-triangular matrices
     """
-    # This function takes three matrices: a matrix I and its lower- and upper-triangular parts denoted by LT_I and UT_I.
-    # It divides the entries by the maximum entry of I
+
     scaling_factor_Iproc = I.max()
     return tuple(J / scaling_factor_Iproc for J in [I, LT_I, UT_I])  # noqa
 
@@ -106,8 +107,7 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> npt.NDArray:
     npt.NDArray
         dense matrix with the interactions for the regions of interest
     """
-    # This function takes as input a matrix I and extract a region of interest (i.e., a subregion), whose matricial
-    # coordinates are contained in the dictionary RoI
+
     rows = cols = slice(RoI["matrix"][0], RoI["matrix"][1])
     I_RoI = I[rows, cols].toarray()
     return I_RoI
@@ -138,8 +138,6 @@ def _plot_RoIs(
     Union[npt.NDArray, None]
         the dense matrix used for plotting or None when RoI is None
     """
-    # This function calls _extract_RoIs to extract subregions of the matrices I and Iproc (if RoI is not None). If
-    # output_folder is not None, it generates plots and saves in the fiven path.
 
     # TODO rea1991 Once there is better test coverage, rewrite this as suggested in in #16
     if RoI is not None:
