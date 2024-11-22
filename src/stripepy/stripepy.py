@@ -93,7 +93,7 @@ def _scale_Iproc(
     return tuple(J / scaling_factor_Iproc for J in [I, LT_I, UT_I])  # noqa
 
 
-def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> npt.NDArray:
+def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> NDArray:
     """
     Extract a region of interest (ROI) from the sparse matrix I
 
@@ -106,7 +106,7 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> npt.NDArray:
 
     Returns
     -------
-    npt.NDArray
+    NDArray
         dense matrix with the interactions for the regions of interest
     """
 
@@ -116,8 +116,8 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> npt.NDArray:
 
 
 def _plot_RoIs(
-    I: ss.csr_matrix, Iproc: ss.csr_matrix, RoI: Union[npt.NDArray, None], output_folder: Union[pathlib.Path, None]
-) -> Union[npt.NDArray, None]:
+    I: ss.csr_matrix, Iproc: ss.csr_matrix, RoI: Union[NDArray, None], output_folder: Union[pathlib.Path, None]
+) -> Union[NDArray, None]:
     """
     Helper function to plot a region of interest.
     This function does nothing when RoI is None.
@@ -130,14 +130,14 @@ def _plot_RoIs(
         the unprocessed input sparse matrix
     Iproc: ss.csr_matrix
         the processed input sparse matrix
-    RoI: Union[npt.NDArray, None]
+    RoI: Union[NDArray, None]
         the region of interest to be plotted in matrix ('matrix') and genomic ('genomic') coordinates
     output_folder: pathlib.Path
         folder where to save the plots
 
     Returns
     -------
-    Union[npt.NDArray, None]
+    Union[NDArray, None]
         the dense matrix used for plotting or None when RoI is None
     """
 
