@@ -1,6 +1,6 @@
 import logging
 
-from .cli import call, download, setup
+from .cli import call, download, setup, view
 
 
 def _setup_mpl_backend():
@@ -27,6 +27,8 @@ def main():
         return call.run(**args)
     if subcommand == "download":
         return download.run(**args)
+    if subcommand == "view":
+        return view.run(**args)
 
     raise NotImplementedError
 
