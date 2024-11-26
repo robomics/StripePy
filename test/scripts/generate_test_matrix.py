@@ -12,9 +12,9 @@ import shutil
 import subprocess as sp
 import tempfile
 from typing import Dict, List, Union
-from packaging.version import Version
 
 import hictkpy as htk
+from packaging.version import Version
 
 
 def existing_file(arg: str) -> pathlib.Path:
@@ -50,15 +50,13 @@ def make_cli() -> argparse.ArgumentParser:
     cli.add_argument("input-matrix", type=existing_file, help="Path to a Hi-C matrix in .cool, .mcool or .hic format.")
     cli.add_argument("output-matrix", type=pathlib.Path, help="Path where to store the resulting output matrix file.")
     cli.add_argument(
-        "--base-resolution",
-        type=positive_int,
-        help="Base resolution used to generate the test file. Required when file is in .mcool or .hic format.",
-    )
-    cli.add_argument(
-        "--additional-resolutions",
+        "--resolutions",
         nargs="*",
         type=positive_int,
-        help="One or more resolutions to be generated. Should be multiples of the base resolution.",
+        help="One or more resolutions to be generated.\n"
+        "When more than one resolution is provided, all resolutions should be multiple of the base\n"
+        "(i.e. smallest) resolution.\n"
+        "At least one resolution is required when input file is not in .cool format.",
     )
     cli.add_argument(
         "--hictk-bin",
@@ -141,7 +139,6 @@ def run_hictk_load(
     else:
         w.finalize(log_lvl="CRITICAL")
 
-
     return path
 
 
@@ -149,16 +146,14 @@ def run_hictk_zoomify(
     hictk: pathlib.Path,
     input_path: pathlib.Path,
     output_path: pathlib.Path,
-    base_resolution: int,
     resolutions: List[int],
     tmpdir: pathlib.Path,
     threads: int,
     force: bool,
 ):
-    resolutions = resolutions.copy()
-    resolutions.append(base_resolution)
-    resolutions = set(resolutions)
-    resolutions = map(str, list(sorted(resolutions)))
+    assert len(resolutions) > 1
+
+    resolutions = list(map(str, resolutions))
 
     cmd = [
         hictk,
@@ -179,21 +174,37 @@ def run_hictk_zoomify(
     sp.check_call(cmd)
 
 
+def process_resolutions(resolutions: List[int]) -> List[int]:
+    resolutions = set(resolutions)
+    resolutions = list(sorted(resolutions))
+
+    for res in resolutions:
+        if res % resolutions[0] != 0:
+            raise RuntimeError(f"resolution {res} is not a multiple of {resolutions[0]}")
+
+    return resolutions
+
+
 def main():
     args = vars(make_cli().parse_args())
 
     if args["output-matrix"].exists() and not args["force"]:
         raise RuntimeError(f"refusing to overwrite file {args['output-matrix']}. Pass --force to overwrite.")
 
-    need_to_zoomify = len(args["additional_resolutions"]) > 0
+    if args["resolutions"] is None:
+        if htk.is_cooler(args["input-matrix"]):
+            resolutions = [htk.File(args["input-matrix"]).resolution()]
+        else:
+            raise RuntimeError("--resolutions is required when input matrix is not in .cool format.")
+    else:
+        resolutions = process_resolutions(args["resolutions"])
+
+    need_to_zoomify = len(resolutions) > 1
 
     if need_to_zoomify:
         hictk = find_hictk(args["hictk_bin"])
 
-    if args["base_resolution"] is None and not htk.is_cooler(args["input-matrix"]):
-        raise RuntimeError("--base-resolution is required when input matrix is not in .cool format.")
-
-    f = htk.File(args["input-matrix"], resolution=args["base_resolution"])
+    f = htk.File(args["input-matrix"], resolution=resolutions[0])
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = pathlib.Path(tmpdir)
         single_res_file = run_hictk_load(
@@ -208,8 +219,7 @@ def main():
             hictk,
             single_res_file,
             args["output-matrix"],
-            f.resolution(),
-            args["additional_resolutions"],
+            resolutions,
             tmpdir,
             args["nproc"],
             args["force"],
@@ -218,7 +228,7 @@ def main():
 
 def setup_logger(level: str):
     fmt = "[%(asctime)s] %(levelname)s: %(message)s"
-    logging.basicConfig(level=level, format=fmt, force=True)
+    logging.basicConfig(level=level, format=fmt)
     logging.getLogger().setLevel(level)
 
 
