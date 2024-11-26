@@ -17,19 +17,18 @@ if [ $ARGC -gt 2 ]; then
   exit 1
 fi
 
-if [ $ARGC -eq 1 ]; then
-  PLATFORM="$1"
-else
-  PLATFORM='linux/amd64'
-fi
-
-
 IMAGE_NAME='stripepy'
 
 if [ "$(uname)" == "Darwin" ]; then
   BUILD_USER="$USER"
 else
   BUILD_USER='root'
+fi
+
+if [ $ARGC -eq 1 ]; then
+  PLATFORM="$1"
+else
+  PLATFORM="$(sudo -u "$BUILD_USER" docker info --format '{{ .OSType }}/{{ .Architecture }}')"
 fi
 
 venv_dir="$(mktemp -d)"
