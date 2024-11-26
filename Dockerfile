@@ -67,7 +67,7 @@ COPY --from=tester "$src_dir/LICENCE" /opt/stripepy/share/licenses/stripepy/LICE
 
 WORKDIR /data
 ENTRYPOINT ["/opt/stripepy/bin/stripepy"]
-ENV PATH "$PATH:/opt/stripepy/bin"
+ENV PATH="$PATH:/opt/stripepy/bin"
 
 RUN stripepy --help
 RUN stripepy --version
