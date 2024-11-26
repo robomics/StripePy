@@ -12,6 +12,7 @@ import shutil
 import subprocess as sp
 import tempfile
 from typing import Dict, List, Union
+from packaging.version import Version
 
 import hictkpy as htk
 
@@ -134,7 +135,12 @@ def run_hictk_load(
         logging.info("dropped %d out of %d interactions", num_interactions - len(df), num_interactions)
         w.add_pixels(df)
 
-    w.finalize(log_lvl="INFO")
+    if Version(htk.__version__) > Version("1.0.0"):
+        # Workaround data race fixed by https://github.com/paulsengroup/hictkpy/pull/131
+        w.finalize(log_lvl="INFO")
+    else:
+        w.finalize(log_lvl="CRITICAL")
+
 
     return path
 
@@ -143,14 +149,16 @@ def run_hictk_zoomify(
     hictk: pathlib.Path,
     input_path: pathlib.Path,
     output_path: pathlib.Path,
+    base_resolution: int,
     resolutions: List[int],
     tmpdir: pathlib.Path,
     threads: int,
     force: bool,
 ):
-    resolutions = set(map(str, resolutions))
-    resolutions.add(str(htk.File(input_path).resolution()))
-    resolutions = list(sorted(resolutions))
+    resolutions = resolutions.copy()
+    resolutions.append(base_resolution)
+    resolutions = set(resolutions)
+    resolutions = map(str, list(sorted(resolutions)))
 
     cmd = [
         hictk,
@@ -200,6 +208,7 @@ def main():
             hictk,
             single_res_file,
             args["output-matrix"],
+            f.resolution(),
             args["additional_resolutions"],
             tmpdir,
             args["nproc"],
@@ -209,10 +218,11 @@ def main():
 
 def setup_logger(level: str):
     fmt = "[%(asctime)s] %(levelname)s: %(message)s"
-    logging.basicConfig(level=level, format=fmt)
+    logging.basicConfig(level=level, format=fmt, force=True)
     logging.getLogger().setLevel(level)
 
 
 if __name__ == "__main__":
     setup_logger("INFO")
+
     main()
