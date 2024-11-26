@@ -143,6 +143,30 @@ def run(
                 configs_thresholds["glob_pers_min"],
                 hf[f"{this_chr}/global-pseudo-distributions/"],
             )
+
+        # TODO rea1991 Ideally, do not add chromosomes where no seed site is present
+        if candidate_stripes is None:
+            hf.create_group(f"{this_chr}/stripes/LT/")
+            hf.create_group(f"{this_chr}/stripes/UT/")
+
+            # Define empty geo-descriptors:
+            col_names = ["seed", "seed persistence", "L-boundary", "R_boundary", "U-boundary", "D-boundary"]
+            hf[f"{this_chr}/stripes/LT/"].create_dataset("geo-descriptors", data=np.empty((0, len(col_names))))
+            hf[f"{this_chr}/stripes/LT/geo-descriptors"].attrs["col_names"] = col_names
+            hf[f"{this_chr}/stripes/UT/"].create_dataset("geo-descriptors", data=np.empty((0, len(col_names))))
+            hf[f"{this_chr}/stripes/UT/geo-descriptors"].attrs["col_names"] = col_names
+
+            # Define empty bio-descriptors:
+            col_names = ["inner mean", "outer mean", "relative change", "standard deviation"]
+            hf[f"{this_chr}/stripes/LT/"].create_dataset("bio-descriptors", data=np.empty((0, len(col_names))))
+            hf[f"{this_chr}/stripes/LT/bio-descriptors"].attrs["col_names"] = col_names
+            hf[f"{this_chr}/stripes/UT/"].create_dataset("bio-descriptors", data=np.empty((0, len(col_names))))
+            hf[f"{this_chr}/stripes/UT/bio-descriptors"].attrs["col_names"] = col_names
+
+            print(f"Execution time of step 2: {time.time() - start_time} seconds ---")
+            print(f"Chromosome is too sparse, no candidate returned")
+            continue
+
         print(f"Execution time of step 2: {time.time() - start_time} seconds ---")
 
         print(f"{IO.ANSI.YELLOW}Step 3: Shape analysis{IO.ANSI.ENDC}")
