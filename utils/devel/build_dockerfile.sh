@@ -63,7 +63,7 @@ else
 fi
 
 BASE_IMAGE='docker.io/library/python:3.12.7'
-2>&1 echo "Building \"$IMAGE_NAME:$IMAGE_TAG\" for platform $PLATFORM..."
+2>&1 echo "Building \"$IMAGE_NAME:$IMAGE_TAG\" (stripepy v$VERSION) for platform $PLATFORM..."
 
 sudo -u "$BUILD_USER" docker pull "$BASE_IMAGE"
 BASE_IMAGE_DIGEST="$(sudo -u "$BUILD_USER" docker inspect --format='{{index .RepoDigests 0}}' "$BASE_IMAGE" | cut -f 2 -d '@')"
