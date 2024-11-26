@@ -1,0 +1,16 @@
+# Copyright (C) 2024 Roberto Rossini <roberros@uio.no>
+#
+# SPDX-License-Identifier: MIT
+
+# Ignore everything
+**
+
+# Allowed directories
+!src/**/*.py
+!test/**/*.py
+
+
+# Allowed files
+!LICENCE
+!pyproject.toml
+!README.md
