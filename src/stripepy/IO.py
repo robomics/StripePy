@@ -1,3 +1,7 @@
+# Copyright (C) 2024 Andrea Raffo <andrea.raffo@ibv.uio.no>
+#
+# SPDX-License-Identifier: MIT
+
 import pathlib
 import shutil
 from typing import List
