@@ -47,8 +47,16 @@ def make_cli() -> argparse.ArgumentParser:
         "Given a matrix in .mcool or .hic format, generate a matrix file suitable for testing."
     )
 
-    cli.add_argument("input-matrix", type=existing_file, help="Path to a Hi-C matrix in .cool, .mcool or .hic format.")
-    cli.add_argument("output-matrix", type=pathlib.Path, help="Path where to store the resulting output matrix file.")
+    cli.add_argument(
+        "input-matrix",
+        type=existing_file,
+        help="Path to a Hi-C matrix in .cool, .mcool or .hic format.",
+    )
+    cli.add_argument(
+        "output-matrix",
+        type=pathlib.Path,
+        help="Path where to store the resulting output matrix file.",
+    )
     cli.add_argument(
         "--resolutions",
         nargs="*",
@@ -77,7 +85,12 @@ def make_cli() -> argparse.ArgumentParser:
         help="Maximum number of parallel processes to use. Only used when processing .hic files.",
     )
 
-    cli.add_argument("--force", action="store_true", default=False, help="Overwrite existing file(s).")
+    cli.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Overwrite existing file(s).",
+    )
 
     return cli
 
