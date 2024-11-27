@@ -6,6 +6,7 @@ import time
 
 import h5py
 import numpy as np
+
 from utils import IO, others, stripepy
 
 if __name__ == "__main__":

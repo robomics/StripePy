@@ -289,8 +289,48 @@ def _store_results(
     hf.parent.attrs["min_persistence_used"] = min_persistence
 
 
-def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
+def _check_neighborhood(
+    values: NDArray[np.float64], min_value: float = 0.1, neighborhood_size: int = 20, threshold_percentage: float = 0.7
+) -> List[int]:
+    # TODO rea1991 Change neighborhood size from "matrix" to "genomic" (eg, default of 1 Mb)
+    assert 0 <= min_value
+    assert 1 <= neighborhood_size <= len(values)
+    assert 0 <= threshold_percentage <= 1
 
+    mask = [0] * len(values)
+    for i in range(neighborhood_size, len(values) - neighborhood_size):
+        neighborhood = values[i - neighborhood_size : i + neighborhood_size + 1]
+        ratio_above_min_value = sum(1 for value in neighborhood if value >= min_value) / len(neighborhood)
+        if ratio_above_min_value >= threshold_percentage:
+            mask[i] = 1
+
+    return mask
+
+
+def _filter_extrema_by_sparseness(
+    ps_mPs: List[int], pers_of_ps_mPs: List[float], ps_MPs: List[int], pers_of_ps_MPs: List[float], mask: List[int]
+) -> Tuple[List[int], List[float], List[int], List[float]]:
+    ps_mPs_2, pers_of_ps_mPs_2, ps_MPs_2, pers_of_ps_MPs_2 = [], [], [], []
+
+    for i in range(len(ps_MPs)):
+        if mask[ps_MPs[i]] == 1:
+            ps_MPs_2.append(ps_MPs[i])
+            pers_of_ps_MPs_2.append(pers_of_ps_MPs[i])
+
+            # Last maximum point is not paired with a minimum point by construction:
+            if i < len(ps_MPs) - 1:
+                ps_mPs_2.append(ps_mPs[i])
+                pers_of_ps_mPs_2.append(pers_of_ps_mPs[i])
+
+    # If last maximum point was discarded, we need to remove the minimum point before it:
+    if len(ps_mPs_2) == len(ps_MPs_2) and len(ps_mPs_2) > 0:
+        ps_mPs_2.pop()
+        pers_of_ps_mPs_2.pop()
+
+    return ps_mPs_2, pers_of_ps_mPs_2, ps_MPs_2, pers_of_ps_MPs_2
+
+
+def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
     print("1.1) Log-transformation...")
     Iproc = _log_transform(I)
 
@@ -306,7 +346,6 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
 
 
 def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=None, RoI=None, output_folder=None):
-
     print("2.1) Global 1D pseudo-distributions...")
     LT_pd = _compute_global_pseudodistribution(L)
     UT_pd = _compute_global_pseudodistribution(U)
@@ -343,10 +382,24 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     # so that each maximum is still paired to its minimum.
 
     # Maximum and minimum points sorted w.r.t. coordinates (NOTATION: cs = coordinate-sorted):
-    LT_mPs, _ = _sort_extrema_by_coordinate(LT_ps_mPs, pers_of_LT_ps_mPs)
+    LT_mPs, LT_pers_of_mPs = _sort_extrema_by_coordinate(LT_ps_mPs, pers_of_LT_ps_mPs)
     LT_MPs, LT_pers_of_MPs = _sort_extrema_by_coordinate(LT_ps_MPs, pers_of_LT_ps_MPs)
-    UT_mPs, _ = _sort_extrema_by_coordinate(UT_ps_mPs, pers_of_UT_ps_mPs)
+    UT_mPs, UT_pers_of_mPs = _sort_extrema_by_coordinate(UT_ps_mPs, pers_of_UT_ps_mPs)
     UT_MPs, UT_pers_of_MPs = _sort_extrema_by_coordinate(UT_ps_MPs, pers_of_UT_ps_MPs)
+
+    print("2.2.3) Filter out seeds in sparse regions")
+    LT_mask = _check_neighborhood(LT_pd)
+    UT_mask = _check_neighborhood(UT_pd)
+    x = _filter_extrema_by_sparseness(LT_mPs, LT_pers_of_mPs, LT_MPs, LT_pers_of_MPs, LT_mask)
+    LT_mPs, LT_pers_of_mPs, LT_MPs, LT_pers_of_MPs = x
+    x = _filter_extrema_by_sparseness(UT_mPs, UT_pers_of_mPs, UT_MPs, UT_pers_of_MPs, UT_mask)
+    UT_mPs, UT_pers_of_mPs, UT_MPs, UT_pers_of_MPs = x
+    if len(LT_MPs) < len(LT_ps_MPs):
+        print(f"Number of lower-triangular seed sites is reduced from {len(LT_ps_MPs)} to {len(LT_MPs)}")
+    if len(UT_MPs) < len(UT_ps_MPs):
+        print(f"Number of upper-triangular seed sites is reduced from {len(UT_ps_MPs)} to {len(UT_MPs)}")
+    if len(LT_MPs) == len(LT_ps_MPs) and len(UT_MPs) == len(UT_ps_MPs):
+        print("No change in number of seed sites")
 
     print("2.3) Storing into a list of Stripe objects...")
     candidate_stripes = {
@@ -397,6 +450,10 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
         thresh_pers_type,
         min_persistence,
     )
+
+    # If no candidates are found in the lower- or upper-triangular maps, exit:
+    if len(LT_MPs) == 0 or len(UT_MPs) == 0:
+        return pseudo_distributions, None
 
     if RoI is not None:
 
@@ -490,7 +547,6 @@ def step_3(
     output_folder=None,
     map=map,
 ):
-
     # Retrieve data:
     LT_mPs = pseudo_distributions["lower"]["persistent_minimum_points"]
     UT_mPs = pseudo_distributions["upper"]["persistent_minimum_points"]
@@ -956,7 +1012,6 @@ def step_4(
     RoI=None,
     output_folder=None,
 ):
-
     print("4.1) Computing and saving biological descriptors")
     for LT_candidate_stripe in candidate_stripes["lower"]:
         LT_candidate_stripe.compute_biodescriptors(L)
