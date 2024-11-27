@@ -167,8 +167,8 @@ jobs:
           context: ${{ github.workspace }}
           load: true
           push: false
-          # cache-from: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_X86 }}
-          # cache-to: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_X86 }},mode=max,compression=zstd
+          cache-from: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_X86 }}
+          cache-to: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_X86 }},mode=max,compression=zstd
           tags: stripepy:x86
           platforms: linux/amd64
           build-args: |
@@ -187,8 +187,8 @@ jobs:
         with:
           context: ${{ github.workspace }}
           push: false
-          # cache-from: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_ARM64 }}
-          # cache-to: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_ARM64 }},mode=max,compression=zstd
+          cache-from: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_ARM64 }}
+          cache-to: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_ARM64 }},mode=max,compression=zstd
           tags: stripepy:arm64
           platforms: linux/arm64
           build-args: |
