@@ -275,7 +275,7 @@ def _store_results(
 
 def _check_neighborhood(
     values: NDArray[np.float64], min_value: float = 0.1, neighborhood_size: int = 20, threshold_percentage: float = 0.7
-):
+) -> List[int]:
     # TODO rea1991 Change neighborhood size from "matrix" to "genomic" (eg, default of 1 Mb)
     assert 0 <= min_value
     assert 1 <= neighborhood_size <= len(values)
@@ -291,7 +291,9 @@ def _check_neighborhood(
     return mask
 
 
-def _filter_extrema_by_sparseness(ps_mPs, pers_of_ps_mPs, ps_MPs, pers_of_ps_MPs, mask):
+def _filter_extrema_by_sparseness(
+    ps_mPs: List[int], pers_of_ps_mPs: List[float], ps_MPs: List[int], pers_of_ps_MPs: List[float], mask: List[int]
+) -> Tuple[List[int], List[float], List[int], List[float]]:
     ps_mPs_2, pers_of_ps_mPs_2, ps_MPs_2, pers_of_ps_MPs_2 = [], [], [], []
 
     for i in range(len(ps_MPs)):
