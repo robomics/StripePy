@@ -22,10 +22,14 @@ repos:
           - --fix=lf
       - id: trailing-whitespace
   # Formatters should be run late so that they can re-format any prior changes.
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout
   - repo: https://github.com/psf/black-pre-commit-mirror
     rev: 24.8.0
     hooks:
-      - id: black
+      - id: black-jupyter
         args: ["--line-length", "120", "--target-version", "py39"]
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2

@@ -1,7 +1,12 @@
+# Copyright (C) 2024 Andrea Raffo <andrea.raffo@ibv.uio.no>
+#
+# SPDX-License-Identifier: MIT
+
 import time
 
 import h5py
 import numpy as np
+
 from utils import IO, others, stripepy
 
 if __name__ == "__main__":
