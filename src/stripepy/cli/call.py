@@ -2,11 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 
+import datetime
+import json
 import multiprocessing as mp
+import pathlib
 import time
+from importlib.metadata import version
 from typing import Any, Dict
 
 import h5py
+import hictkpy
 import numpy as np
 
 from stripepy import IO, others, stripepy
@@ -40,6 +45,40 @@ def print_all_attributes(obj, parent=""):
             print(f"{parent}/{key}: {val}")
 
 
+def _init_h5_file(
+    dest: pathlib.Path, matrix_file: hictkpy.File, normalization: str, metadata: Dict[str, Any]
+) -> h5py.File:
+    h5 = h5py.File(dest, "w")
+    h5.attrs["assembly"] = matrix_file.attributes().get("assembly", "unknown")
+    h5.attrs["bin-size"] = matrix_file.resolution()
+    h5.attrs["creation-date"] = datetime.datetime.now().isoformat()
+    h5.attrs["format"] = "HDF5::StripePy"
+    h5.attrs["format-url"] = "https://github.com/paulsengroup/StripePy"
+    h5.attrs["format-version"] = 1
+    h5.attrs["generated-by"] = f"StripePy v{version('stripepy')}"
+    h5.attrs["metadata"] = json.dumps(metadata, indent=2)
+    h5.attrs["normalization"] = normalization
+
+    chroms = matrix_file.chromosomes(include_ALL=False)
+    h5.create_group("/chroms")
+    h5.create_dataset("/chroms/name", data=list(chroms.keys()))
+    h5.create_dataset("/chroms/length", data=list(chroms.values()))
+
+    return h5
+
+
+def _generate_metadata_attribute(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "constrain-heights": configs_thresholds["constrain_heights"],
+        "genomic-belt": configs_input["genomic_belt"],
+        "global-persistence-minimum": configs_thresholds["glob_pers_min"],
+        "local-persistence-minimum": configs_thresholds["loc_pers_min"],
+        "local-trend-minimum": configs_thresholds["loc_trend_min"],
+        "max-width": configs_thresholds["max_width"],
+        "min-chromosome-size": MIN_SIZE_CHROMOSOME,
+    }
+
+
 def run(
     configs_input: Dict[str, Any],
     configs_thresholds: Dict[str, Any],
@@ -65,165 +104,162 @@ def run(
     c_pairs = others.chromosomes_to_study(list(f.chromosomes().keys()), bp_lengths, MIN_SIZE_CHROMOSOME)
 
     # Create HDF5 file to store candidate stripes:
-    hf = h5py.File(f"{configs_output['output_folder']}/results.hdf5", "w")
+    with _init_h5_file(
+        configs_output["output_folder"] / "results.hdf5",
+        hictkpy.File(configs_input["contact-map"], configs_input["resolution"]),
+        configs_input["normalization"],
+        _generate_metadata_attribute(configs_input, configs_thresholds),
+    ) as h5:
+        # Lopping over all chromosomes:
+        for this_chr_idx, this_chr in c_pairs:
 
-    # Keep track of all input parameters:
-    hf.attrs["genomic-belt"] = configs_input["genomic_belt"]
-    hf.attrs["max-width"] = configs_thresholds["max_width"]
-    hf.attrs["constrain-heights"] = configs_thresholds["constrain_heights"]
-    hf.attrs["local-persistence-minimum"] = configs_thresholds["loc_pers_min"]
-    hf.attrs["local-trend-minimum"] = configs_thresholds["loc_trend_min"]
+            print(f"\n{IO.ANSI.RED}CHROMOSOME {this_chr}{IO.ANSI.ENDC}")
+            start_local_time = time.time()
 
-    # Lopping over all chromosomes:
-    for this_chr_idx, this_chr in c_pairs:
+            # Create a group for current chromosome:
+            h5.create_group(f"{this_chr}/")
 
-        print(f"\n{IO.ANSI.RED}CHROMOSOME {this_chr}{IO.ANSI.ENDC}")
-        start_local_time = time.time()
+            # Removing and creating folders to store output files:
+            # configs_input['roi'] = None
+            if configs_input["roi"] is not None:
+                IO.create_folders_for_plots(configs_output["output_folder"] / "plots" / this_chr)
 
-        # Create a group for current chromosome:
-        hf.create_group(f"{this_chr}/")
+            I = f.fetch(this_chr, normalization=configs_input["normalization"]).to_csr("full")
 
-        # Removing and creating folders to store output files:
-        # configs_input['roi'] = None
-        if configs_input["roi"] is not None:
-            IO.create_folders_for_plots(configs_output["output_folder"] / "plots" / this_chr)
-
-        I = f.fetch(this_chr, normalization=configs_input["normalization"]).to_csr("full")
-
-        # RoI:
-        RoI = others.define_RoI(
-            configs_input["roi"], chr_starts[this_chr_idx], chr_ends[this_chr_idx], configs_input["resolution"]
-        )
-        print(f"RoI is: {RoI}")
-
-        print(f"{IO.ANSI.YELLOW}Step 1: pre-processing step{IO.ANSI.ENDC}")
-        start_time = time.time()
-        if all(param is not None for param in [RoI, configs_output["output_folder"]]):
-            output_folder_1 = f"{configs_output['output_folder']}/plots/{this_chr}/1_preprocessing/"
-            LT_Iproc, UT_Iproc, Iproc_RoI = stripepy.step_1(
-                I,
-                configs_input["genomic_belt"],
-                configs_input["resolution"],
-                RoI=RoI,
-                output_folder=output_folder_1,
+            # RoI:
+            RoI = others.define_RoI(
+                configs_input["roi"], chr_starts[this_chr_idx], chr_ends[this_chr_idx], configs_input["resolution"]
             )
-        else:
-            LT_Iproc, UT_Iproc, _ = stripepy.step_1(I, configs_input["genomic_belt"], configs_input["resolution"])
-            Iproc_RoI = None
-        print(f"Execution time of step 1: {time.time() - start_time} seconds ---")
+            print(f"RoI is: {RoI}")
 
-        # Find the indices where the sum is zero
-        # TODO: DO SOMETHING
-        # zero_indices = np.where(np.sum(Iproc_RoI, axis=0) == 0)[0]
-        # print(np.min(np.sum(LT_Iproc + UT_Iproc, axis=0)))
-        # print(np.max(np.sum(LT_Iproc + UT_Iproc, axis=0)))
-        # np.savetxt("trend.txt", np.sum(LT_Iproc + UT_Iproc, axis=0))
-        # exit()
-
-        print(f"{IO.ANSI.YELLOW}Step 2: Topological Data Analysis{IO.ANSI.ENDC}")
-        # Create the output of this step:
-        hf.create_group(f"{this_chr}/global-pseudo-distributions/LT/")
-        hf.create_group(f"{this_chr}/global-pseudo-distributions/UT/")
-        start_time = time.time()
-        if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-            output_folder_2 = f"{configs_output['output_folder']}/plots/{this_chr}/2_TDA/"
-            pseudo_distributions, candidate_stripes = stripepy.step_2(
-                LT_Iproc,
-                UT_Iproc,
-                configs_input["resolution"],
-                configs_thresholds["glob_pers_type"],
-                configs_thresholds["glob_pers_min"],
-                hf[f"{this_chr}/global-pseudo-distributions/"],
-                Iproc_RoI=Iproc_RoI,
-                RoI=RoI,
-                output_folder=output_folder_2,
-            )
-        else:
-            pseudo_distributions, candidate_stripes = stripepy.step_2(
-                LT_Iproc,
-                UT_Iproc,
-                configs_input["resolution"],
-                configs_thresholds["glob_pers_type"],
-                configs_thresholds["glob_pers_min"],
-                hf[f"{this_chr}/global-pseudo-distributions/"],
-            )
-        print(f"Execution time of step 2: {time.time() - start_time} seconds ---")
-
-        print(f"{IO.ANSI.YELLOW}Step 3: Shape analysis{IO.ANSI.ENDC}")
-        hf.create_group(f"{this_chr}/stripes/LT/")
-        hf.create_group(f"{this_chr}/stripes/UT/")
-        start_time = time.time()
-        with mp.Pool(configs_other["nproc"]) as pool:
-            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_3 = f"{configs_output['output_folder']}/plots/{this_chr}/3_shape_analysis/"
-                stripepy.step_3(
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
+            print(f"{IO.ANSI.YELLOW}Step 1: pre-processing step{IO.ANSI.ENDC}")
+            start_time = time.time()
+            if all(param is not None for param in [RoI, configs_output["output_folder"]]):
+                output_folder_1 = f"{configs_output['output_folder']}/plots/{this_chr}/1_preprocessing/"
+                LT_Iproc, UT_Iproc, Iproc_RoI = stripepy.step_1(
+                    I,
                     configs_input["genomic_belt"],
-                    configs_thresholds["max_width"],
-                    configs_thresholds["constrain_heights"],
-                    configs_thresholds["loc_pers_min"],
-                    configs_thresholds["loc_trend_min"],
-                    pseudo_distributions,
-                    candidate_stripes,
-                    hf[f"{this_chr}/stripes/"],
-                    Iproc_RoI=Iproc_RoI,
+                    configs_input["resolution"],
                     RoI=RoI,
-                    output_folder=output_folder_3,
-                    map=pool.map,
+                    output_folder=output_folder_1,
                 )
             else:
-                stripepy.step_3(
+                LT_Iproc, UT_Iproc, _ = stripepy.step_1(I, configs_input["genomic_belt"], configs_input["resolution"])
+                Iproc_RoI = None
+            print(f"Execution time of step 1: {time.time() - start_time} seconds ---")
+
+            # Find the indices where the sum is zero
+            # TODO: DO SOMETHING
+            # zero_indices = np.where(np.sum(Iproc_RoI, axis=0) == 0)[0]
+            # print(np.min(np.sum(LT_Iproc + UT_Iproc, axis=0)))
+            # print(np.max(np.sum(LT_Iproc + UT_Iproc, axis=0)))
+            # np.savetxt("trend.txt", np.sum(LT_Iproc + UT_Iproc, axis=0))
+            # exit()
+
+            print(f"{IO.ANSI.YELLOW}Step 2: Topological Data Analysis{IO.ANSI.ENDC}")
+            # Create the output of this step:
+            h5.create_group(f"{this_chr}/global-pseudo-distributions/LT/")
+            h5.create_group(f"{this_chr}/global-pseudo-distributions/UT/")
+            start_time = time.time()
+            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
+                output_folder_2 = f"{configs_output['output_folder']}/plots/{this_chr}/2_TDA/"
+                pseudo_distributions, candidate_stripes = stripepy.step_2(
                     LT_Iproc,
                     UT_Iproc,
                     configs_input["resolution"],
-                    configs_input["genomic_belt"],
-                    configs_thresholds["max_width"],
-                    configs_thresholds["constrain_heights"],
-                    configs_thresholds["loc_pers_min"],
-                    configs_thresholds["loc_trend_min"],
-                    pseudo_distributions,
-                    candidate_stripes,
-                    hf[f"{this_chr}/stripes/"],
-                    map=pool.map,
+                    configs_thresholds["glob_pers_type"],
+                    configs_thresholds["glob_pers_min"],
+                    h5[f"{this_chr}/global-pseudo-distributions/"],
+                    Iproc_RoI=Iproc_RoI,
+                    RoI=RoI,
+                    output_folder=output_folder_2,
                 )
+            else:
+                pseudo_distributions, candidate_stripes = stripepy.step_2(
+                    LT_Iproc,
+                    UT_Iproc,
+                    configs_input["resolution"],
+                    configs_thresholds["glob_pers_type"],
+                    configs_thresholds["glob_pers_min"],
+                    h5[f"{this_chr}/global-pseudo-distributions/"],
+                )
+            print(f"Execution time of step 2: {time.time() - start_time} seconds ---")
 
-        print(f"Execution time of step 3: {time.time() - start_time} seconds ---")
+            print(f"{IO.ANSI.YELLOW}Step 3: Shape analysis{IO.ANSI.ENDC}")
+            h5.create_group(f"{this_chr}/stripes/LT/")
+            h5.create_group(f"{this_chr}/stripes/UT/")
+            start_time = time.time()
 
-        print(f"{IO.ANSI.YELLOW}Step 4: Statistical analysis and post-processing{IO.ANSI.ENDC}")
-        start_time = time.time()
+            with mp.Pool(configs_other["nproc"]) as pool:
+                if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
+                    output_folder_3 = f"{configs_output['output_folder']}/plots/{this_chr}/3_shape_analysis/"
+                    stripepy.step_3(
+                        LT_Iproc,
+                        UT_Iproc,
+                        configs_input["resolution"],
+                        configs_input["genomic_belt"],
+                        configs_thresholds["max_width"],
+                        configs_thresholds["constrain_heights"],
+                        configs_thresholds["loc_pers_min"],
+                        configs_thresholds["loc_trend_min"],
+                        pseudo_distributions,
+                        candidate_stripes,
+                        h5[f"{this_chr}/stripes/"],
+                        Iproc_RoI=Iproc_RoI,
+                        RoI=RoI,
+                        output_folder=output_folder_3,
+                        map=pool.map,
+                    )
+                else:
+                    stripepy.step_3(
+                        LT_Iproc,
+                        UT_Iproc,
+                        configs_input["resolution"],
+                        configs_input["genomic_belt"],
+                        configs_thresholds["max_width"],
+                        configs_thresholds["constrain_heights"],
+                        configs_thresholds["loc_pers_min"],
+                        configs_thresholds["loc_trend_min"],
+                        pseudo_distributions,
+                        candidate_stripes,
+                        h5[f"{this_chr}/stripes/"],
+                        map=pool.map,
+                    )
 
-        if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-            output_folder_4 = f"{configs_output['output_folder']}/plots/{this_chr}/4_biological_analysis/"
-            thresholds_relative_change = np.arange(0.0, 15.2, 0.2)
-            stripepy.step_4(
-                LT_Iproc,
-                UT_Iproc,
-                candidate_stripes,
-                hf[f"{this_chr}/stripes/"],
-                configs_input["resolution"],
-                thresholds_relative_change,
-                Iproc_RoI=Iproc_RoI,
-                RoI=RoI,
-                output_folder=output_folder_4,
-            )
-        else:
-            stripepy.step_4(LT_Iproc, UT_Iproc, candidate_stripes, hf[f"{this_chr}/stripes/"])
+            print(f"Execution time of step 3: {time.time() - start_time} seconds ---")
 
-        print(f"Execution time of step 4: {time.time() - start_time} seconds ---")
+            print(f"{IO.ANSI.YELLOW}Step 4: Statistical analysis and post-processing{IO.ANSI.ENDC}")
+            start_time = time.time()
 
-        print(f"{IO.ANSI.CYAN}This chromosome has taken {(time.time() - start_local_time)} seconds{IO.ANSI.ENDC}")
+            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
+                output_folder_4 = f"{configs_output['output_folder']}/plots/{this_chr}/4_biological_analysis/"
+                thresholds_relative_change = np.arange(0.0, 15.2, 0.2)
+                stripepy.step_4(
+                    LT_Iproc,
+                    UT_Iproc,
+                    candidate_stripes,
+                    h5[f"{this_chr}/stripes/"],
+                    configs_input["resolution"],
+                    thresholds_relative_change,
+                    Iproc_RoI=Iproc_RoI,
+                    RoI=RoI,
+                    output_folder=output_folder_4,
+                )
+            else:
+                stripepy.step_4(LT_Iproc, UT_Iproc, candidate_stripes, h5[f"{this_chr}/stripes/"])
 
-        # # Get all terminal groups within the file
-        # # Recover all terminal group names:
-        # terminal_group_names = []
-        # hf.visititems(save_terminal_groups)
-        # print("List of terminal group names:", terminal_group_names)
-        #
-        # print_all_attributes(hf)
-        #
-        # exit()
+            print(f"Execution time of step 4: {time.time() - start_time} seconds ---")
+
+            print(f"{IO.ANSI.CYAN}This chromosome has taken {(time.time() - start_local_time)} seconds{IO.ANSI.ENDC}")
+
+            # # Get all terminal groups within the file
+            # # Recover all terminal group names:
+            # terminal_group_names = []
+            # h5.visititems(save_terminal_groups)
+            # print("List of terminal group names:", terminal_group_names)
+            #
+            # print_all_attributes(h5)
+            #
+            # exit()
 
     print(f"\n\n{IO.ANSI.RED}The code has run for {(time.time() - start_global_time) / 60} minutes{IO.ANSI.ENDC}")
-    hf.close()

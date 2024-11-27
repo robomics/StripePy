@@ -270,9 +270,21 @@ def _store_results(
     thresh_pers_type: str,
     min_persistence: float,
 ):
-    hf.create_dataset("pseudo-distribution", data=np.array(pd))
-    hf.create_dataset("minima_pts_and_persistence", data=np.array([min_points, pers_of_min_points]))
-    hf.create_dataset("maxima_pts_and_persistence", data=np.array([max_points, pers_of_max_points]))
+    hf.create_dataset("pseudo-distribution", data=np.array(pd), compression="gzip", compression_opts=4, shuffle=True)
+    hf.create_dataset(
+        "minima_pts_and_persistence",
+        data=np.array([min_points, pers_of_min_points]),
+        compression="gzip",
+        compression_opts=4,
+        shuffle=True,
+    )
+    hf.create_dataset(
+        "maxima_pts_and_persistence",
+        data=np.array([max_points, pers_of_max_points]),
+        compression="gzip",
+        compression_opts=4,
+        shuffle=True,
+    )
     hf.parent.attrs["thresholding_type"] = thresh_pers_type
     hf.parent.attrs["min_persistence_used"] = min_persistence
 
@@ -856,9 +868,13 @@ def step_3(
     )
 
     col_names = ["seed", "seed persistence", "L-boundary", "R_boundary", "U-boundary", "D-boundary"]
-    hf["LT/"].create_dataset("geo-descriptors", data=LT_shape_descriptors.values)
+    hf["LT/"].create_dataset(
+        "geo-descriptors", data=LT_shape_descriptors.values, compression="gzip", compression_opts=4, shuffle=True
+    )
     hf["LT/geo-descriptors"].attrs["col_names"] = col_names
-    hf["UT/"].create_dataset("geo-descriptors", data=UT_shape_descriptors.values)
+    hf["UT/"].create_dataset(
+        "geo-descriptors", data=UT_shape_descriptors.values, compression="gzip", compression_opts=4, shuffle=True
+    )
     hf["UT/geo-descriptors"].attrs["col_names"] = col_names
 
     print("3.6) Bar plots of widths and heights...")
@@ -966,9 +982,13 @@ def step_4(
     )
 
     col_names = ["inner mean", "outer mean", "relative change", "standard deviation"]
-    hf["LT/"].create_dataset("bio-descriptors", data=LT_biological_descriptors.values)
+    hf["LT/"].create_dataset(
+        "bio-descriptors", data=LT_biological_descriptors.values, compression="gzip", compression_opts=4, shuffle=True
+    )
     hf["LT/bio-descriptors"].attrs["col_names"] = col_names
-    hf["UT/"].create_dataset("bio-descriptors", data=UT_biological_descriptors.values)
+    hf["UT/"].create_dataset(
+        "bio-descriptors", data=UT_biological_descriptors.values, compression="gzip", compression_opts=4, shuffle=True
+    )
     hf["UT/bio-descriptors"].attrs["col_names"] = col_names
 
     if all(param is not None for param in [resolution, thresholds_relative_change, Iproc_RoI, RoI, output_folder]):
