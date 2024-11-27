@@ -120,6 +120,7 @@ jobs:
           echo "VERSION=$VERSION" | tee -a "$GITHUB_OUTPUT"
           # echo "CACHE_REGISTRY_X86=$CACHE_REGISTRY-x86" | tee -a "$GITHUB_OUTPUT"
           # echo "CACHE_REGISTRY_ARM64=$CACHE_REGISTRY-arm64" | tee -a "$GITHUB_OUTPUT"
+          echo "REPO_LOWERCASE=$REPO_LOWERCASE" | tee -a "$GITHUB_OUTPUT"
 
       - name: Docker meta
         id: meta
