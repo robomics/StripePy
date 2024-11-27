@@ -77,7 +77,7 @@ LABEL org.opencontainers.image.documentation='https://github.com/paulsengroup/st
 LABEL org.opencontainers.image.source='https://github.com/paulsengroup/stripepy'
 LABEL org.opencontainers.image.licenses='MIT'
 LABEL org.opencontainers.image.title='StripePy'
-LABEL org.opencontainers.image.description='StripePy recognizes linear patterns in chromosome conformation capture contact maps using geometric reasoning'
+LABEL org.opencontainers.image.description='StripePy recognizes linear patterns in 3C and Hi-C contact maps using geometric reasoning'
 LABEL org.opencontainers.image.base.digest="$BASE_IMAGE_DIGEST"
 LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 
