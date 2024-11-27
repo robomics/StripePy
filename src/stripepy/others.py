@@ -11,6 +11,10 @@ import numpy as np
 from . import IO
 
 
+def _raise_invalid_bin_type_except(f: hictkpy.File):
+    raise RuntimeError(f"Only files with a uniform bin size are supported, found \"{f.attributes()['bin-type']}\".")
+
+
 def cmap_loading(path: os.PathLike, resolution: int):
     try:
         if not isinstance(resolution, int):
@@ -23,12 +27,17 @@ def cmap_loading(path: os.PathLike, resolution: int):
             raise RuntimeError(".scool files are not currently supported.")
         if hictkpy.is_cooler(path):
             f = hictkpy.File(path)
+            if f.resolution() == 0:
+                _raise_invalid_bin_type_except(f)
             if f.resolution() != resolution:
                 raise RuntimeError(f"expected {resolution} resolution, found {f.resolution()}.")
         else:
             f = hictkpy.MultiResFile(path)[resolution]
     except RuntimeError as e:
         raise RuntimeError(f'error opening file "{path}"') from e
+
+    if f.attributes()["bin-type"] != "fixed":
+        _raise_invalid_bin_type_except(f)
 
     # Retrieve metadata:
     chr_starts = [0]  # left ends of each chromosome  (in matrix coordinates)
