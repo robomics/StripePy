@@ -247,7 +247,7 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
         default=5.0,
         help="Cutoff for the relative change.\n"
         "The relative change is computed as the ratio between the average number of interactions\n"
-        "found inside a stripe and  the number of interactions in a neighborhood outside of the stripe.",
+        "found inside a stripe and the number of interactions in a neighborhood outside of the stripe.",
     )
 
     sc.add_argument(
