@@ -116,6 +116,7 @@ _download_progress_reporter.timepoint = 0.0
 
 def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
     with tempfile.NamedTemporaryFile(dir=dest.parent, prefix=f"{dest.stem}.") as tmpfile:
+        tmpfile.close()
         tmpfile = pathlib.Path(tmpfile.name)
 
         url = dset["url"]
