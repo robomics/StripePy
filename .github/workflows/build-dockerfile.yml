@@ -177,8 +177,8 @@ jobs:
             CREATION_DATE=${{ steps.build-args.outputs.CREATION_DATE }}
             VERSION=${{ steps.build-args.outputs.VERSION }}
 
-      # - name: Test Docker image (x86)
-      #   run: utils/devel/test_docker_image.sh stripepy:x86
+      - name: Test Docker image (x86)
+        run: utils/devel/test_docker_image.sh stripepy:x86
 
       - name: Build Docker image (arm64)
         if: github.event_name != 'pull_request'
