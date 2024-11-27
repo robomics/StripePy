@@ -43,7 +43,7 @@ keywords = [
     "stripe recognition",
 ]
 
-requires-pyhton = ">=3.9"
+requires-python = ">=3.9"
 dependencies = [
     "bioframe >0.7, <1",
     "h5py >3, <4",
