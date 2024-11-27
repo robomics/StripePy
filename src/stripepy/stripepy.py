@@ -274,7 +274,7 @@ def _store_results(
 
 
 def _check_neighborhood(
-    values: List[float], min_value: float = 0.1, neighborhood_size: int = 20, threshold_percentage: float = 0.7
+    values: NDArray[np.float64], min_value: float = 0.1, neighborhood_size: int = 20, threshold_percentage: float = 0.7
 ):
     # TODO rea1991 Change neighborhood size from "matrix" to "genomic" (eg, default of 1 Mb)
     assert 0 <= min_value
