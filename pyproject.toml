@@ -61,7 +61,7 @@ test = [
 
 dev = [
     "stripepy[test]",
-    "black",
+    "black[jupyter]",
     "isort",
     "pre-commit",
 ]
