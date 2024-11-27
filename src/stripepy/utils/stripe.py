@@ -1,3 +1,7 @@
+# Copyright (C) 2024 Roberto Rossini <roberroso@uio.no>
+#
+# SPDX-License-Identifier: MIT
+
 import math
 from typing import Tuple, Union
 
