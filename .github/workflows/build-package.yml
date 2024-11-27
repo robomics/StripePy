@@ -61,13 +61,13 @@ jobs:
         run: git diff --exit-code
 
       - name: Build distribution
-        run: python -m build . -v
+        run: python -m build . -v --outdir out/dist/
 
-      - name: Upload wheels
+      - name: Upload distribution
         uses: actions/upload-artifact@v4
         with:
           name: dist
-          path: dist/
+          path: out/
           if-no-files-found: error
           retention-days: 1
 
