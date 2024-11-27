@@ -81,7 +81,7 @@ jobs:
         if: steps.cache-dset.outputs.cache-hit != 'true'
         run: |
           curl -L '${{ env.TEST_DATASET_URL }}' -o '${{ env.TEST_DATASET_ID }}.hic'
-          echo "${{ env.TEST_DATASET_MD5 }}  ${{ env.TEST_DATASET_ID }}" > checksum.md5
+          echo "${{ env.TEST_DATASET_MD5 }}  ${{ env.TEST_DATASET_ID }}.hic" > checksum.md5
           md5sum -c checksum.md5
 
       - name: Save test dataset
