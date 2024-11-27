@@ -97,8 +97,8 @@ def _stripes_to_bedpe(
 
     start1_pos = df["l_boundary"] * resolution
     end1_pos = np.minimum(df["r_boundary"] * resolution, size)
-    start2_pos = np.minimum(df["d_boundary"], df["u_boundary"]) * resolution
-    end2_pos = np.minimum(np.maximum(df["d_boundary"], df["u_boundary"]) * resolution, size)
+    start2_pos = np.minimum(df["u_boundary"] * resolution, size)
+    end2_pos = np.minimum(df["d_boundary"] * resolution, size)
 
     if transpose_policy is not None:
         if transpose_policy == "transpose_to_ut":
