@@ -52,8 +52,23 @@ jobs:
       contents: "read"
       packages: "write"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate build requirements
+        run: |
+          echo hatchling > requirements.txt
+          echo hatch_vcs >> requirements.txt
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+          cache: pip
+
+      - name: Install build requirements
+        run: pip install -r requirements.txt
 
       - name: Cache test dataset
         id: cache-dset
@@ -91,13 +106,7 @@ jobs:
           GIT_HASH="$(git rev-parse HEAD)"
           GIT_SHORT_HASH="$(git rev-parse --short HEAD)"
           CREATION_DATE="$(date --iso-8601)"
-          GIT_TAG="$(git for-each-ref 'refs/tags/v*.*.*' --count 1 --sort=-v:refname --format "%(refname:short)"  --points-at HEAD)"
-          if [ -z "$GIT_TAG" ]; then
-            VERSION="sha-$GIT_SHORT_HASH"
-            GIT_TAG=unknown
-          else
-            VERSION="$GIT_TAG"
-          fi
+          VERSION="$(hatchling version)"
 
           REPO='${{ github.repository }}'
           REPO_LOWERCASE="${REPO,,}"
