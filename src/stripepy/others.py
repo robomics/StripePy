@@ -36,7 +36,7 @@ def cmap_loading(path: os.PathLike, resolution: int):
     except RuntimeError as e:
         raise RuntimeError(f'error opening file "{path}"') from e
 
-    if f.attributes()["bin-type"] != "fixed":
+    if f.attributes().get("bin-type", "fixed") != "fixed":
         _raise_invalid_bin_type_except(f)
 
     # Retrieve metadata:
