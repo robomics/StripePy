@@ -162,6 +162,7 @@ jobs:
           platforms: arm64
 
       - name: Build Docker image (x86)
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         with:
           context: ${{ github.workspace }}
@@ -169,6 +170,23 @@ jobs:
           push: false
           cache-from: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_X86 }}
           cache-to: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_X86 }},mode=max,compression=zstd
+          tags: stripepy:x86
+          platforms: linux/amd64
+          build-args: |
+            BASE_IMAGE=${{ steps.build-args.outputs.BASE_IMAGE }}
+            BASE_IMAGE_DIGEST=${{ steps.build-args.outputs.BASE_IMAGE_DIGEST }}
+            GIT_HASH=${{ steps.build-args.outputs.GIT_HASH }}
+            CREATION_DATE=${{ steps.build-args.outputs.CREATION_DATE }}
+            VERSION=${{ steps.build-args.outputs.VERSION }}
+
+      - name: Build Docker image (x86; PR)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ github.workspace }}
+          load: true
+          push: false
+          cache-from: type=registry,ref=${{ steps.build-args.outputs.CACHE_REGISTRY_X86 }}
           tags: stripepy:x86
           platforms: linux/amd64
           build-args: |
