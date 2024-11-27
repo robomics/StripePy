@@ -1,3 +1,7 @@
+# Copyright (C) 2024 Andrea Raffo <andrea.raffo@ibv.uio.no>
+#
+# SPDX-License-Identifier: MIT
+
 # Implementation from the library by Tino Weinkauf downloadable at:
 # https://www.csc.kth.se/~weinkauf/notes/persistence1d.html
 
