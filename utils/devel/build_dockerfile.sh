@@ -42,7 +42,6 @@ VERSION="$("$venv_dir/bin/hatchling" version)"
 
 GIT_HASH="$(git rev-parse HEAD)"
 GIT_SHORT_HASH="$(git rev-parse --short HEAD)"
-GIT_TAG="$(git for-each-ref 'refs/tags/v*.*.*' --count 1 --sort=-v:refname --format "%(refname:short)" --points-at HEAD)"
 CREATION_DATE="$(date -I)"
 
 if [[ $(git status --porcelain -uno) ]]; then
@@ -54,12 +53,6 @@ fi
 IMAGE_TAG="sha-$GIT_SHORT_HASH"
 if [ $GIT_IS_DIRTY -ne 0 ]; then
   IMAGE_TAG+='-dirty'
-fi
-
-if [ -z "$GIT_TAG" ]; then
-  GIT_TAG="sha-$GIT_SHORT_HASH"
-else
-  GIT_TAG="$GIT_TAG"
 fi
 
 BASE_IMAGE='docker.io/library/python:3.12.7'
