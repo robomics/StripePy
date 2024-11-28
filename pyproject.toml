@@ -12,7 +12,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stripepy"
-description = "StripePy recognizes linear patterns in 3C and Hi-C contact maps using geometric reasoning"
+description = "StripePy recognizes architectural stripes in 3C and Hi-C contact maps using geometric reasoning"
 dynamic = ["version"]
 authors = [
     {name="Andrea Raffo", email="andrea.raffo@ibv.uio.no"},
