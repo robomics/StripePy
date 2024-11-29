@@ -117,20 +117,11 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     )
 
     sc.add_argument(
-        "--glob-pers-type",
-        type=str,
-        choices=["constant", "adaptive"],
-        default="constant",
-        help="Type of thresholding to filter persistence maxima points and identify loci of interest (aka seeds).",
-    )
-
-    sc.add_argument(
         "--glob-pers-min",
         type=_probability,
-        default=None,
-        help="Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest "
-        "(aka seeds). The default value depends on the option --glob-pers-type (default: 0.2 if --glob-pers-type "
-        "set to 'constant', 0.9 if --glob-pers-type set to 'adaptive').",
+        default=0.2,
+        help="Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest, "
+        "aka seeds (default: 0.2).",
     )
 
     sc.add_argument(
@@ -291,18 +282,12 @@ def _make_cli() -> argparse.ArgumentParser:
 
 
 def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
-    if args["glob_pers_min"] is None:
-        if args["glob_pers_type"] == "constant":
-            args["glob_pers_min"] = 0.2
-        else:
-            args["glob_pers_min"] = 0.9
 
     # Gather input parameters in dictionaries:
     configs_input = {key: args[key] for key in ["contact-map", "resolution", "normalization", "genomic_belt", "roi"]}
     configs_thresholds = {
         key: args[key]
         for key in [
-            "glob_pers_type",
             "glob_pers_min",
             "constrain_heights",
             "loc_pers_min",
@@ -322,7 +307,6 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     print(f"--genomic-belt: {configs_input['genomic_belt']}")
     print(f"--roi: {configs_input['roi']}")
     print(f"--max-width: {configs_thresholds['max_width']}")
-    print(f"--glob-pers-type: {configs_thresholds['glob_pers_type']}")
     print(f"--glob-pers-min: {configs_thresholds['glob_pers_min']}")
     print(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
     print(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")

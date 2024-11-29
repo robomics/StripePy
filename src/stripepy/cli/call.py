@@ -186,7 +186,6 @@ def run(
                     LT_Iproc,
                     UT_Iproc,
                     configs_input["resolution"],
-                    configs_thresholds["glob_pers_type"],
                     configs_thresholds["glob_pers_min"],
                     h5[f"{this_chr}/global-pseudo-distributions/"],
                     Iproc_RoI=Iproc_RoI,
@@ -198,7 +197,6 @@ def run(
                     LT_Iproc,
                     UT_Iproc,
                     configs_input["resolution"],
-                    configs_thresholds["glob_pers_type"],
                     configs_thresholds["glob_pers_min"],
                     h5[f"{this_chr}/global-pseudo-distributions/"],
                 )
