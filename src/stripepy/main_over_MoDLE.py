@@ -40,7 +40,6 @@ if __name__ == "__main__":
                 }
 
                 configs_thresholds = {
-                    "glob_pers_type": "constant",
                     "glob_pers_min": 0.025,
                     "constrain_heights": True,
                     "loc_pers_min": 0.25,
@@ -86,7 +85,6 @@ if __name__ == "__main__":
                 print(f"--resolution: {configs_input['resolution']}")
                 print(f"--genomic-belt: {configs_input['genomic_belt']}")
                 print(f"--max-width: {configs_thresholds['max_width']}")
-                print(f"--glob-pers-type: {configs_thresholds['glob_pers_type']}")
                 print(f"--glob-pers-min: {configs_thresholds['glob_pers_min']}")
                 print(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
                 print(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
@@ -150,7 +148,6 @@ if __name__ == "__main__":
                             LT_Iproc,
                             UT_Iproc,
                             configs_input["resolution"],
-                            configs_thresholds["glob_pers_type"],
                             configs_thresholds["glob_pers_min"],
                             hf[f"{this_chr}/global-pseudo-distributions/"],
                             Iproc_RoI=Iproc_RoI,
@@ -162,7 +159,6 @@ if __name__ == "__main__":
                             LT_Iproc,
                             UT_Iproc,
                             configs_input["resolution"],
-                            configs_thresholds["glob_pers_type"],
                             configs_thresholds["glob_pers_min"],
                             hf[f"{this_chr}/global-pseudo-distributions/"],
                         )

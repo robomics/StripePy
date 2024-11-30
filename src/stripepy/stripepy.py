@@ -267,7 +267,6 @@ def _store_results(
     pers_of_min_points: List[float],
     max_points: List[int],
     pers_of_max_points: List[float],
-    thresh_pers_type: str,
     min_persistence: float,
 ):
     hf.create_dataset("pseudo-distribution", data=np.array(pd), compression="gzip", compression_opts=4, shuffle=True)
@@ -285,7 +284,6 @@ def _store_results(
         compression_opts=4,
         shuffle=True,
     )
-    hf.parent.attrs["thresholding_type"] = thresh_pers_type
     hf.parent.attrs["min_persistence_used"] = min_persistence
 
 
@@ -345,7 +343,7 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
     return LT_Iproc, UT_Iproc, Iproc_RoI
 
 
-def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=None, RoI=None, output_folder=None):
+def step_2(L, U, resolution, min_persistence, hf, Iproc_RoI=None, RoI=None, output_folder=None):
     print("2.1) Global 1D pseudo-distributions...")
     LT_pd = _compute_global_pseudodistribution(L)
     UT_pd = _compute_global_pseudodistribution(U)
@@ -359,17 +357,6 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
     # All local minimum and maximum points:
     all_LT_ps_mPs, all_pers_of_LT_ps_mPs, all_LT_ps_MPs, all_pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=0)
     all_UT_ps_mPs, all_pers_of_UT_ps_mPs, all_UT_ps_MPs, all_pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=0)
-
-    # TODO: rea1991 this flag is always used as constant in experiments, check if still necessary/useful
-    if thresh_pers_type == "constant":
-        min_persistence = thresh_pers_value
-    else:
-        # min_persistence = (np.quantile(LT_pers_of_MPs, 0.75) +
-        #                    1.5 * (np.quantile(LT_pers_of_MPs, 0.75) - np.quantile(LT_pers_of_MPs, 0.25)))
-        min_persistence_LT = np.quantile(all_pers_of_LT_ps_MPs, thresh_pers_value)
-        min_persistence_UT = np.quantile(all_pers_of_UT_ps_MPs, thresh_pers_value)
-        min_persistence = np.max(min_persistence_LT, min_persistence_UT)
-        print(f"This quantile is used: {thresh_pers_value}")
 
     print("2.2.1) Lower triangular part")
     LT_ps_mPs, pers_of_LT_ps_mPs, LT_ps_MPs, pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=min_persistence)
@@ -437,7 +424,6 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
         all_pers_of_LT_ps_mPs,
         all_LT_ps_MPs,
         all_pers_of_LT_ps_MPs,
-        thresh_pers_type,
         min_persistence,
     )
     _store_results(
@@ -447,7 +433,6 @@ def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=
         all_pers_of_UT_ps_mPs,
         all_UT_ps_MPs,
         all_pers_of_UT_ps_MPs,
-        thresh_pers_type,
         min_persistence,
     )
 

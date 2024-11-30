@@ -57,7 +57,6 @@ stripepy call \
   "$TEST_DATASET" \
   100000 \
   -o stripepy/ \
-  --glob-pers-type constant \
   --glob-pers-min 0.10 \
   --loc-pers-min 0.33 \
   --loc-trend-min 0.25 \
