@@ -55,7 +55,6 @@ keywords = [
 
 requires-python = ">=3.9"
 dependencies = [
-    "bioframe >0.7, <1",
     "h5py >3, <4",
     "hictkpy[scipy] >=1, <2",
     "matplotlib >=3.8, <4",

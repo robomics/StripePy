@@ -4,7 +4,6 @@
 
 import itertools
 
-import bioframe as bf
 import hictkpy
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -12,11 +11,18 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
+import functools
+from typing import List
 
 from . import IO
 
 # Colors
 colors = ["#e76f51", "#f4a261", "#e9c46a", "#2a9d8f", "#669bbc"]
+
+@function.cache
+def _bed6_columns() -> List[str]:
+    return ["chrom", "start", "end", "name", "score", "strand"]
+
 
 
 def initialize():
@@ -45,8 +51,8 @@ def retrieve_ground_truth(path, file_name, chromosome, resolution, probability_t
     """
 
     # Ground truth for the chromosome under study:
-    df = bf.read_table(path + file_name, schema="bed6")
-    df_sub = bf.select(df, chromosome).copy()
+    df = pd.read_table(path + file_name, names=_bed6_columns(), usecols=list(range(6)))
+    df_sub = df[(df["chrom1"] == chromosome) & (df["chrom2"] == chromosome)].copy()
     df_sub["anchor"] = (df_sub["end"] + df_sub["start"]) / 2
 
     # Lower ground truth stripes:
@@ -87,8 +93,8 @@ def retrieve_stripepy(path, chromosome, n_bins, resolution, threshold):
     path = f"{path}/{resolution}/{chromosome}"
 
     # Candidate horizontal/vertical intervals of interest (each interval defines a candidate stripe):
-    L_IoIs = bf.read_table(f"{path}/global/filtrations/LT_{threshold:.2f}.bedpe", schema="bed6")
-    U_IoIs = bf.read_table(f"{path}/global/filtrations/UT_{threshold:.2f}.bedpe", schema="bed6")
+    L_IoIs = pd.read_table(f"{path}/global/filtrations/LT_{threshold:.2f}.bedpe", names=_bed6_columns(), usecols=list(range(6)))
+    U_IoIs = pd.read_table(f"{path}/global/filtrations/UT_{threshold:.2f}.bedpe", names=_bed6_columns(), usecols=list(range(6)))
 
     # Convert IoIs to NumPy arrays and divide by resolution:
     L_HIoIs = (L_IoIs[["start", "end"]].values / resolution).astype(int)
@@ -166,7 +172,7 @@ def retrieve_stripecaller(path, chromosome, n_bins, resolution):
     """
 
     # Load predictions:
-    df = bf.read_table(f"{path}/{resolution}/output.bedpe", schema="bed6")
+    df = pd.read_table(f"{path}/{resolution}/output.bedpe", names=_bed6_columns(), usecols=list(range(6)))
     df_chr = df[df["chrom"] == chromosome]
     X1 = df_chr["start"].values.tolist()
     X2 = df_chr["end"].values.tolist()
