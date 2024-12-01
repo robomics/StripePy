@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
+import functools
 import itertools
+from typing import List
 
 import hictkpy
 import matplotlib.pyplot as plt
@@ -11,18 +13,16 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
-import functools
-from typing import List
 
 from . import IO
 
 # Colors
 colors = ["#e76f51", "#f4a261", "#e9c46a", "#2a9d8f", "#669bbc"]
 
+
 @function.cache
 def _bed6_columns() -> List[str]:
     return ["chrom", "start", "end", "name", "score", "strand"]
-
 
 
 def initialize():
@@ -93,8 +93,12 @@ def retrieve_stripepy(path, chromosome, n_bins, resolution, threshold):
     path = f"{path}/{resolution}/{chromosome}"
 
     # Candidate horizontal/vertical intervals of interest (each interval defines a candidate stripe):
-    L_IoIs = pd.read_table(f"{path}/global/filtrations/LT_{threshold:.2f}.bedpe", names=_bed6_columns(), usecols=list(range(6)))
-    U_IoIs = pd.read_table(f"{path}/global/filtrations/UT_{threshold:.2f}.bedpe", names=_bed6_columns(), usecols=list(range(6)))
+    L_IoIs = pd.read_table(
+        f"{path}/global/filtrations/LT_{threshold:.2f}.bedpe", names=_bed6_columns(), usecols=list(range(6))
+    )
+    U_IoIs = pd.read_table(
+        f"{path}/global/filtrations/UT_{threshold:.2f}.bedpe", names=_bed6_columns(), usecols=list(range(6))
+    )
 
     # Convert IoIs to NumPy arrays and divide by resolution:
     L_HIoIs = (L_IoIs[["start", "end"]].values / resolution).astype(int)
