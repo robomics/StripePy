@@ -21,6 +21,13 @@ def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
     assert not math.isnan(max_size)
 
     datasets = {
+        "__end2end": {
+            "url": "https://hgdownload.soe.ucsc.edu/goldenpath/hg38/bigZips/p14/hg38.p14.chrom.sizes",
+            "md5": "40ff8101afa7a5dd3a866910507e6504",
+            "assembly": "hg38",
+            "format": "chrom.sizes",
+            "size_mb": 0.018688,
+        },
         "4DNFIOTPSS3L": {
             "url": "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/7386f953-8da9-47b0-acb2-931cba810544/4DNFIOTPSS3L.hic",
             "md5": "d8b030bec6918bfbb8581c700990f49d",
@@ -46,7 +53,8 @@ def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
 
 
 def _list_datasets():
-    json.dump(_get_datasets(math.inf), fp=sys.stdout, indent=2)
+    dsets = {k: v for k, v in _get_datasets(math.inf).items() if not k.startswith("__")}
+    json.dump(dsets, fp=sys.stdout, indent=2)
     sys.stdout.write("\n")
 
 
