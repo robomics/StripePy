@@ -1,0 +1,114 @@
+# Copyright (C) 2024 Roberto Rossini <roberros@uio.no>
+#
+# SPDX-License-Identifier: MIT
+
+name: Build package distribution
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-package.yml"
+      - "src/**"
+      - "test/**"
+      - ".gitignore"
+      - "LICENCE"
+      - "pyproject.toml"
+      - "README.md"
+
+  pull_request:
+    paths:
+      - ".github/workflows/build-package.yml"
+      - "src/**"
+      - "test/**"
+      - ".gitignore"
+      - "LICENCE"
+      - "pyproject.toml"
+      - "README.md"
+
+  release:
+    types:
+      - published
+
+# https://stackoverflow.com/a/72408109
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-package:
+    name: Build package distribution
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+
+      - name: Install dependencies
+        run: pip install build
+
+      - name: Verify clean directory
+        run: git diff --exit-code
+
+      - name: Build distribution
+        run: python -m build . -v --outdir out/dist/
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: out/
+          if-no-files-found: error
+          retention-days: 1
+
+  pypi-publish:
+    name: Upload release to PyPI
+    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [build-package]
+    environment:
+      name: PyPI
+      url: https://pypi.org/p/stripepy
+    permissions:
+      id-token: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+
+      - name: Upload wheels to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
+          print-hash: true
+          verbose: true
+
+  build-package-status-check:
+    name: Status Check (Build package distribution)
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    needs:
+      - build-package
+      - pypi-publish
+
+    steps:
+      - name: Collect job results
+        if: |
+          needs.build-package.result != 'success' ||
+          (
+           needs.pypi-publish.result != 'success' &&
+           needs.pypi-publish.result != 'skipped'
+          )
+        run: exit 1
