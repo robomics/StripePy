@@ -3,11 +3,13 @@
 # SPDX-License-Identifier: MIT
 
 import numpy as np
+import pytest
 import scipy.sparse as ss
 
 from stripepy.stripepy import _log_transform
 
 
+@pytest.mark.unit
 class TestLogTransform:
 
     def test_empty(self):

@@ -83,7 +83,7 @@ Source = "https://github.com/paulsengroup/StripePy"
 minversion = "8.0"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
-markers = ["end2end"]
+markers = ["end2end", "unit"]
 python_files = [
   "test/unit/test*.py",
   "test/integration/test*.py",
