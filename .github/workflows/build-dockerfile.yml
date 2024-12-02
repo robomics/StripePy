@@ -100,7 +100,7 @@ jobs:
           set -u
           set -o pipefail
 
-          BASE_IMAGE='docker.io/library/python:3.12.7'
+          BASE_IMAGE='docker.io/library/python:3.13'
 
           docker pull "$BASE_IMAGE"
           BASE_IMAGE_DIGEST="$(docker inspect --format='{{index .RepoDigests 0}}' "$BASE_IMAGE" | cut -f 2 -d '@')"
