@@ -7,7 +7,7 @@ import math
 import multiprocessing as mp
 import pathlib
 from importlib.metadata import version
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 
 # Create a custom formatter to allow multiline and bulleted descriptions
@@ -339,9 +339,9 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def parse_args() -> Tuple[str, Any]:
+def parse_args(cli_args: List[str]) -> Tuple[str, Any]:
     # Parse the input parameters:
-    args = vars(_make_cli().parse_args())
+    args = vars(_make_cli().parse_args(cli_args))
 
     subcommand = args.pop("subcommand")
     if subcommand == "call":

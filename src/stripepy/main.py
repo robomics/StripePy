@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 import logging
+import sys
+from typing import List, Union
 
 from .cli import call, download, setup, view
 
@@ -22,8 +24,11 @@ def _setup_logger(level: str):
     logging.getLogger().setLevel(level)
 
 
-def main():
-    subcommand, args = setup.parse_args()
+def main(args: Union[List[str], None] = None):
+    if args is None:
+        args = sys.argv[1:]
+
+    subcommand, args = setup.parse_args(args)
     _setup_logger("INFO")  # TODO make tunable
 
     if subcommand == "call":
