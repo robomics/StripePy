@@ -36,6 +36,7 @@ python3 -m venv venv
 git clone https://github.com/paulsengroup/StripePy.git
 
 # install StripePy
+cd StripePy
 pip install .
 
 # ensure StripePy is in your PATH
@@ -54,6 +55,7 @@ venv\Scripts\activate
 git clone https://github.com/paulsengroup/StripePy.git
 
 # install StripePy
+cd StripePy
 pip install .
 
 # ensure StripePy is in your PATH
