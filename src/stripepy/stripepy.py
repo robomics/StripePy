@@ -15,8 +15,9 @@ import seaborn as sns
 from numpy.typing import NDArray
 
 from . import IO
-from .configs import be_verbose
 from .utils import TDA, finders, regressions, stripe
+
+be_verbose = True  # TODO consider safe removal of be_verbose
 
 
 def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
