@@ -79,6 +79,20 @@ Issues = "https://github.com/paulsengroup/StripePy/issues"
 Repository = "https://github.com/paulsengroup/StripePy.git"
 Source = "https://github.com/paulsengroup/StripePy"
 
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+markers = ["end2end"]
+python_files = [
+  "test/unit/test*.py",
+  "test/integration/test*.py",
+]
+testpaths = [
+  "test/"
+]
+
+
 [tool.hatch.version]
 source = "vcs"
 fallback-version = "unknown"
