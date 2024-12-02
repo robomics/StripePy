@@ -19,6 +19,9 @@ class TestStripePyView:
     @staticmethod
     def test_view():
         testfile = testdir / "data" / "results.v1.hdf5"
+        if not testfile.exists():
+            raise RuntimeError(f"unable to find file \"{testfile}\". Did you download the test files prior to running pytest?")
+
         args = ["view", str(testfile)]
         buff = io.StringIO()
         with contextlib.redirect_stdout(buff):

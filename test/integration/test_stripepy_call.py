@@ -19,6 +19,11 @@ class TestStripePyCall:
         testfile = testdir / "data" / "4DNFIOTPSS3L.hic"
         resolution = 10_000
 
+        if not testfile.exists():
+            raise RuntimeError(
+                f'unable to find file "{testfile}". Did you download the test files prior to running pytest?'
+            )
+
         args = ["call", str(testfile), str(resolution), "--output-folder", str(tmpdir)]
         main(args)
 
