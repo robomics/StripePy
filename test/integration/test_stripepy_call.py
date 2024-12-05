@@ -16,7 +16,7 @@ testdir = pathlib.Path(__file__).resolve().parent.parent
 class TestStripePyCall:
     @staticmethod
     def test_stripepy_call(tmpdir):
-        testfile = testdir / "data" / "4DNFIOTPSS3L.hic"
+        testfile = testdir / "data" / "4DNFI9GMP2J8.mcool"
         resolution = 10_000
 
         if not testfile.exists():
@@ -24,7 +24,19 @@ class TestStripePyCall:
                 f'unable to find file "{testfile}". Did you download the test files prior to running pytest?'
             )
 
-        args = ["call", str(testfile), str(resolution), "--output-folder", str(tmpdir)]
+        args = [
+            "call",
+            str(testfile),
+            str(resolution),
+            "--glob-pers-min",
+            "0.10",
+            "--loc-pers-min",
+            "0.33",
+            "--loc-trend-min",
+            "0.25",
+            "--output-folder",
+            str(tmpdir),
+        ]
         main(args)
 
         outfile = pathlib.Path(tmpdir) / testfile.stem / str(resolution) / "results.hdf5"
