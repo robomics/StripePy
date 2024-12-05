@@ -1,3 +1,7 @@
+# Copyright (C) 2024 Roberto Rossini <roberros@uio.no>
+#
+# SPDX-License-Identifier: MIT
+
 name: CI
 
 on:
@@ -44,9 +48,9 @@ jobs:
             // https://github.com/actions/runner/issues/982#issuecomment-809360765
 
             const platforms = ["windows-latest", "macos-latest", "ubuntu-latest"]
-            var python_versions = ["3.9", "3.12"]
+            var python_versions = ["3.9", "3.13"]
             if ("${{github.event_name}}" != "pull_request") {
-                python_versions = python_versions.concat(["3.10", "3.11"])
+                python_versions = python_versions.concat(["3.10", "3.11", "3.12"])
             }
 
             var includes = []
@@ -66,6 +70,9 @@ jobs:
       matrix: ${{ fromJson(needs.matrix-factory.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
 
+    env:
+      TEST_DATASET_ID: 4DNFI9GMP2J8
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,10 +91,49 @@ jobs:
       - name: Run unit tests
         run: python -m pytest test -v
 
-      - name: Run CLI tests
+      - name: Run simple CLI tests
         run: |
           stripepy --help
           stripepy --version
+
+      - name: Cache test dataset
+        id: cache-dset
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ env.TEST_DATASET_ID }}
+          path: ${{ env.TEST_DATASET_ID }}.mcool
+
+      - name: Download test dataset
+        if: steps.cache-dset.outputs.cache-hit != 'true'
+        run: stripepy download --name ${{ env.TEST_DATASET_ID }}
+
+      - name: Save test dataset
+        if: steps.cache-dset.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ env.TEST_DATASET_ID }}
+          path: ${{ env.TEST_DATASET_ID }}.mcool
+
+      - name: Test stripepy call
+        run: |
+          NPROC="$(python -c 'import multiprocessing as mp; print(mp.cpu_count())')"
+
+          stripepy call \
+            ${{ env.TEST_DATASET_ID }}.mcool \
+            20000 \
+            -o stripepy/ \
+            --glob-pers-min 0.10 \
+            --loc-pers-min 0.33 \
+            --loc-trend-min 0.25 \
+            --roi middle \
+            --nproc "$NPROC"
+
+          find stripepy/ -type f -exec ls -lah {} +
+
+          if [ ! -f stripepy/*/*/results.hdf5 ]; then
+            1>&2 echo 'results.hdf5 is missing!'
+            exit 1
+          fi
 
   ci-status-check:
     name: Status Check (CI)

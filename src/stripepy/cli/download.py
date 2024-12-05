@@ -21,19 +21,40 @@ def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
     assert not math.isnan(max_size)
 
     datasets = {
-        "4DNFIOTPSS3L": {
-            "url": "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/7386f953-8da9-47b0-acb2-931cba810544/4DNFIOTPSS3L.hic",
-            "md5": "d8b030bec6918bfbb8581c700990f49d",
-            "assembly": "dm6",
-            "format": "hic",
-            "size_mb": 248.10,
+        "4DNFI3RFZLZ5": {
+            "url": "https://zenodo.org/records/14283922/files/4DNFI3RFZLZ5.stripepy.mcool?download=1",
+            "md5": "f6e060211c95dd5fbf6e708c637d1c1c",
+            "assembly": "mm10",
+            "format": "mcool",
+            "size_mb": 83.85,
         },
         "4DNFIC1CLPK7": {
-            "url": "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/0dc0b1ba-5509-4464-9814-dfe103ff09a0/4DNFIC1CLPK7.hic",
-            "md5": "9648c38d52fb467846cce42a4a072f57",
-            "assembly": "galGal5",
+            "url": "https://zenodo.org/records/14283922/files/4DNFI6HDY7WZ.stripepy.mcool?download=1",
+            "md5": "745df902a842c17e535222fb7f9748ca",
+            "assembly": "hg38",
+            "format": "mcool",
+            "size_mb": 104.73,
+        },
+        "4DNFI9GMP2J8": {
+            "url": "https://zenodo.org/records/14283922/files/4DNFI9GMP2J8.stripepy.mcool?download=1",
+            "md5": "a17d08460c03cf6c926e2ca5743e4888",
+            "assembly": "hg38",
+            "format": "mcool",
+            "size_mb": 106.84,
+        },
+        "ENCFF993FGR": {
+            "url": "https://zenodo.org/records/14283922/files/ENCFF993FGR.stripepy.hic?download=1",
+            "md5": "3bcb8c8c5aac237f26f994e0f5e983d7",
+            "assembly": "hg38",
             "format": "hic",
-            "size_mb": 583.57,
+            "size_mb": 185.29,
+        },
+        "__results_v1": {
+            "url": "https://zenodo.org/records/14283922/files/results_4DNFI9GMP2J8_v1.hdf5?download=1",
+            "md5": "632b2a7a6e5c1a24dc3635710ed68a80",
+            "assembly": "hg38",
+            "format": "stripepy",
+            "size_mb": 8.75,
         },
     }
 
@@ -46,7 +67,8 @@ def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
 
 
 def _list_datasets():
-    json.dump(_get_datasets(math.inf), fp=sys.stdout, indent=2)
+    dsets = {k: v for k, v in _get_datasets(math.inf).items() if not k.startswith("__")}
+    json.dump(dsets, fp=sys.stdout, indent=2)
     sys.stdout.write("\n")
 
 
@@ -116,6 +138,7 @@ _download_progress_reporter.timepoint = 0.0
 
 def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
     with tempfile.NamedTemporaryFile(dir=dest.parent, prefix=f"{dest.stem}.") as tmpfile:
+        tmpfile.close()
         tmpfile = pathlib.Path(tmpfile.name)
 
         url = dset["url"]

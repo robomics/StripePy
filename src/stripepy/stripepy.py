@@ -1,49 +1,157 @@
-import time
+# Copyright (C) 2024 Andrea Raffo <andrea.raffo@ibv.uio.no>
+#
+# SPDX-License-Identifier: MIT
 
+import pathlib
+import time
+from typing import Dict, List, Tuple, Union
+
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.sparse as ss
 import seaborn as sns
+from numpy.typing import NDArray
 
 from . import IO
-from .configs import be_verbose
 from .utils import TDA, finders, regressions, stripe
 
+be_verbose = True  # TODO consider safe removal of be_verbose
 
-def log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
+
+def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
+    """
+    Apply a log-transform to a sparse matrix ignoring (i.e. dropping) NaNs.
+
+    Parameters
+    ----------
+    I : ss.csr_matrix
+        the sparse matrix to be transformed
+
+    Returns
+    -------
+    ss.csr_matrix
+        the log-transformed sparse matrix
+    """
+
     I.data[np.isnan(I.data)] = 0
     I.eliminate_zeros()
     Iproc = I.log1p()
     return Iproc
 
 
-def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
+def _band_extraction(I: ss.csr_matrix, resolution: int, genomic_belt: int) -> Tuple[ss.csr_matrix, ss.csr_matrix]:
+    """
+    Given a symmetric sparse matrix in CSR format, do the following:
 
-    print("1.1) Log-transformation...")
-    Iproc = log_transform(I)
+      * Split the input matrix into a upper/lower-triangular matrices
+      * Zero (i.e. drop) all values that lie outside the first genomic_belt // resolution diagonals
 
-    print("1.2) Focusing on a neighborhood of the main diagonal...")
-    matrix_belt = int(genomic_belt / resolution)
+    Parameters
+    ----------
+    I : ss.csr_matrix
+        the sparse matrix to be processed
+    resolution : int
+        the genomic resolution of the sparse matrix I
+    genomic_belt: int
+        the width of the genomic belt to be extracted
 
-    LT_Iproc = ss.tril(Iproc, k=0, format="csr") - ss.tril(Iproc, k=-matrix_belt, format="csr")
-    UT_Iproc = ss.triu(Iproc, k=0, format="csr") - ss.triu(Iproc, k=matrix_belt, format="csr")
+    Returns
+    -------
+    Tuple[ss.csr_matrix, ss.csr_matrix]
+        2 elements tuple with the lower-triangular and upper-triangular matrix after band extraction
+    """
 
-    # Scaling
-    print("1.3) Projection onto [0, 1]...")
-    scaling_factor_Iproc = Iproc.max()
-    Iproc /= scaling_factor_Iproc
-    LT_Iproc /= scaling_factor_Iproc
-    UT_Iproc /= scaling_factor_Iproc
+    assert resolution > 0
+    assert genomic_belt > 0
 
+    matrix_belt = genomic_belt // resolution
+    LT_I = ss.tril(I, k=0, format="csr") - ss.tril(I, k=-matrix_belt, format="csr")
+    UT_I = ss.triu(I, k=0, format="csr") - ss.triu(I, k=matrix_belt, format="csr")
+    return LT_I, UT_I
+
+
+def _scale_Iproc(
+    I: ss.csr_matrix, LT_I: ss.csr_matrix, UT_I: ss.csr_matrix
+) -> Tuple[ss.csr_matrix, ss.csr_matrix, ss.csr_matrix]:
+    """
+    Rescale matrices LT_I and UT_I based on the maximum value found in matrix I
+
+    Parameters
+    ----------
+    I : ss.csr_matrix
+        the sparse matrix used to compute the scaling factor
+    LT_I : ss.csr_matrix
+        the lower-triangular sparse matrix to be rescaled
+    UT_I : ss.csr_matrix
+        the upper-triangular sparse matrix to be rescaled
+
+    Returns
+    -------
+    Tuple[ss.csr_matrix, ss.csr_matrix]
+        the rescaled lower and upper-triangular matrices
+    """
+
+    scaling_factor_Iproc = I.max()
+    return tuple(J / scaling_factor_Iproc for J in [I, LT_I, UT_I])  # noqa
+
+
+def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> NDArray:
+    """
+    Extract a region of interest (ROI) from the sparse matrix I
+
+    Parameters
+    ----------
+    I: ss.csr_matrix
+        the sparse matrix to be processed
+    RoI: Dict[str, List[int]]
+        dictionary with the region of interest in matrix ('matrix') and genomic ('genomic') coordinates
+
+    Returns
+    -------
+    NDArray
+        dense matrix with the interactions for the regions of interest
+    """
+
+    rows = cols = slice(RoI["matrix"][0], RoI["matrix"][1])
+    I_RoI = I[rows, cols].toarray()
+    return I_RoI
+
+
+def _plot_RoIs(
+    I: ss.csr_matrix, Iproc: ss.csr_matrix, RoI: Union[NDArray, None], output_folder: Union[pathlib.Path, None]
+) -> Union[NDArray, None]:
+    """
+    Helper function to plot a region of interest.
+    This function does nothing when RoI is None.
+    If output_folder is None (but RoI is not), then this function simply extracts the interactions
+    that would've been used for plotting, but generates no plots.
+
+    Parameters
+    ----------
+    I: ss.csr_matrix
+        the unprocessed input sparse matrix
+    Iproc: ss.csr_matrix
+        the processed input sparse matrix
+    RoI: Union[NDArray, None]
+        the region of interest to be plotted in matrix ('matrix') and genomic ('genomic') coordinates
+    output_folder: pathlib.Path
+        folder where to save the plots
+
+    Returns
+    -------
+    Union[NDArray, None]
+        the dense matrix used for plotting or None when RoI is None
+    """
+
+    # TODO rea1991 Once there is better test coverage, rewrite this as suggested in in #16
     if RoI is not None:
         print("1.4) Extracting a Region of Interest (RoI) for plot purposes...")
-        rows = cols = slice(RoI["matrix"][0], RoI["matrix"][1])
-        I_RoI = I[rows, cols].toarray()
-        Iproc_RoI = Iproc[rows, cols].toarray()
+        I_RoI = _extract_RoIs(I, RoI)
+        Iproc_RoI = _extract_RoIs(Iproc, RoI)
 
         if output_folder is not None:
-
             # Plots:
             IO.HiC(
                 I_RoI,
@@ -62,116 +170,282 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
                 compactify=False,
             )
     else:
-        I_RoI = None
-        Iproc_RoI = None
+        Iproc_RoI = None  # TODO handle this case in _extract_RoIs
+    return Iproc_RoI
+
+
+def _compute_global_pseudodistribution(T: ss.csr_matrix) -> NDArray[np.float64]:
+    """
+    Given a sparse matrix T, marginalize it, scale the marginal so that maximum is 1, and then smooth it.
+
+    Parameters
+    ----------
+    T: ss.csr_matrix
+        the sparse matrix to be processed
+
+    Returns
+    -------
+    NDArray[np.float64]
+        a vector with the re-scaled and smoothed marginals.
+    """
+
+    pseudo_dist = np.squeeze(np.asarray(np.sum(T, axis=0)))  # marginalization
+    pseudo_dist /= np.max(pseudo_dist)  # scaling
+    pseudo_dist = np.maximum(regressions._compute_wQISA_predictions(pseudo_dist, 11), pseudo_dist)  # smoothing
+    return pseudo_dist
+
+
+def _sort_extrema_by_coordinate(ps_ePs: List[int], pers_of_ps_ePs: List[float]) -> Tuple[List[int], List[float]]:
+    """
+    Sort the two lists given as input in ascending order based on values from ps_ePs.
+
+    Parameters
+    ----------
+    ps_ePs: List[int]
+        the location of the local maximum points
+    pers_of_ps_ePs: List[float]
+        the values of topological persistence corresponding to the locations listed in ps_ePs
+
+    Returns
+    -------
+    Tuple[List[int], List[float]]
+        the two input lists sorted based on ps_ePs
+    """
+    # Some notation:
+    # ps = persistence-sorted
+    # ePs = extremum points
+    # pers = topological persistence
+
+    assert len(ps_ePs) == len(pers_of_ps_ePs)
+
+    permutation_ps2cs_ePs = np.argsort(ps_ePs)
+
+    # Maximum and minimum points sorted w.r.t. coordinates: actual application of permutations
+    cs_ePs = np.array(ps_ePs)[permutation_ps2cs_ePs].tolist()
+    cs_pers_of_ePs = np.array(pers_of_ps_ePs)[permutation_ps2cs_ePs].tolist()
+
+    return cs_ePs, cs_pers_of_ePs
+
+
+def _find_seeds_in_RoI(
+    seeds: List[int], left_bound_RoI: int, right_bound_RoI: int
+) -> Tuple[NDArray[np.int64], List[int]]:
+    """
+    Select seed coordinates that fall within the given left and right boundaries.
+
+    Parameters
+    ----------
+    seeds: List[int]
+        a list with the seed coordinates
+    left_bound_RoI: int
+        left bound of the region of interest
+    right_bound_RoI: int
+        right bound of the region of interest
+
+    Returns
+    -------
+    Tuple[NDArray[np.int64], List[int]]
+        a tuple consisting of:
+
+         * the indices of seed coordinates falling within the given boundaries
+         * the coordinates of the selected seeds
+    """
+
+    assert left_bound_RoI >= 0
+    assert right_bound_RoI >= left_bound_RoI
+
+    # Find sites within the range of interest -- lower-triangular:
+    ids_seeds_in_RoI = np.where((left_bound_RoI <= np.array(seeds)) & (np.array(seeds) <= right_bound_RoI))[0]
+    seeds_in_RoI = np.array(seeds)[ids_seeds_in_RoI].tolist()
+
+    return ids_seeds_in_RoI, seeds_in_RoI
+
+
+def _store_results(
+    hf: h5py._hl.group.Group,
+    pd: NDArray[np.float64],
+    min_points: List[int],
+    pers_of_min_points: List[float],
+    max_points: List[int],
+    pers_of_max_points: List[float],
+    min_persistence: float,
+):
+    hf.create_dataset("pseudo-distribution", data=np.array(pd), compression="gzip", compression_opts=4, shuffle=True)
+    hf.create_dataset(
+        "minima_pts_and_persistence",
+        data=np.array([min_points, pers_of_min_points]),
+        compression="gzip",
+        compression_opts=4,
+        shuffle=True,
+    )
+    hf.create_dataset(
+        "maxima_pts_and_persistence",
+        data=np.array([max_points, pers_of_max_points]),
+        compression="gzip",
+        compression_opts=4,
+        shuffle=True,
+    )
+    hf.parent.attrs["min_persistence_used"] = min_persistence
+
+
+def _check_neighborhood(
+    values: NDArray[np.float64], min_value: float = 0.1, neighborhood_size: int = 20, threshold_percentage: float = 0.7
+) -> List[int]:
+    # TODO rea1991 Change neighborhood size from "matrix" to "genomic" (eg, default of 1 Mb)
+    assert 0 <= min_value
+    assert 1 <= neighborhood_size <= len(values)
+    assert 0 <= threshold_percentage <= 1
+
+    mask = [0] * len(values)
+    for i in range(neighborhood_size, len(values) - neighborhood_size):
+        neighborhood = values[i - neighborhood_size : i + neighborhood_size + 1]
+        ratio_above_min_value = sum(1 for value in neighborhood if value >= min_value) / len(neighborhood)
+        if ratio_above_min_value >= threshold_percentage:
+            mask[i] = 1
+
+    return mask
+
+
+def _filter_extrema_by_sparseness(
+    ps_mPs: List[int], pers_of_ps_mPs: List[float], ps_MPs: List[int], pers_of_ps_MPs: List[float], mask: List[int]
+) -> Tuple[List[int], List[float], List[int], List[float]]:
+    ps_mPs_2, pers_of_ps_mPs_2, ps_MPs_2, pers_of_ps_MPs_2 = [], [], [], []
+
+    for i in range(len(ps_MPs)):
+        if mask[ps_MPs[i]] == 1:
+            ps_MPs_2.append(ps_MPs[i])
+            pers_of_ps_MPs_2.append(pers_of_ps_MPs[i])
+
+            # Last maximum point is not paired with a minimum point by construction:
+            if i < len(ps_MPs) - 1:
+                ps_mPs_2.append(ps_mPs[i])
+                pers_of_ps_mPs_2.append(pers_of_ps_mPs[i])
+
+    # If last maximum point was discarded, we need to remove the minimum point before it:
+    if len(ps_mPs_2) == len(ps_MPs_2) and len(ps_mPs_2) > 0:
+        ps_mPs_2.pop()
+        pers_of_ps_mPs_2.pop()
+
+    return ps_mPs_2, pers_of_ps_mPs_2, ps_MPs_2, pers_of_ps_MPs_2
+
+
+def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
+    print("1.1) Log-transformation...")
+    Iproc = _log_transform(I)
+
+    print("1.2) Focusing on a neighborhood of the main diagonal...")
+    LT_Iproc, UT_Iproc = _band_extraction(Iproc, resolution, genomic_belt)
+
+    print("1.3) Projection onto [0, 1]...")
+    Iproc, LT_Iproc, UT_Iproc = _scale_Iproc(Iproc, LT_Iproc, UT_Iproc)
+
+    Iproc_RoI = _plot_RoIs(I, Iproc, RoI, output_folder)
 
     return LT_Iproc, UT_Iproc, Iproc_RoI
 
 
-def step_2(L, U, resolution, thresh_pers_type, thresh_pers_value, hf, Iproc_RoI=None, RoI=None, output_folder=None):
-
+def step_2(L, U, resolution, min_persistence, hf, Iproc_RoI=None, RoI=None, output_folder=None):
     print("2.1) Global 1D pseudo-distributions...")
-
-    # Pseudo-distributions:
-    LT_pd = np.squeeze(np.asarray(np.sum(L, axis=0)))
-    UT_pd = np.squeeze(np.asarray(np.sum(U, axis=0)))
-
-    # Scaling:
-    LT_pd /= np.max(LT_pd)
-    UT_pd /= np.max(UT_pd)
-
-    # Smoothing:
-    LT_pd = np.maximum(regressions.compute_wQISA_predictions(LT_pd, 11), LT_pd)
-    UT_pd = np.maximum(regressions.compute_wQISA_predictions(UT_pd, 11), UT_pd)
-
-    # Keep track of all maxima and persistence values:
-    hf["LT/"].create_dataset("pseudo-distribution", data=np.array(LT_pd))
-    hf["UT/"].create_dataset("pseudo-distribution", data=np.array(UT_pd))
+    LT_pd = _compute_global_pseudodistribution(L)
+    UT_pd = _compute_global_pseudodistribution(U)
 
     print("2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...")
 
     print("2.2.0) All maxima and their persistence")
     # NOTATION: mPs = minimum points, MPs = maximum Points, ps = persistence-sorted
     # NB: MPs are the actual sites of interest, i.e., the sites hosting linear patterns
-    LT_ps_mPs, pers_of_LT_ps_mPs, LT_ps_MPs, pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=0)
-    UT_ps_mPs, pers_of_UT_ps_mPs, UT_ps_MPs, pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=0)
 
-    # Store results:
-    hf["LT/"].create_dataset("minima_pts_and_persistence", data=np.array([LT_ps_mPs, pers_of_LT_ps_mPs]))
-    hf["LT/"].create_dataset("maxima_pts_and_persistence", data=np.array([LT_ps_MPs, pers_of_LT_ps_MPs]))
-    hf["UT/"].create_dataset("minima_pts_and_persistence", data=np.array([UT_ps_mPs, pers_of_UT_ps_mPs]))
-    hf["UT/"].create_dataset("maxima_pts_and_persistence", data=np.array([UT_ps_MPs, pers_of_UT_ps_MPs]))
-
-    if thresh_pers_type == "constant":
-        min_persistence = thresh_pers_value
-    else:
-        # min_persistence = (np.quantile(LT_pers_of_MPs, 0.75) +
-        #                    1.5 * (np.quantile(LT_pers_of_MPs, 0.75) - np.quantile(LT_pers_of_MPs, 0.25)))
-        min_persistence_LT = np.quantile(pers_of_LT_ps_MPs, thresh_pers_value)
-        min_persistence_UT = np.quantile(pers_of_UT_ps_MPs, thresh_pers_value)
-        min_persistence = np.max(min_persistence_LT, min_persistence_UT)
-        print(f"This quantile is used: {thresh_pers_value}")
-    hf.attrs["thresholding_type"] = thresh_pers_type
-    hf.attrs["min_persistence_used"] = min_persistence
+    # All local minimum and maximum points:
+    all_LT_ps_mPs, all_pers_of_LT_ps_mPs, all_LT_ps_MPs, all_pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=0)
+    all_UT_ps_mPs, all_pers_of_UT_ps_mPs, all_UT_ps_MPs, all_pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=0)
 
     print("2.2.1) Lower triangular part")
     LT_ps_mPs, pers_of_LT_ps_mPs, LT_ps_MPs, pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=min_persistence)
 
     print("2.2.2) Upper triangular part")
+    # Here, LT_ps_mPs means that the lower-triangular minimum points are sorted w.r.t. persistence
+    # (NOTATION: ps = persistence-sorted)
     UT_ps_mPs, pers_of_UT_ps_mPs, UT_ps_MPs, pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=min_persistence)
-
     # NB: Maxima are sorted w.r.t. their persistence... and this sorting is applied to minima too,
-    # so that each maximum is still paired to its minimum!
+    # so that each maximum is still paired to its minimum.
 
-    # Maximum and minimum points sorted w.r.t. coordinates: permutations and inverse permutations
-    # NOTATION: cs = coordinate-sorted
-    LT_permutation_ps2cs_mPs = np.argsort(LT_ps_mPs)
-    LT_permutation_ps2cs_MPs = np.argsort(LT_ps_MPs)
-    UT_permutation_ps2cs_mPs = np.argsort(UT_ps_mPs)
-    UT_permutation_ps2cs_MPs = np.argsort(UT_ps_MPs)
+    # Maximum and minimum points sorted w.r.t. coordinates (NOTATION: cs = coordinate-sorted):
+    LT_mPs, LT_pers_of_mPs = _sort_extrema_by_coordinate(LT_ps_mPs, pers_of_LT_ps_mPs)
+    LT_MPs, LT_pers_of_MPs = _sort_extrema_by_coordinate(LT_ps_MPs, pers_of_LT_ps_MPs)
+    UT_mPs, UT_pers_of_mPs = _sort_extrema_by_coordinate(UT_ps_mPs, pers_of_UT_ps_mPs)
+    UT_MPs, UT_pers_of_MPs = _sort_extrema_by_coordinate(UT_ps_MPs, pers_of_UT_ps_MPs)
 
-    # Maximum and minimum points sorted w.r.t. coordinates: actual application of permutations
-    LT_mPs = np.array(LT_ps_mPs)[LT_permutation_ps2cs_mPs].tolist()
-    LT_MPs = np.array(LT_ps_MPs)[LT_permutation_ps2cs_MPs].tolist()
-    UT_mPs = np.array(UT_ps_mPs)[UT_permutation_ps2cs_mPs].tolist()
-    UT_MPs = np.array(UT_ps_MPs)[UT_permutation_ps2cs_MPs].tolist()
-    LT_pers_of_MPs = np.array(pers_of_LT_ps_MPs)[LT_permutation_ps2cs_MPs].tolist()
-    UT_pers_of_MPs = np.array(pers_of_UT_ps_MPs)[UT_permutation_ps2cs_MPs].tolist()
+    print("2.2.3) Filter out seeds in sparse regions")
+    LT_mask = _check_neighborhood(LT_pd)
+    UT_mask = _check_neighborhood(UT_pd)
+    x = _filter_extrema_by_sparseness(LT_mPs, LT_pers_of_mPs, LT_MPs, LT_pers_of_MPs, LT_mask)
+    LT_mPs, LT_pers_of_mPs, LT_MPs, LT_pers_of_MPs = x
+    x = _filter_extrema_by_sparseness(UT_mPs, UT_pers_of_mPs, UT_MPs, UT_pers_of_MPs, UT_mask)
+    UT_mPs, UT_pers_of_mPs, UT_MPs, UT_pers_of_MPs = x
+    if len(LT_MPs) < len(LT_ps_MPs):
+        print(f"Number of lower-triangular seed sites is reduced from {len(LT_ps_MPs)} to {len(LT_MPs)}")
+    if len(UT_MPs) < len(UT_ps_MPs):
+        print(f"Number of upper-triangular seed sites is reduced from {len(UT_ps_MPs)} to {len(UT_MPs)}")
+    if len(LT_MPs) == len(LT_ps_MPs) and len(UT_MPs) == len(UT_ps_MPs):
+        print("No change in number of seed sites")
 
     print("2.3) Storing into a list of Stripe objects...")
-    candidate_stripes = dict()
-    candidate_stripes["lower"] = [
-        stripe.Stripe(seed=LT_MP, top_pers=LT_pers_of_MP, where="lower_triangular")
-        for LT_MP, LT_pers_of_MP in zip(LT_MPs, LT_pers_of_MPs)
-    ]
-    candidate_stripes["upper"] = [
-        stripe.Stripe(seed=UT_MP, top_pers=UT_pers_of_MP, where="upper_triangular")
-        for UT_MP, UT_pers_of_MP in zip(UT_MPs, UT_pers_of_MPs)
-    ]
+    candidate_stripes = {
+        "lower": [
+            stripe.Stripe(seed=LT_MP, top_pers=LT_pers_of_MP, where="lower_triangular")
+            for LT_MP, LT_pers_of_MP in zip(LT_MPs, LT_pers_of_MPs)
+        ],
+        "upper": [
+            stripe.Stripe(seed=UT_MP, top_pers=UT_pers_of_MP, where="upper_triangular")
+            for UT_MP, UT_pers_of_MP in zip(UT_MPs, UT_pers_of_MPs)
+        ],
+    }
 
     # Dictionary containing everything that should be returned
-    pseudo_distributions = dict()
-    pseudo_distributions["lower"] = dict()
-    pseudo_distributions["upper"] = dict()
-    pseudo_distributions["lower"]["pseudo-distribution"] = LT_pd
-    pseudo_distributions["upper"]["pseudo-distribution"] = UT_pd
-    pseudo_distributions["lower"]["persistent_minimum_points"] = LT_mPs
-    pseudo_distributions["upper"]["persistent_minimum_points"] = UT_mPs
-    pseudo_distributions["lower"]["persistent_maximum_points"] = LT_MPs
-    pseudo_distributions["upper"]["persistent_maximum_points"] = UT_MPs
-    pseudo_distributions["lower"]["persistence_of_maximum_points"] = LT_pers_of_MPs
-    pseudo_distributions["upper"]["persistence_of_maximum_points"] = UT_pers_of_MPs
+    pseudo_distributions = {
+        "lower": {
+            "pseudo-distribution": LT_pd,
+            "persistent_minimum_points": LT_mPs,
+            "persistent_maximum_points": LT_MPs,
+            "persistence_of_maximum_points": LT_pers_of_MPs,
+        },
+        "upper": {
+            "pseudo-distribution": UT_pd,
+            "persistent_minimum_points": UT_mPs,
+            "persistent_maximum_points": UT_MPs,
+            "persistence_of_maximum_points": UT_pers_of_MPs,
+        },
+    }
+
+    # Store results:
+    _store_results(
+        hf["LT/"],
+        LT_pd,
+        all_LT_ps_mPs,
+        all_pers_of_LT_ps_mPs,
+        all_LT_ps_MPs,
+        all_pers_of_LT_ps_MPs,
+        min_persistence,
+    )
+    _store_results(
+        hf["UT/"],
+        UT_pd,
+        all_UT_ps_mPs,
+        all_pers_of_UT_ps_mPs,
+        all_UT_ps_MPs,
+        all_pers_of_UT_ps_MPs,
+        min_persistence,
+    )
+
+    # If no candidates are found in the lower- or upper-triangular maps, exit:
+    if len(LT_MPs) == 0 or len(UT_MPs) == 0:
+        return pseudo_distributions, None
 
     if RoI is not None:
 
         print("2.4) Finding sites inside the region selected above...")
-        # Find sites within the range of interest -- lower-triangular:
-        ids_LT_MPs_in_RoI = np.where((RoI["matrix"][0] <= np.array(LT_MPs)) & (np.array(LT_MPs) <= RoI["matrix"][1]))[0]
-        LT_MPs_in_RoI = np.array(LT_MPs)[ids_LT_MPs_in_RoI].tolist()
-
-        # Find sites within the range of interest -- upper-triangular:
-        ids_UT_MPs_in_RoI = np.where((RoI["matrix"][2] <= np.array(UT_MPs)) & (np.array(UT_MPs) <= RoI["matrix"][3]))[0]
-        UT_MPs_in_RoI = np.array(UT_MPs)[ids_UT_MPs_in_RoI].tolist()
+        ids_LT_MPs_in_RoI, LT_MPs_in_RoI = _find_seeds_in_RoI(LT_MPs, RoI["matrix"][0], RoI["matrix"][1])
+        ids_UT_MPs_in_RoI, UT_MPs_in_RoI = _find_seeds_in_RoI(UT_MPs, RoI["matrix"][0], RoI["matrix"][1])
 
         # Store indices of persistence maxima points inside the RoI:
         pseudo_distributions["lower"]["indices_persistent_maximum_points_in_RoI"] = ids_LT_MPs_in_RoI
@@ -257,8 +531,8 @@ def step_3(
     Iproc_RoI=None,
     RoI=None,
     output_folder=None,
+    map=map,
 ):
-
     # Retrieve data:
     LT_mPs = pseudo_distributions["lower"]["persistent_minimum_points"]
     UT_mPs = pseudo_distributions["upper"]["persistent_minimum_points"]
@@ -292,8 +566,12 @@ def step_3(
     # Choose the variable criterion between max_ascent and max_perc_descent
     # ---> When variable criterion is set to max_ascent, set the variable max_ascent
     # ---> When variable criterion is set to max_perc_descent, set the variable max_perc_descent
-    LT_HIoIs = finders.find_HIoIs(LT_pseudo_distrib, LT_MPs, LT_bounded_mPs, int(max_width / (2 * resolution)) + 1)
-    UT_HIoIs = finders.find_HIoIs(UT_pseudo_distrib, UT_MPs, UT_bounded_mPs, int(max_width / (2 * resolution)) + 1)
+    LT_HIoIs = finders.find_HIoIs(
+        LT_pseudo_distrib, LT_MPs, LT_bounded_mPs, int(max_width / (2 * resolution)) + 1, map=map
+    )
+    UT_HIoIs = finders.find_HIoIs(
+        UT_pseudo_distrib, UT_MPs, UT_bounded_mPs, int(max_width / (2 * resolution)) + 1, map=map
+    )
 
     # List of left or right boundaries:
     LT_L_bounds, LT_R_bounds = map(list, zip(*LT_HIoIs))
@@ -301,11 +579,9 @@ def step_3(
 
     print("3.1.2) Updating list of Stripe objects with HIoIs...")
     for num_cand_stripe, (LT_L_bound, LT_R_bound) in enumerate(zip(LT_L_bounds, LT_R_bounds)):
-        candidate_stripes["lower"][num_cand_stripe].L_bound = LT_L_bound
-        candidate_stripes["lower"][num_cand_stripe].R_bound = LT_R_bound
+        candidate_stripes["lower"][num_cand_stripe].set_horizontal_bounds(LT_L_bound, LT_R_bound)
     for num_cand_stripe, (UT_L_bound, UT_R_bound) in enumerate(zip(UT_L_bounds, UT_R_bounds)):
-        candidate_stripes["upper"][num_cand_stripe].L_bound = UT_L_bound
-        candidate_stripes["upper"][num_cand_stripe].R_bound = UT_R_bound
+        candidate_stripes["upper"][num_cand_stripe].set_horizontal_bounds(UT_L_bound, UT_R_bound)
 
     if all([param is not None for param in [RoI, output_folder]]):
 
@@ -439,6 +715,7 @@ def step_3(
             min_persistence=loc_pers_min,
             where="lower",
             output_folder=f"{output_folder}local_pseudodistributions/",
+            map=map,
         )
         UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
             U,
@@ -450,6 +727,7 @@ def step_3(
             min_persistence=loc_pers_min,
             where="upper",
             output_folder=f"{output_folder}local_pseudodistributions/",
+            map=map,
         )
     else:
         LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
@@ -462,6 +740,7 @@ def step_3(
             min_persistence=loc_pers_min,
             where="lower",
             output_folder=None,
+            map=map,
         )
         UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
             U,
@@ -473,6 +752,7 @@ def step_3(
             min_persistence=loc_pers_min,
             where="upper",
             output_folder=None,
+            map=map,
         )
 
     # List of left or right boundaries:
@@ -481,11 +761,9 @@ def step_3(
 
     print("3.2.2) Updating list of Stripe objects with VIoIs...")
     for num_cand_stripe, (LT_U_bound, LT_D_bound) in enumerate(zip(LT_U_bounds, LT_D_bounds)):
-        candidate_stripes["lower"][num_cand_stripe].U_bound = LT_U_bound
-        candidate_stripes["lower"][num_cand_stripe].D_bound = LT_D_bound
+        candidate_stripes["lower"][num_cand_stripe].set_vertical_bounds(LT_U_bound, LT_D_bound)
     for num_cand_stripe, (UT_U_bound, UT_D_bound) in enumerate(zip(UT_U_bounds, UT_D_bounds)):
-        candidate_stripes["upper"][num_cand_stripe].U_bound = UT_U_bound
-        candidate_stripes["upper"][num_cand_stripe].D_bound = UT_D_bound
+        candidate_stripes["upper"][num_cand_stripe].set_vertical_bounds(UT_U_bound, UT_D_bound)
 
     print(f"Execution time: {time.time() - start_time} seconds ---")
 
@@ -632,9 +910,13 @@ def step_3(
     )
 
     col_names = ["seed", "seed persistence", "L-boundary", "R_boundary", "U-boundary", "D-boundary"]
-    hf["LT/"].create_dataset("geo-descriptors", data=LT_shape_descriptors.values)
+    hf["LT/"].create_dataset(
+        "geo-descriptors", data=LT_shape_descriptors.values, compression="gzip", compression_opts=4, shuffle=True
+    )
     hf["LT/geo-descriptors"].attrs["col_names"] = col_names
-    hf["UT/"].create_dataset("geo-descriptors", data=UT_shape_descriptors.values)
+    hf["UT/"].create_dataset(
+        "geo-descriptors", data=UT_shape_descriptors.values, compression="gzip", compression_opts=4, shuffle=True
+    )
     hf["UT/geo-descriptors"].attrs["col_names"] = col_names
 
     print("3.6) Bar plots of widths and heights...")
@@ -658,7 +940,6 @@ def step_3(
         plt.title("Widths")
         plt.savefig(f"{output_folder}/LT_histogram_widths.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(UT_widths),
@@ -674,7 +955,6 @@ def step_3(
         plt.title("Widths")
         plt.savefig(f"{output_folder}/UT_histogram_widths.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(LT_heights),
@@ -690,7 +970,6 @@ def step_3(
         plt.title("Heights")
         plt.savefig(f"{output_folder}/LT_histogram_heights.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(UT_heights),
@@ -706,7 +985,6 @@ def step_3(
         plt.title("Heights")
         plt.savefig(f"{output_folder}/UT_histogram_heights.jpg", bbox_inches="tight")
         plt.close()
-        plt.clf()
 
 
 def step_4(
@@ -720,7 +998,6 @@ def step_4(
     RoI=None,
     output_folder=None,
 ):
-
     print("4.1) Computing and saving biological descriptors")
     for LT_candidate_stripe in candidate_stripes["lower"]:
         LT_candidate_stripe.compute_biodescriptors(L)
@@ -729,26 +1006,30 @@ def step_4(
 
     LT_biological_descriptors = pd.DataFrame(
         {
-            "inner mean": [c_s.inner_descriptors["mean"] for c_s in candidate_stripes["lower"]],
-            "outer mean": [c_s.outer_descriptors["mean"] for c_s in candidate_stripes["lower"]],
+            "inner mean": [c_s.inner_mean for c_s in candidate_stripes["lower"]],
+            "outer mean": [c_s.outer_mean for c_s in candidate_stripes["lower"]],
             "relative change": [c_s.rel_change for c_s in candidate_stripes["lower"]],
-            "standard deviation": [c_s.inner_descriptors["std"] for c_s in candidate_stripes["lower"]],
+            "standard deviation": [c_s.inner_std for c_s in candidate_stripes["lower"]],
         }
     )
 
     UT_biological_descriptors = pd.DataFrame(
         {
-            "inner mean": [c_s.inner_descriptors["mean"] for c_s in candidate_stripes["upper"]],
-            "outer mean": [c_s.outer_descriptors["mean"] for c_s in candidate_stripes["upper"]],
+            "inner mean": [c_s.inner_mean for c_s in candidate_stripes["upper"]],
+            "outer mean": [c_s.outer_mean for c_s in candidate_stripes["upper"]],
             "relative change": [c_s.rel_change for c_s in candidate_stripes["upper"]],
-            "standard deviation": [c_s.inner_descriptors["std"] for c_s in candidate_stripes["upper"]],
+            "standard deviation": [c_s.inner_std for c_s in candidate_stripes["upper"]],
         }
     )
 
     col_names = ["inner mean", "outer mean", "relative change", "standard deviation"]
-    hf["LT/"].create_dataset("bio-descriptors", data=LT_biological_descriptors.values)
+    hf["LT/"].create_dataset(
+        "bio-descriptors", data=LT_biological_descriptors.values, compression="gzip", compression_opts=4, shuffle=True
+    )
     hf["LT/bio-descriptors"].attrs["col_names"] = col_names
-    hf["UT/"].create_dataset("bio-descriptors", data=UT_biological_descriptors.values)
+    hf["UT/"].create_dataset(
+        "bio-descriptors", data=UT_biological_descriptors.values, compression="gzip", compression_opts=4, shuffle=True
+    )
     hf["UT/bio-descriptors"].attrs["col_names"] = col_names
 
     if all(param is not None for param in [resolution, thresholds_relative_change, Iproc_RoI, RoI, output_folder]):
@@ -758,10 +1039,10 @@ def step_4(
         # Retrieve data:
         LT_MPs = [c_s.seed for c_s in candidate_stripes["lower"]]
         UT_MPs = [c_s.seed for c_s in candidate_stripes["upper"]]
-        LT_HIoIs = [[c_s.L_bound, c_s.R_bound] for c_s in candidate_stripes["lower"]]
-        LT_VIoIs = [[c_s.U_bound, c_s.D_bound] for c_s in candidate_stripes["lower"]]
-        UT_HIoIs = [[c_s.L_bound, c_s.R_bound] for c_s in candidate_stripes["upper"]]
-        UT_VIoIs = [[c_s.U_bound, c_s.D_bound] for c_s in candidate_stripes["upper"]]
+        LT_HIoIs = [[c_s.left_bound, c_s.right_bound] for c_s in candidate_stripes["lower"]]
+        LT_VIoIs = [[c_s.top_bound, c_s.bottom_bound] for c_s in candidate_stripes["lower"]]
+        UT_HIoIs = [[c_s.left_bound, c_s.right_bound] for c_s in candidate_stripes["upper"]]
+        UT_VIoIs = [[c_s.top_bound, c_s.bottom_bound] for c_s in candidate_stripes["upper"]]
 
         for threshold in thresholds_relative_change:
 
