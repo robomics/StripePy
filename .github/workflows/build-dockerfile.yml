@@ -42,9 +42,9 @@ defaults:
     shell: bash
 
 env:
-  TEST_DATASET_ID: 4DNFIOTPSS3L
-  TEST_DATASET_URL: "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/7386f953-8da9-47b0-acb2-931cba810544/4DNFIOTPSS3L.hic"
-  TEST_DATASET_MD5: "d8b030bec6918bfbb8581c700990f49d"
+  TEST_DATASET_ID: 4DNFI9GMP2J8
+  TEST_DATASET_URL: "https://zenodo.org/records/14283922/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
+  TEST_DATASET_MD5: "a17d08460c03cf6c926e2ca5743e4888"
 
 jobs:
   build-dockerfile:
@@ -77,13 +77,13 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
+          path: ${{ env.TEST_DATASET_ID }}.mcool
 
       - name: Download test dataset
         if: steps.cache-dset.outputs.cache-hit != 'true'
         run: |
-          curl -L '${{ env.TEST_DATASET_URL }}' -o '${{ env.TEST_DATASET_ID }}.hic'
-          echo "${{ env.TEST_DATASET_MD5 }}  ${{ env.TEST_DATASET_ID }}.hic" > checksum.md5
+          curl -L '${{ env.TEST_DATASET_URL }}' -o '${{ env.TEST_DATASET_ID }}.mcool'
+          echo "${{ env.TEST_DATASET_MD5 }}  ${{ env.TEST_DATASET_ID }}.mcool" > checksum.md5
           md5sum -c checksum.md5
 
       - name: Save test dataset
@@ -91,7 +91,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
+          path: ${{ env.TEST_DATASET_ID }}.mcool
 
       - name: Generate build args
         id: build-args

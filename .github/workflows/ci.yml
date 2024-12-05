@@ -71,7 +71,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      TEST_DATASET_ID: 4DNFIOTPSS3L
+      TEST_DATASET_ID: 4DNFI9GMP2J8
 
     steps:
       - uses: actions/checkout@v4
@@ -101,7 +101,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
+          path: ${{ env.TEST_DATASET_ID }}.mcool
 
       - name: Download test dataset
         if: steps.cache-dset.outputs.cache-hit != 'true'
@@ -112,15 +112,15 @@ jobs:
         uses: actions/cache/save@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
+          path: ${{ env.TEST_DATASET_ID }}.mcool
 
       - name: Test stripepy call
         run: |
           NPROC="$(python -c 'import multiprocessing as mp; print(mp.cpu_count())')"
 
           stripepy call \
-            ${{ env.TEST_DATASET_ID }}.hic \
-            100000 \
+            ${{ env.TEST_DATASET_ID }}.mcool \
+            20000 \
             -o stripepy/ \
             --glob-pers-min 0.10 \
             --loc-pers-min 0.33 \
