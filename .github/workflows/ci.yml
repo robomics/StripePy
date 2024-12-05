@@ -101,7 +101,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: test/data/${{env.TEST_DATASET_ID }}.mcool
+          path: |
+            test/data/${{env.TEST_DATASET_ID }}.mcool
+            test/data/results*.hdf5
 
       - name: Download test dataset
         if: steps.cache-dset.outputs.cache-hit != 'true'
@@ -109,14 +111,20 @@ jobs:
           mkdir test/data/
           stripepy download \
             --name ${{ env.TEST_DATASET_ID }} \
-            --output test/data/${{ env.TEST_DATASET_ID }}.hic
+            --output test/data/${{ env.TEST_DATASET_ID }}.mcool
+
+          stripepy download \
+            --name __results_v1 \
+            --output test/data/results_4DNFI9GMP2J8_v1.hdf5
 
       - name: Save test dataset
         if: steps.cache-dset.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: test/data/${{ env.TEST_DATASET_ID }}.mcool
+          path: |
+            test/data/${{env.TEST_DATASET_ID }}.mcool
+            test/data/results*.hdf5
 
       - name: Run integration tests
         run: python -m pytest test/ -v -m end2end
