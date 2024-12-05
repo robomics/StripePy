@@ -71,7 +71,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      TEST_DATASET_ID: 4DNFIOTPSS3L
+      TEST_DATASET_ID: 4DNFI9GMP2J8
 
     steps:
       - uses: actions/checkout@v4
@@ -101,7 +101,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: test/data/${{ env.TEST_DATASET_ID }}.hic
+          path: test/data/${{env.TEST_DATASET_ID }}.mcool
 
       - name: Download test dataset
         if: steps.cache-dset.outputs.cache-hit != 'true'
@@ -116,7 +116,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: test/data/${{ env.TEST_DATASET_ID }}.hic
+          path: test/data/${{ env.TEST_DATASET_ID }}.mcool
 
       - name: Run integration tests
         run: python -m pytest test/ -v -m end2end

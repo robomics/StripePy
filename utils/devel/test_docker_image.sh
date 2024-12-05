@@ -25,20 +25,20 @@ IMG="$1"
 tmpdir="$(mktemp -d)"
 trap "rm -rf '$tmpdir'" EXIT
 
-TEST_DATASET='4DNFIOTPSS3L'
-TEST_DATASET_URL='https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/7386f953-8da9-47b0-acb2-931cba810544/4DNFIOTPSS3L.hic'
-TEST_DATASET_MD5='d8b030bec6918bfbb8581c700990f49d'
+TEST_DATASET='4DNFI9GMP2J8'
+TEST_DATASET_URL='https://zenodo.org/records/14283922/files/4DNFI9GMP2J8.stripepy.mcool?download=1'
+TEST_DATASET_MD5='a17d08460c03cf6c926e2ca5743e4888'
 
-if [ -f "$TEST_DATASET.hic" ]; then
+if [ -f "$TEST_DATASET.mcool" ]; then
   1>&2 echo "Copying test dataset to \"$tmpdir\"..."
-  cp "$TEST_DATASET.hic" "$tmpdir/$TEST_DATASET.hic"
+  cp "$TEST_DATASET.mcool" "$tmpdir/$TEST_DATASET.mcool"
 else
   1>&2 echo "Test dataset \"$TEST_DATASET\" not found"
   1>&2 echo "Downloading test dataset to \"$tmpdir\"..."
-  curl -L "$TEST_DATASET_URL" -o "$tmpdir/$TEST_DATASET.hic"
+  curl -L "$TEST_DATASET_URL" -o "$tmpdir/$TEST_DATASET.mcool"
 fi
 
-echo "$TEST_DATASET_MD5  $tmpdir/$TEST_DATASET.hic" > "$tmpdir/checksum.md5"
+echo "$TEST_DATASET_MD5  $tmpdir/$TEST_DATASET.mcool" > "$tmpdir/checksum.md5"
 md5sum -c "$tmpdir/checksum.md5"
 
 cat > "$tmpdir/runme.sh" <<- 'EOM'
@@ -55,7 +55,7 @@ TEST_DATASET="$1"
 
 stripepy call \
   "$TEST_DATASET" \
-  100000 \
+  20000 \
   -o stripepy/ \
   --glob-pers-min 0.10 \
   --loc-pers-min 0.33 \
@@ -83,6 +83,6 @@ fi
 
 sudo -u "$DOCKER_USER" docker run --rm --entrypoint=/bin/bash \
   -v "$tmpdir/runme.sh:/tmp/runme.sh:ro" \
-  -v "$tmpdir/$TEST_DATASET.hic:/data/$TEST_DATASET.hic:ro" \
+  -v "$tmpdir/$TEST_DATASET.mcool:/data/$TEST_DATASET.mcool:ro" \
   "$IMG" \
-  /tmp/runme.sh "/data/$TEST_DATASET.hic"
+  /tmp/runme.sh "/data/$TEST_DATASET.mcool"
