@@ -85,19 +85,16 @@ Feel free to use your own interaction matrix (make sure the matrix is in `.cool`
 
 ```console
 # This may take a while on slow internet connections
-user@dev:/tmp$ stripepy download --name 4DNFIOTPSS3L
+user@dev:/tmp$ stripepy download --name 4DNFI9GMP2J8
 
-[2024-11-28 17:33:43,197] INFO: downloading dataset "4DNFIOTPSS3L" (assembly=dm6)...
-[2024-11-28 17:33:43,728] INFO: downloaded 0.00/248.10 MB (0.00%)
-[2024-11-28 17:33:58,760] INFO: downloaded 43.16/248.10 MB (17.40%)
-[2024-11-28 17:34:13,792] INFO: downloaded 100.35/248.10 MB (40.45%)
-[2024-11-28 17:34:28,799] INFO: downloaded 159.46/248.10 MB (64.27%)
-[2024-11-28 17:34:43,801] INFO: downloaded 184.13/248.10 MB (74.22%)
-[2024-11-28 17:34:54,469] INFO: DONE! Downloading dataset "4DNFIOTPSS3L" took 71.27s.
-[2024-11-28 17:34:54,469] INFO: computing MD5 digest for file "/tmp/4DNFIOTPSS3L.wlua4he_"...
-[2024-11-28 17:34:54,786] INFO: MD5 checksum match!
-[2024-11-28 17:34:54,786] INFO: successfully downloaded dataset "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/7386f953-8da9-47b0-acb2-931cba810544/4DNFIOTPSS3L.hic" to file "4DNFIOTPSS3L.hic"
-[2024-11-28 17:34:54,786] INFO: file size: 248.10MB. Elapsed time: 71.59s
+[2024-12-05 18:55:35,219] INFO: downloading dataset "4DNFI9GMP2J8" (assembly=hg38)...
+[2024-12-05 18:55:35,418] INFO: downloaded 0.00/106.84 MB (0.00%)
+[2024-12-05 18:55:50,419] INFO: downloaded 102.65/106.84 MB (96.08%)
+[2024-12-05 18:55:51,013] INFO: DONE! Downloading dataset "4DNFI9GMP2J8" took 15.79s.
+[2024-12-05 18:55:51,013] INFO: computing MD5 digest for file "/tmp/4DNFI9GMP2J8.j7i1jy5y"...
+[2024-12-05 18:55:51,157] INFO: MD5 checksum match!
+[2024-12-05 18:55:51,158] INFO: successfully downloaded dataset "https://zenodo.org/records/14283922/files/4DNFI9GMP2J8.stripepy.mcool?download=1" to file "4DNFI9GMP2J8.mcool"
+[2024-12-05 18:55:51,158] INFO: file size: 106.84MB. Elapsed time: 15.94s
 ```
 
 #### 2) Detect architectural stripes
@@ -105,257 +102,16 @@ user@dev:/tmp$ stripepy download --name 4DNFIOTPSS3L
 This is the core of the analysis and may take several minutes when processing large files.
 
 ```console
-user@dev:/tmp$ stripepy call 4DNFIOTPSS3L.hic 10000 -o /tmp/stripepy/
+user@dev:/tmp$ stripepy call 4DNFI9GMP2J8.mcool 10000 -o stripepy/
 
-Arguments:
---contact-map: 4DNFIOTPSS3L.hic
---resolution: 10000
---normalization: NONE
---genomic-belt: 5000000
---roi: None
---max-width: 100000
---glob-pers-type: constant
---glob-pers-min: 0.2
---constrain-heights: False
---loc-pers-min: 0.2
---loc-trend-min: 0.1
---output-folder: /tmp/stripepy
---force: False
---nproc: 1
-ATT: The following chromosomes are discarded because shorter than MIN_SIZE_CHROMOSOME = 2000000 bp: ['4']
-
-CHROMOSOME 2L
-RoI is: None
-Step 1: pre-processing step
-1.1) Log-transformation...
-1.2) Focusing on a neighborhood of the main diagonal...
-1.3) Projection onto [0, 1]...
-...
-2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.005518436431884766 seconds ---
-Chromosome is too sparse, no candidate returned
-
-
-The code has run for 0.06784079869588217 minutes
+TODO
 ```
 
 <details>
 <summary>Complete log</summary>
 
-```txt
-
-Arguments:
---contact-map: 4DNFIOTPSS3L.hic
---resolution: 10000
---normalization: NONE
---genomic-belt: 5000000
---roi: None
---max-width: 100000
---glob-pers-type: constant
---glob-pers-min: 0.2
---constrain-heights: False
---loc-pers-min: 0.2
---loc-trend-min: 0.1
---output-folder: /tmp/stripepy
---force: False
---nproc: 1
-ATT: The following chromosomes are discarded because shorter than MIN_SIZE_CHROMOSOME = 2000000 bp: ['4']
-
-CHROMOSOME 2L
-RoI is: None
-Step 1: pre-processing step
-1.1) Log-transformation...
-1.2) Focusing on a neighborhood of the main diagonal...
-1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.07570600509643555 seconds ---
-Step 2: Topological Data Analysis
-2.1) Global 1D pseudo-distributions...
-2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
-2.2.0) All maxima and their persistence
-2.2.1) Lower triangular part
-2.2.2) Upper triangular part
-2.2.3) Filter out seeds in sparse regions
-Number of lower-triangular seed sites is reduced from 59 to 58
-Number of upper-triangular seed sites is reduced from 75 to 74
-2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.03276181221008301 seconds ---
-Step 3: Shape analysis
-3.1) Width estimation
-3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
-3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.021106719970703125 seconds ---
-3.2) Height estimation
-3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
-3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.2394862174987793 seconds ---
-3.5) Saving geometric descriptors...
-3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.2783341407775879 seconds ---
-Step 4: Statistical analysis and post-processing
-4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.11352181434631348 seconds ---
-This chromosome has taken 0.7404417991638184 seconds
-
-CHROMOSOME 2R
-RoI is: None
-Step 1: pre-processing step
-1.1) Log-transformation...
-1.2) Focusing on a neighborhood of the main diagonal...
-1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.08379077911376953 seconds ---
-Step 2: Topological Data Analysis
-2.1) Global 1D pseudo-distributions...
-2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
-2.2.0) All maxima and their persistence
-2.2.1) Lower triangular part
-2.2.2) Upper triangular part
-2.2.3) Filter out seeds in sparse regions
-Number of lower-triangular seed sites is reduced from 80 to 78
-Number of upper-triangular seed sites is reduced from 70 to 68
-2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.036416053771972656 seconds ---
-Step 3: Shape analysis
-3.1) Width estimation
-3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
-3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.024736881256103516 seconds ---
-3.2) Height estimation
-3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
-3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.2742347717285156 seconds ---
-3.5) Saving geometric descriptors...
-3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.31762170791625977 seconds ---
-Step 4: Statistical analysis and post-processing
-4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.1293354034423828 seconds ---
-This chromosome has taken 0.803577184677124 seconds
-
-CHROMOSOME 3L
-RoI is: None
-Step 1: pre-processing step
-1.1) Log-transformation...
-1.2) Focusing on a neighborhood of the main diagonal...
-1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.09990215301513672 seconds ---
-Step 2: Topological Data Analysis
-2.1) Global 1D pseudo-distributions...
-2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
-2.2.0) All maxima and their persistence
-2.2.1) Lower triangular part
-2.2.2) Upper triangular part
-2.2.3) Filter out seeds in sparse regions
-Number of upper-triangular seed sites is reduced from 92 to 90
-2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.03818702697753906 seconds ---
-Step 3: Shape analysis
-3.1) Width estimation
-3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
-3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.023464441299438477 seconds ---
-3.2) Height estimation
-3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
-3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.260178804397583 seconds ---
-3.5) Saving geometric descriptors...
-3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.30387020111083984 seconds ---
-Step 4: Statistical analysis and post-processing
-4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.10239791870117188 seconds ---
-This chromosome has taken 0.8269245624542236 seconds
-
-CHROMOSOME 3R
-RoI is: None
-Step 1: pre-processing step
-1.1) Log-transformation...
-1.2) Focusing on a neighborhood of the main diagonal...
-1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.13510823249816895 seconds ---
-Step 2: Topological Data Analysis
-2.1) Global 1D pseudo-distributions...
-2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
-2.2.0) All maxima and their persistence
-2.2.1) Lower triangular part
-2.2.2) Upper triangular part
-2.2.3) Filter out seeds in sparse regions
-Number of upper-triangular seed sites is reduced from 76 to 75
-2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.044580936431884766 seconds ---
-Step 3: Shape analysis
-3.1) Width estimation
-3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
-3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.034942626953125 seconds ---
-3.2) Height estimation
-3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
-3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.3338663578033447 seconds ---
-3.5) Saving geometric descriptors...
-3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.3899509906768799 seconds ---
-Step 4: Statistical analysis and post-processing
-4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.15247011184692383 seconds ---
-This chromosome has taken 1.0828697681427002 seconds
-
-CHROMOSOME X
-RoI is: None
-Step 1: pre-processing step
-1.1) Log-transformation...
-1.2) Focusing on a neighborhood of the main diagonal...
-1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.0595550537109375 seconds ---
-Step 2: Topological Data Analysis
-2.1) Global 1D pseudo-distributions...
-2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
-2.2.0) All maxima and their persistence
-2.2.1) Lower triangular part
-2.2.2) Upper triangular part
-2.2.3) Filter out seeds in sparse regions
-Number of lower-triangular seed sites is reduced from 48 to 46
-Number of upper-triangular seed sites is reduced from 64 to 63
-2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.0319368839263916 seconds ---
-Step 3: Shape analysis
-3.1) Width estimation
-3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
-3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.01849651336669922 seconds ---
-3.2) Height estimation
-3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
-3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.21211600303649902 seconds ---
-3.5) Saving geometric descriptors...
-3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.24924921989440918 seconds ---
-Step 4: Statistical analysis and post-processing
-4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.09531784057617188 seconds ---
-This chromosome has taken 0.6071553230285645 seconds
-
-CHROMOSOME Y
-RoI is: None
-Step 1: pre-processing step
-1.1) Log-transformation...
-1.2) Focusing on a neighborhood of the main diagonal...
-1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.0005571842193603516 seconds ---
-Step 2: Topological Data Analysis
-2.1) Global 1D pseudo-distributions...
-2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
-2.2.0) All maxima and their persistence
-2.2.1) Lower triangular part
-2.2.2) Upper triangular part
-2.2.3) Filter out seeds in sparse regions
-Number of lower-triangular seed sites is reduced from 4 to 0
-Number of upper-triangular seed sites is reduced from 4 to 0
-2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.005518436431884766 seconds ---
-Chromosome is too sparse, no candidate returned
-
-
-The code has run for 0.06784079869588217 minutes
+```
+TODO
 ```
 
 </details>
@@ -364,7 +120,7 @@ Running the above command produces the following output:
 
 ```
 /tmp/stripepy
-└── 4DNFIOTPSS3L
+└── 4DNFI9GMP2J8
     └── 10000
         └── results.hdf5
 
@@ -383,24 +139,15 @@ While having access to all this information can be useful, usually we are mostly
 
 ```console
 # Fetch the first 10 stripes in BEDPE format
-user@dev:/tmp$ stripepy view stripepy/4DNFIOTPSS3L/10000/results.hdf5 | head
+user@dev:/tmp$ stripepy view stripepy/4DNFI9GMP2J8/10000/results.hdf5 | head
 
-2L	840000	920000	2L	860000	5800000
-2L	1120000	1170000	2L	1150000	5940000
-2L	1390000	1460000	2L	1420000	5940000
-2L	1580000	1630000	2L	90000	1610000
-2L	1700000	1780000	2L	1720000	6610000
-2L	1880000	1980000	2L	310000	1940000
-2L	2130000	2220000	2L	2160000	7020000
-2L	2130000	2180000	2L	110000	2160000
-2L	2330000	2400000	2L	2370000	7290000
-2L	2550000	2600000	2L	2570000	7410000
+TODO
 
 # Redirect stdout to a file
-user@dev:/tmp$ stripepy view stripepy/4DNFIOTPSS3L/10000/results.hdf5 > stripes.bedpe
+user@dev:/tmp$ stripepy view stripepy/4DNFI9GMP2J8/10000/results.hdf5 > stripes.bedpe
 
 # Compress stripes on the fly before writing to a file
-user@dev:/tmp$ stripepy view stripepy/4DNFIOTPSS3L/10000/results.hdf5 | gzip -9 > stripes.bedpe.gz
+user@dev:/tmp$ stripepy view stripepy/4DNFI9GMP2J8/10000/results.hdf5 | gzip -9 > stripes.bedpe.gz
 ```
 
 #### 5) Quickly visualize architectural stripes
@@ -417,7 +164,8 @@ For more details, please refer to hictk's documentation: [hictk.readthedocs.io](
 
 We recommend running the notebook using [JupyterLab](https://jupyter.org/install).
 
-Furthermore, the notebook depends on a few Python packages that can be installed with `pip`:
+Furthermore, the notebook depends on a few Python packages that can be installed with `pip`.
+Please make sure that the following packages are installed in a virtual environment that is accessible from Jupyter. Refer to [IPython](https://ipython.readthedocs.io/en/stable/install/kernel_install.html) documentation for instructions on how to add a virtual environment to Jupyter.
 
 ```bash
 pip install 'clodius>=0.20,<1' 'hictkpy>=1,<2' 'higlass-python>=1.2,<2'
@@ -435,13 +183,13 @@ bedpe = ensure_file_exists("CHANGEME.bedpe")
 and set the `mcool` and `bedpe` variables to the path to the `.mcool` file used to call stripes and the path to the stripe coordinates extracted with `stripepy view`, respectively.
 
 ```jupyter
-mcool = ensure_file_exists("4DNFIOTPSS3L.mcool")
+mcool = ensure_file_exists("4DNFI9GMP2J8.mcool")
 bedpe = ensure_file_exists("stripes.bedpe")
 ```
 
 Now you are ready to run all cells.
 
-Running the last cell will display a HiGlass window embedded in the Jupyter notebook.
+Running the last cell will display a HiGlass window embedded in the Jupyter notebook (note that the interface may take a while to load).
 
 <!--
 ![HiGlass window](docs/assets/readme_example_stripes_higlass.png)
