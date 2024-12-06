@@ -38,6 +38,7 @@ def test_folders_for_plots(tmpdir):
             ]
 
 
+@pytest.mark.unit
 class TestRemoveAndCreateFolder:
     # RuntimeError(f"output folder {path} already exists. Pass --force to overwrite it.")
     @staticmethod

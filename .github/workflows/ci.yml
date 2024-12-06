@@ -89,7 +89,7 @@ jobs:
         run: pip install --verbose '.[test]'
 
       - name: Run unit tests
-        run: python -m pytest test -v
+        run: python -m pytest test/ -v -m unit
 
       - name: Run simple CLI tests
         run: |
@@ -101,39 +101,33 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.mcool
+          path: |
+            test/data/${{env.TEST_DATASET_ID }}.mcool
+            test/data/results*.hdf5
 
       - name: Download test dataset
         if: steps.cache-dset.outputs.cache-hit != 'true'
-        run: stripepy download --name ${{ env.TEST_DATASET_ID }}
+        run: |
+          mkdir test/data/
+          stripepy download \
+            --name ${{ env.TEST_DATASET_ID }} \
+            --output test/data/${{ env.TEST_DATASET_ID }}.mcool
+
+          stripepy download \
+            --name __results_v1 \
+            --output test/data/results_4DNFI9GMP2J8_v1.hdf5
 
       - name: Save test dataset
         if: steps.cache-dset.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.mcool
+          path: |
+            test/data/${{env.TEST_DATASET_ID }}.mcool
+            test/data/results*.hdf5
 
-      - name: Test stripepy call
-        run: |
-          NPROC="$(python -c 'import multiprocessing as mp; print(mp.cpu_count())')"
-
-          stripepy call \
-            ${{ env.TEST_DATASET_ID }}.mcool \
-            20000 \
-            -o stripepy/ \
-            --glob-pers-min 0.10 \
-            --loc-pers-min 0.33 \
-            --loc-trend-min 0.25 \
-            --roi middle \
-            --nproc "$NPROC"
-
-          find stripepy/ -type f -exec ls -lah {} +
-
-          if [ ! -f stripepy/*/*/results.hdf5 ]; then
-            1>&2 echo 'results.hdf5 is missing!'
-            exit 1
-          fi
+      - name: Run integration tests
+        run: python -m pytest test/ -v -m end2end
 
   ci-status-check:
     name: Status Check (CI)

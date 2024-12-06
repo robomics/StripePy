@@ -50,6 +50,7 @@ def _discretize(v: List[int], factor: int) -> List[int]:
     return [(x + factor - 1) // factor for x in v]
 
 
+@pytest.mark.unit
 class TestCmapLoading:
     def test_invalid_paths(self, tmpdir):
         tmpdir = pathlib.Path(tmpdir)
