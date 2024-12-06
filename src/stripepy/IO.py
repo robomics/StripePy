@@ -11,7 +11,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib.ticker import EngFormatter, ScalarFormatter
 
-from .configs import no_frills_in_images
+no_frills_in_images = False  # TODO safe removal of no_frills_in_images
 
 fruit_punch = sns.blend_palette(["white", "red"], as_cmap=True)
 

@@ -48,7 +48,7 @@ COPY --from=builder "$install_dir" "$install_dir"
 
 RUN "$install_dir/bin/pip" install "$src_dir[test]" -v --no-compile
 
-RUN "$install_dir/bin/python3" -m pytest "$src_dir/test"
+RUN "$install_dir/bin/python3" -m pytest "$src_dir/test/" -v -m unit
 
 
 ARG BASE_IMAGE
@@ -82,7 +82,7 @@ LABEL org.opencontainers.image.documentation='https://github.com/paulsengroup/st
 LABEL org.opencontainers.image.source='https://github.com/paulsengroup/stripepy'
 LABEL org.opencontainers.image.licenses='MIT'
 LABEL org.opencontainers.image.title='StripePy'
-LABEL org.opencontainers.image.description='StripePy recognizes linear patterns in chromosome conformation capture contact maps using geometric reasoning'
+LABEL org.opencontainers.image.description='StripePy recognizes architectural stripes in 3C and Hi-C contact maps using geometric reasoning'
 LABEL org.opencontainers.image.base.digest="$BASE_IMAGE_DIGEST"
 LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 

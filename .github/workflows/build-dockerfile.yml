@@ -14,6 +14,7 @@ on:
       - ".dockerignore"
       - ".gitignore"
       - "Dockerfile"
+      - "LICENCE"
       - "pyproject.toml"
       - "README.md"
     tags:
@@ -27,6 +28,7 @@ on:
       - ".dockerignore"
       - ".gitignore"
       - "Dockerfile"
+      - "LICENCE"
       - "pyproject.toml"
       - "README.md"
 
@@ -40,9 +42,9 @@ defaults:
     shell: bash
 
 env:
-  TEST_DATASET_ID: 4DNFIOTPSS3L
-  TEST_DATASET_URL: "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/7386f953-8da9-47b0-acb2-931cba810544/4DNFIOTPSS3L.hic"
-  TEST_DATASET_MD5: "d8b030bec6918bfbb8581c700990f49d"
+  TEST_DATASET_ID: 4DNFI9GMP2J8
+  TEST_DATASET_URL: "https://zenodo.org/records/14283922/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
+  TEST_DATASET_MD5: "a17d08460c03cf6c926e2ca5743e4888"
 
 jobs:
   build-dockerfile:
@@ -75,13 +77,13 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
+          path: ${{ env.TEST_DATASET_ID }}.mcool
 
       - name: Download test dataset
         if: steps.cache-dset.outputs.cache-hit != 'true'
         run: |
-          curl -L '${{ env.TEST_DATASET_URL }}' -o '${{ env.TEST_DATASET_ID }}.hic'
-          echo "${{ env.TEST_DATASET_MD5 }}  ${{ env.TEST_DATASET_ID }}.hic" > checksum.md5
+          curl -L '${{ env.TEST_DATASET_URL }}' -o '${{ env.TEST_DATASET_ID }}.mcool'
+          echo "${{ env.TEST_DATASET_MD5 }}  ${{ env.TEST_DATASET_ID }}.mcool" > checksum.md5
           md5sum -c checksum.md5
 
       - name: Save test dataset
@@ -89,7 +91,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
+          path: ${{ env.TEST_DATASET_ID }}.mcool
 
       - name: Generate build args
         id: build-args
@@ -98,7 +100,7 @@ jobs:
           set -u
           set -o pipefail
 
-          BASE_IMAGE='docker.io/library/python:3.12.7'
+          BASE_IMAGE='docker.io/library/python:3.13'
 
           docker pull "$BASE_IMAGE"
           BASE_IMAGE_DIGEST="$(docker inspect --format='{{index .RepoDigests 0}}' "$BASE_IMAGE" | cut -f 2 -d '@')"
@@ -126,8 +128,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # images: ${{ steps.build-args.outputs.REPO_LOWERCASE }},ghcr.io/${{ steps.build-args.outputs.REPO_LOWERCASE }}
-          images: ghcr.io/${{ steps.build-args.outputs.REPO_LOWERCASE }}
+          images: ${{ steps.build-args.outputs.REPO_LOWERCASE }},ghcr.io/${{ steps.build-args.outputs.REPO_LOWERCASE }}
           flavor: |
             latest=true
           tags: |
@@ -136,12 +137,12 @@ jobs:
             type=ref,priority=700,event=branch
             type=ref,priority=600,event=pr
 
-      # - name: Login to DockerHub
-      #   if: github.event_name != 'pull_request'
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
