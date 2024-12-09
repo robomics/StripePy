@@ -138,6 +138,7 @@ def main(args: Union[List[str], None] = None):
     except RuntimeError as e:
         logger = structlog.get_logger()
         logger.exception(e)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
