@@ -119,7 +119,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--glob-pers-min",
         type=_probability,
-        default=0.2,
+        default=0.05,
         help="Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest, "
         "aka seeds (default: 0.2).",
     )
@@ -134,7 +134,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--loc-pers-min",
         type=_probability,
-        default=0.2,
+        default=0.33,
         help="Threshold value between 0 and 1 to find peaks in signal in a horizontal domain while estimating the "
         "height of a stripe; when --constrain-heights is set to 'False', it is not used (default: 0.2).",
     )
@@ -142,7 +142,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--loc-trend-min",
         type=_probability,
-        default=0.1,
+        default=0.25,
         help="Threshold value between 0 and 1 to estimate the height of a stripe (default: 0.1); "
         "the higher this value, the shorter the stripe; it is always used when --constrain-heights is set to "
         "'False', but could be necessary also when --constrain-heights is 'True' and no persistent maximum other "
