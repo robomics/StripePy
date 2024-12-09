@@ -74,13 +74,6 @@ def make_cli():
     )
 
     cli.add_argument(
-        "--roi",
-        type=str,
-        default=None,
-        help="Specify 'middle' or input range as 'chr2:10000000-12000000' (default: None)",
-    )
-
-    cli.add_argument(
         "-o",
         "--output-folder",
         type=_output_dir_checked,
@@ -154,7 +147,6 @@ def run_stripepy(
     resolution,
     genomic_belt,
     output_folder,
-    roi,
     max_width,
     glob_pers_min,
     constrain_heights,
@@ -174,8 +166,6 @@ def run_stripepy(
                 str(genomic_belt),
                 "-o",
                 output_folder,
-                "--roi",
-                str(roi),
                 "--max-width",
                 str(max_width),
                 "--glob-pers-min",
@@ -198,8 +188,6 @@ def run_stripepy(
                 str(genomic_belt),
                 "-o",
                 output_folder,
-                "--roi",
-                str(roi),
                 "--max-width",
                 str(max_width),
                 "--glob-pers-min",
@@ -235,7 +223,6 @@ def main():
                         resolution,
                         args["genomic_belt"],
                         args["output_folder"],
-                        args["roi"],
                         args["max_width"],
                         args["glob_pers_min"],
                         args["constrain_heights"],
