@@ -203,7 +203,7 @@ def find_HIoIs(pd, seed_sites, seed_site_bounds, max_width, map=map):
         for num_MP, seed_site in enumerate(seed_sites)
     ]
 
-    HIoIs = map(partial(find_horizontal_domain, pd, max_width=max_width), iterable_input)
+    HIoIs = list(map(partial(find_horizontal_domain, pd, max_width=max_width), iterable_input))
 
     # Handle possible overlapping intervals:
     for i in range(len(HIoIs) - 1):

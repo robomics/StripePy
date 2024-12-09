@@ -5,7 +5,7 @@
 import logging
 import pathlib
 import sys
-from typing import Union
+from typing import List, Union
 
 import structlog
 
@@ -115,10 +115,13 @@ def _setup_logger(level: str, file: Union[pathlib.Path, None] = None):
         logger.warn('failed to initialize log file "%s" for writing: %s', file, exception)
 
 
-def main():
+def main(args: Union[List[str], None] = None):
+    if args is None:
+        args = sys.argv[1:]
+
     _setup_logger("INFO")
     try:
-        subcommand, args, verbosity = setup.parse_args()
+        subcommand, args, verbosity = setup.parse_args(args)
 
         if subcommand == "call":
             _setup_mpl_backend()

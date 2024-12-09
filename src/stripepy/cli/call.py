@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import contextlib
 import datetime
 import json
 import multiprocessing as mp
@@ -146,13 +147,23 @@ def run(
     # Extract a list of tuples where each tuple is (index, chr), e.g. (2,'chr3'):
     c_pairs = others.chromosomes_to_study(list(f.chromosomes().keys()), bp_lengths, MIN_SIZE_CHROMOSOME)
 
-    # Create HDF5 file to store candidate stripes:
-    with _init_h5_file(
-        configs_output["output_folder"] / "results.hdf5",
-        hictkpy.File(configs_input["contact-map"], configs_input["resolution"]),
-        configs_input["normalization"],
-        _generate_metadata_attribute(configs_input, configs_thresholds),
-    ) as h5:
+    with contextlib.ExitStack() as ctx:
+        # Create HDF5 file to store candidate stripes:
+        h5 = ctx.enter_context(
+            _init_h5_file(
+                configs_output["output_folder"] / "results.hdf5",
+                hictkpy.File(configs_input["contact-map"], configs_input["resolution"]),
+                configs_input["normalization"],
+                _generate_metadata_attribute(configs_input, configs_thresholds),
+            )
+        )
+
+        # Set up the process pool when appropriate
+        if configs_other["nproc"] > 1:
+            pool = ctx.enter_context(mp.Pool(configs_other["nproc"]))
+        else:
+            pool = None
+
         # Lopping over all chromosomes:
         for this_chr_idx, this_chr in c_pairs:
 
@@ -238,41 +249,40 @@ def run(
             h5.create_group(f"{this_chr}/stripes/UT/")
             start_time = time.time()
 
-            with mp.Pool(configs_other["nproc"]) as pool:
-                if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                    output_folder_3 = f"{configs_output['output_folder']}/plots/{this_chr}/3_shape_analysis/"
-                    stripepy.step_3(
-                        LT_Iproc,
-                        UT_Iproc,
-                        configs_input["resolution"],
-                        configs_input["genomic_belt"],
-                        configs_thresholds["max_width"],
-                        configs_thresholds["constrain_heights"],
-                        configs_thresholds["loc_pers_min"],
-                        configs_thresholds["loc_trend_min"],
-                        pseudo_distributions,
-                        candidate_stripes,
-                        h5[f"{this_chr}/stripes/"],
-                        Iproc_RoI=Iproc_RoI,
-                        RoI=RoI,
-                        output_folder=output_folder_3,
-                        map=pool.map,
-                    )
-                else:
-                    stripepy.step_3(
-                        LT_Iproc,
-                        UT_Iproc,
-                        configs_input["resolution"],
-                        configs_input["genomic_belt"],
-                        configs_thresholds["max_width"],
-                        configs_thresholds["constrain_heights"],
-                        configs_thresholds["loc_pers_min"],
-                        configs_thresholds["loc_trend_min"],
-                        pseudo_distributions,
-                        candidate_stripes,
-                        h5[f"{this_chr}/stripes/"],
-                        map=pool.map,
-                    )
+            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
+                output_folder_3 = f"{configs_output['output_folder']}/plots/{this_chr}/3_shape_analysis/"
+                stripepy.step_3(
+                    LT_Iproc,
+                    UT_Iproc,
+                    configs_input["resolution"],
+                    configs_input["genomic_belt"],
+                    configs_thresholds["max_width"],
+                    configs_thresholds["constrain_heights"],
+                    configs_thresholds["loc_pers_min"],
+                    configs_thresholds["loc_trend_min"],
+                    pseudo_distributions,
+                    candidate_stripes,
+                    h5[f"{this_chr}/stripes/"],
+                    Iproc_RoI=Iproc_RoI,
+                    RoI=RoI,
+                    output_folder=output_folder_3,
+                    map=pool.map if pool is not None else map,
+                )
+            else:
+                stripepy.step_3(
+                    LT_Iproc,
+                    UT_Iproc,
+                    configs_input["resolution"],
+                    configs_input["genomic_belt"],
+                    configs_thresholds["max_width"],
+                    configs_thresholds["constrain_heights"],
+                    configs_thresholds["loc_pers_min"],
+                    configs_thresholds["loc_trend_min"],
+                    pseudo_distributions,
+                    candidate_stripes,
+                    h5[f"{this_chr}/stripes/"],
+                    map=pool.map if pool is not None else map,
+                )
 
             print(f"Execution time of step 3: {time.time() - start_time} seconds ---")
 
