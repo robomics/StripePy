@@ -317,28 +317,12 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
             "max_width",
         ]
     }
-    configs_output = {key: args[key] for key in ["output_folder", "force", "verbosity"]}
+    configs_output = {key: args[key] for key in ["output_folder", "force"]}
 
     configs_output["output_folder"] = (
         configs_output["output_folder"] / configs_input["contact-map"].stem / str(configs_input["resolution"])
     )
     configs_other = {"nproc": args["nproc"]}
-
-    # Print the used parameters (chosen or default-ones):
-    print("\nArguments:")
-    print(f"--contact-map: {configs_input['contact-map']}")
-    print(f"--resolution: {configs_input['resolution']}")
-    print(f"--normalization: {configs_input['normalization']}")
-    print(f"--genomic-belt: {configs_input['genomic_belt']}")
-    print(f"--roi: {configs_input['roi']}")
-    print(f"--max-width: {configs_thresholds['max_width']}")
-    print(f"--glob-pers-min: {configs_thresholds['glob_pers_min']}")
-    print(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
-    print(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
-    print(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
-    print(f"--output-folder: {configs_output['output_folder']}")
-    print(f"--force: {configs_output['force']}")
-    print(f"--nproc: {configs_other['nproc']}")
 
     return {
         "configs_input": configs_input,
@@ -353,11 +337,12 @@ def parse_args() -> Tuple[str, Any, str]:
     args = vars(_make_cli().parse_args())
 
     subcommand = args.pop("subcommand")
+    verbosity = args.pop("verbosity")
     if subcommand == "call":
-        return subcommand, _process_stripepy_call_args(args), args["verbosity"]
+        return subcommand, _process_stripepy_call_args(args), verbosity
     if subcommand == "download":
-        return subcommand, args, args["verbosity"]
+        return subcommand, args, verbosity
     if subcommand == "view":
-        return subcommand, args, args["verbosity"]
+        return subcommand, args, verbosity
 
     raise NotImplementedError

@@ -4,7 +4,6 @@
 
 import datetime
 import json
-import logging
 import multiprocessing as mp
 import pathlib
 import time
@@ -14,6 +13,7 @@ from typing import Any, Dict
 import h5py
 import hictkpy
 import numpy as np
+import structlog
 
 from stripepy import IO, others, stripepy
 
@@ -47,22 +47,26 @@ def print_all_attributes(obj, parent=""):
 
 
 def write_param_summary(
-    configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any], configs_output: Dict[str, Any]
+    configs_input: Dict[str, Any],
+    configs_thresholds: Dict[str, Any],
+    configs_output: Dict[str, Any],
+    configs_other: Dict[str, Any],
 ):
-    logging.info("Arguments:")
-    logging.info(f"--contact-map: {configs_input['contact-map']}")
-    logging.info(f"--resolution: {configs_input['resolution']}")
-    logging.info(f"--normalization: {configs_input['normalization']}")
-    logging.info(f"--genomic-belt: {configs_input['genomic_belt']}")
-    logging.info(f"--roi: {configs_input['roi']}")
-    logging.info(f"--max-width: {configs_thresholds['max_width']}")
-    logging.info(f"--glob-pers-min: {configs_thresholds['glob_pers_min']}")
-    logging.info(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
-    logging.info(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
-    logging.info(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
-    logging.info(f"--output-folder: {configs_output['output_folder']}")
-    logging.info(f"--force: {configs_output['force']}")
-    logging.info(f"--verbosity: {configs_output['verbosity']}")
+    logger = structlog.get_logger()
+    logger.info("Arguments:")
+    logger.info(f"--contact-map: {configs_input['contact-map']}")
+    logger.info(f"--resolution: {configs_input['resolution']}")
+    logger.info(f"--normalization: {configs_input['normalization']}")
+    logger.info(f"--genomic-belt: {configs_input['genomic_belt']}")
+    logger.info(f"--roi: {configs_input['roi']}")
+    logger.info(f"--max-width: {configs_thresholds['max_width']}")
+    logger.info(f"--glob-pers-min: {configs_thresholds['glob_pers_min']}")
+    logger.info(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
+    logger.info(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
+    logger.info(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
+    logger.info(f"--output-folder: {configs_output['output_folder']}")
+    logger.info(f"--force: {configs_output['force']}")
+    logger.info(f"--nproc: {configs_other['nproc']}")
 
 
 def _init_h5_file(
@@ -127,7 +131,7 @@ def run(
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
 
-    write_param_summary(configs_input, configs_thresholds, configs_output)
+    write_param_summary(configs_input, configs_thresholds, configs_output, configs_other)
 
     # Data loading:
     f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact-map"], configs_input["resolution"])
