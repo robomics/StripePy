@@ -54,14 +54,14 @@ def make_cli():
         formatter_class=CustomFormatter,
     )
 
-    cli.add_argument("stripepy-exec", type=pathlib.Path)
+    cli.add_argument("stripepy-exec", type=pathlib.Path, required=True)
 
     cli.add_argument(
         "stripebench-path",
         type=_input_dir_checked,
-        default=pathlib.Path("."),
-        # TODO complete help when benchmark is online
+        required=True,
         help="Path to the StripeBench dataset, which can be downloaded from XX.",
+        # TODO complete when benchmark is online
     )
 
     cli.add_argument(
