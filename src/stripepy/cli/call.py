@@ -109,14 +109,14 @@ def run(
     start_global_time = time.time()
 
     # Data loading:
-    f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact-map"], configs_input["resolution"])
+    f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact_map"], configs_input["resolution"])
 
     # Remove existing folders:
     # configs_output["output_folder"] = (
-    #     f"{configs_output['output_folder']}/{configs_input['contact-map'].stem}/{configs_input['resolution']}"
+    #     f"{configs_output['output_folder']}/{configs_input['contact_map'].stem}/{configs_input['resolution']}"
     # )
     configs_output["output_folder"] = (
-        configs_output["output_folder"] / configs_input["contact-map"].stem / str(configs_input["resolution"])
+        configs_output["output_folder"] / configs_input["contact_map"].stem / str(configs_input["resolution"])
     )
     IO.remove_and_create_folder(configs_output["output_folder"], configs_output["force"])
 
@@ -128,7 +128,7 @@ def run(
         h5 = ctx.enter_context(
             _init_h5_file(
                 configs_output["output_folder"] / "results.hdf5",
-                hictkpy.File(configs_input["contact-map"], configs_input["resolution"]),
+                hictkpy.File(configs_input["contact_map"], configs_input["resolution"]),
                 configs_input["normalization"],
                 _generate_metadata_attribute(configs_input, configs_thresholds),
             )

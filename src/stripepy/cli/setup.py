@@ -49,11 +49,18 @@ def _probability(arg) -> float:
     raise ValueError("Not a valid probability")
 
 
-def _non_zero_positive_float(arg) -> float:
+def _positive_float(arg) -> float:
     if (n := float(arg)) > 0:
         return n
 
-    raise ValueError("Not a non-zero, positive float")
+    raise ValueError("Not a positive float")
+
+
+def _positive_int(arg) -> float:
+    if (n := int(arg)) > 0:
+        return n
+
+    raise ValueError("Not a positive int")
 
 
 def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
@@ -82,8 +89,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "-n",
         "--normalization",
         type=str,
-        default="NONE",
-        help="Normalization to fetch (default: 'NONE').",
+        help="Normalization to fetch (default: 'None').",
     )
 
     sc.add_argument(
@@ -201,7 +207,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc.add_argument(
         "--max-size",
-        type=_non_zero_positive_float,
+        type=_positive_float,
         default=512.0,
         help="Upper bound for the size of the files to be considered when --name is not provided.",
     )
@@ -211,6 +217,73 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         type=pathlib.Path,
         dest="output_path",
         help="Path where to store the downloaded file.",
+    )
+    sc.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        default=False,
+        help="Overwrite existing file(s).",
+    )
+
+    return sc
+
+
+def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
+    sc: argparse.ArgumentParser = main_parser.add_parser(
+        "plot",
+        help="Generate various static plots useful to visually inspect the output produced by stripepy call.",
+    )
+
+    sc.add_argument(
+        "contact-map",
+        type=_existing_file,
+        help="Path to the .cool, .mcool, or .hic file used to call stripes.",
+    )
+    sc.add_argument(
+        "resolution",
+        type=_positive_int,
+        help="Resolution (in bp).",
+    )
+    sc.add_argument(
+        "plot-type",
+        type=str,
+        choices={"hic-matrix"},
+        help="Type of plot to be generated.",
+    )
+    sc.add_argument(
+        "output-name",
+        type=pathlib.Path,
+        help="Path where to store the generated plot.",
+    )
+    sc.add_argument(
+        "--region",
+        type=str,
+        help="Genomic region to be plotted. When not specified, a random 2.5Mb region is plotted.",
+    )
+    sc.add_argument(
+        "--cmap",
+        type=str,
+        default="fruit_punch",
+        help="Color map used to plot Hi-C interactions. Can be any of the color maps supported by matplotlib as well as: fall, fruit_punch, blues, acidblues, and nmeth.",
+    )
+    sc.add_argument(
+        "--dpi",
+        type=_positive_int,
+        default=300,
+        help="DPI of the generated plot (ignored when the output format is a vector graphic).",
+    )
+    sc.add_argument(
+        "--seed",
+        type=int,
+        default=7606490399616306585,
+        help="Seed for random number generator. Only used when --region is not provided.",
+    )
+    sc.add_argument(
+        "-n",
+        "--normalization",
+        type=str,
+        help="Normalization to fetch (default: 'None').",
     )
     sc.add_argument(
         "-f",
@@ -269,6 +342,7 @@ def _make_cli() -> argparse.ArgumentParser:
 
     _make_stripepy_call_subcommand(sub_parser)
     _make_stripepy_download_subcommand(sub_parser)
+    _make_stripepy_plot_subcommand(sub_parser)
     _make_stripepy_view_subcommand(sub_parser)
 
     cli.add_argument(
@@ -301,7 +375,7 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
 
     # Print the used parameters (chosen or default-ones):
     print("\nArguments:")
-    print(f"--contact-map: {configs_input['contact-map']}")
+    print(f"--contact-map: {configs_input['contact_map']}")
     print(f"--resolution: {configs_input['resolution']}")
     print(f"--normalization: {configs_input['normalization']}")
     print(f"--genomic-belt: {configs_input['genomic_belt']}")
@@ -323,14 +397,20 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _normalize_args(args: Dict[str, Any]) -> Dict[str, Any]:
+    return {k.replace("-", "_"): v for k, v in args.items()}
+
+
 def parse_args(cli_args: List[str]) -> Tuple[str, Any]:
     # Parse the input parameters:
-    args = vars(_make_cli().parse_args(cli_args))
+    args = _normalize_args(vars(_make_cli().parse_args(cli_args)))
 
     subcommand = args.pop("subcommand")
     if subcommand == "call":
         return subcommand, _process_stripepy_call_args(args)
     if subcommand == "download":
+        return subcommand, args
+    if subcommand == "plot":
         return subcommand, args
     if subcommand == "view":
         return subcommand, args

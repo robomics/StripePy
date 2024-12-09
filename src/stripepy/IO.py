@@ -88,43 +88,6 @@ def format_ticks(ax, x=True, y=True, rotate=True):
         ax.tick_params(axis="x", rotation=45)
 
 
-def HiC(I, RoI, plot_in_bp=False, output_folder=None, file_name=None, title=None, compactify=False):
-    """
-    :param I:                   Hi-C matrix to be plotted as image and saved
-    :param  RoI:                refers to the Region of Interest [RoI[0], RoI[1]]x[RoI[2], RoI[3]]
-                                (e.g., in genomic coordinates)
-    :param plot_in_bp:          if True, labels are set in base pairs w.r.t. the genomic interval in RoI;
-                                if False, labels are set in pixel coordinates
-    :param output_folder:       path to folder where to save the image
-    :param file_name:           name of the file to be created
-    :param title:               title to give to the image
-    :param compactify:          if False, it adds axes ticks, color bars
-    :return:                    -
-    """
-    if output_folder is None or file_name is None:
-        return
-
-    fig, ax = plt.subplots(1, 1)
-    img = ax.matshow(I, vmax=np.amax(I), extent=(RoI[0], RoI[1], RoI[3], RoI[2]), cmap=fruit_punch)
-    if plot_in_bp:
-        format_ticks(ax)
-
-    if compactify is True:
-        plt.axis("off")
-    else:
-        # plt.colorbar(img)
-        if title is not None:
-            fig.suptitle(title)
-
-    fig.set_dpi(256)
-    plt.axis("scaled")
-    fig.tight_layout()
-
-    plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
-
-    plt.close()
-
-
 def pseudodistrib(
     pseudo_distrib,
     IoI,

@@ -6,7 +6,7 @@ import logging
 import sys
 from typing import List, Union
 
-from .cli import call, download, setup, view
+from .cli import call, download, plot, setup, view
 
 
 def _setup_mpl_backend():
@@ -36,6 +36,9 @@ def main(args: Union[List[str], None] = None):
         return call.run(**args)
     if subcommand == "download":
         return download.run(**args)
+    if subcommand == "plot":
+        _setup_mpl_backend()
+        return plot.run(**args)
     if subcommand == "view":
         return view.run(**args)
 

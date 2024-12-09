@@ -14,7 +14,7 @@ import scipy.sparse as ss
 import seaborn as sns
 from numpy.typing import NDArray
 
-from . import IO
+from . import IO, plot
 from .utils import TDA, finders, regressions, stripe
 
 be_verbose = True  # TODO consider safe removal of be_verbose
@@ -152,23 +152,26 @@ def _plot_RoIs(
         Iproc_RoI = _extract_RoIs(Iproc, RoI)
 
         if output_folder is not None:
+            start_pos, end_pos = RoI["genomic"]
             # Plots:
-            IO.HiC(
+            dest = output_folder / f"I_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
+            fig, _ = plot.hic_matrix(
                 I_RoI,
-                RoI["genomic"],
-                plot_in_bp=True,
-                output_folder=output_folder,
-                file_name=f"I_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg",
-                compactify=False,
+                (start_pos, end_pos),
+                log_scale=False,
             )
-            IO.HiC(
+
+            fig.savefig(dest, dpi=256)
+            plt.close(fig)
+
+            dest = output_folder / f"Iproc_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
+            fig, _ = plot.hic_matrix(
                 Iproc_RoI,
-                RoI["genomic"],
-                plot_in_bp=True,
-                output_folder=output_folder,
-                file_name=f"Iproc_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg",
-                compactify=False,
+                (start_pos, end_pos),
+                log_scale=False,
             )
+            fig.savefig(dest, dpi=256)
+            plt.close(fig)
     else:
         Iproc_RoI = None  # TODO handle this case in _extract_RoIs
     return Iproc_RoI
