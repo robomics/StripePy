@@ -94,11 +94,14 @@ class Result(object):
             return []
 
         if attr is None:
-            raise RuntimeError(f'Attribute "{name}" is not set')
+            raise RuntimeError(f'Attribute "{name}" for "{location}" is not set')
 
         return attr
 
-    def get_stripes_descriptor(self, location: str, descriptor: str) -> Union[npt.NDArray[float], npt.NDArray[int]]:
+    def get_stripes_descriptor(self, descriptor: str, location: str) -> Union[npt.NDArray[float], npt.NDArray[int]]:
+        if location not in {"LT", "UT"}:
+            raise RuntimeError("Location should be UT or LT")
+
         if not hasattr(Stripe, descriptor):
             raise RuntimeError(f'Stripe instance does not have an attribute named "{descriptor}"')
 
@@ -112,29 +115,29 @@ class Result(object):
         return np.array([getattr(stripe, descriptor) for stripe in stripes], dtype=dtype)
 
     def get_stripe_geo_descriptors(self, location: str) -> pd.DataFrame:
-        descriptors = {
-            "seed": "seed",
-            "top_persistence": "seed persistence",
-            "left_bound": "L-boundary",
-            "right_bound": "R_boundary",
-            "top_bound": "U-boundary",
-            "bottom_bound": "D-boundary",
-        }
+        descriptors = [
+            "seed",
+            "top_persistence",
+            "left_bound",
+            "right_bound",
+            "top_bound",
+            "bottom_bound",
+        ]
 
         return pd.DataFrame(
-            {name: self.get_stripes_descriptor(location, descriptor) for descriptor, name in descriptors.items()}
+            {descriptor: self.get_stripes_descriptor(descriptor, location) for descriptor in descriptors}
         )
 
     def get_stripe_bio_descriptors(self, location: str) -> pd.DataFrame:
-        descriptors = {
-            "inner_mean": "inner mean",
-            "outer_mean": "outer mean",
-            "rel_change": "relative change",
-            "inner_std": "standard deviation",
-        }
+        descriptors = [
+            "inner_mean",
+            "outer_mean",
+            "rel_change",
+            "inner_std",
+        ]
 
         return pd.DataFrame(
-            {name: self.get_stripes_descriptor(location, descriptor) for descriptor, name in descriptors.items()}
+            {descriptor: self.get_stripes_descriptor(descriptor, location) for descriptor in descriptors}
         )
 
     def set_roi(self, coords: Dict[str, List[int]]):
