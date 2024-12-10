@@ -1,19 +1,290 @@
 # Copyright (C) 2024 Andrea Raffo <andrea.raffo@ibv.uio.no>
 #
 # SPDX-License-Identifier: MIT
-
+import datetime
+import json
 import pathlib
 import shutil
-from typing import List
+from importlib.metadata import version
+from typing import Any, Dict, List, Optional, Sequence, Union
 
+import h5py
+import hictkpy
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
+import pandas as pd
 import seaborn as sns
 from matplotlib.ticker import EngFormatter, ScalarFormatter
+
+from stripepy.utils.stripe import Stripe
 
 no_frills_in_images = False  # TODO safe removal of no_frills_in_images
 
 fruit_punch = sns.blend_palette(["white", "red"], as_cmap=True)
+
+
+class Result(object):
+    def __init__(self, chrom: str):
+        self._chrom = chrom
+        self._roi = None
+        self._min_persistence = None
+
+        self._ut_all_minimum_points = None
+        self._ut_all_maximum_points = None
+        self._ut_persistence_of_all_minimum_points = None
+        self._ut_persistence_of_all_maximum_points = None
+
+        self._lt_all_minimum_points = None
+        self._lt_all_maximum_points = None
+        self._lt_persistence_of_all_minimum_points = None
+        self._lt_persistence_of_all_maximum_points = None
+
+        self._ut_persistent_minimum_points = None
+        self._ut_persistent_maximum_points = None
+        self._ut_persistence_of_minimum_points = None
+        self._ut_persistence_of_maximum_points = None
+        self._ut_pseudodistribution = None
+
+        self._lt_persistent_minimum_points = None
+        self._lt_persistent_maximum_points = None
+        self._lt_persistence_of_minimum_points = None
+        self._lt_persistence_of_maximum_points = None
+        self._lt_pseudodistribution = None
+
+        self._ut_stripes = None
+        self._lt_stripes = None
+
+    @property
+    def _valid_attributes(self):
+        return [a.removeprefix("_lt_") for a in dir(self) if a.startswith("_lt_")]
+
+    @property
+    def empty(self) -> bool:
+        return self._lt_stripes is None and self._ut_stripes is None
+
+    @property
+    def chrom(self) -> str:
+        return self._chrom
+
+    @property
+    def roi(self) -> Optional[Dict[str, List[int]]]:
+        return self._roi
+
+    @property
+    def min_persistence(self) -> float:
+        if self._min_persistence is None:
+            raise RuntimeError('Attribute "min_persistence" is not set')
+
+        return self._min_persistence
+
+    def get(self, name: str, location: str) -> Union[List[Stripe], npt.NDArray[int], npt.NDArray[float]]:
+        if location not in {"LT", "UT"}:
+            raise RuntimeError("Location should be UT or LT")
+
+        attr_name = f"_{location.lower()}_{name}"
+        if not hasattr(self, attr_name):
+            raise RuntimeError(
+                f"No attribute named \"{name}\". Valid attributes are: {', '.join(self._valid_attributes)}"
+            )
+
+        attr = getattr(self, attr_name)
+        if name == "stripes" and attr is None:
+            return []
+
+        if attr is None:
+            raise RuntimeError(f'Attribute "{name}" is not set')
+
+        return attr
+
+    def get_stripes_descriptor(self, location: str, descriptor: str) -> Union[npt.NDArray[float], npt.NDArray[int]]:
+        if not hasattr(Stripe, descriptor):
+            raise RuntimeError(f'Stripe instance does not have an attribute named "{descriptor}"')
+
+        stripes = self.get("stripes", location)
+
+        if descriptor in {"seed", "left_bound", "right_bound", "top_bound", "bottom_bound"}:
+            dtype = int
+        else:
+            dtype = float
+
+        return np.array([getattr(stripe, descriptor) for stripe in stripes], dtype=dtype)
+
+    def get_stripe_geo_descriptors(self, location: str) -> pd.DataFrame:
+        descriptors = {
+            "seed": "seed",
+            "top_persistence": "seed persistence",
+            "left_bound": "L-boundary",
+            "right_bound": "R_boundary",
+            "top_bound": "U-boundary",
+            "bottom_bound": "D-boundary",
+        }
+
+        return pd.DataFrame(
+            {name: self.get_stripes_descriptor(location, descriptor) for descriptor, name in descriptors.items()}
+        )
+
+    def get_stripe_bio_descriptors(self, location: str) -> pd.DataFrame:
+        descriptors = {
+            "inner_mean": "inner mean",
+            "outer_mean": "outer mean",
+            "rel_change": "relative change",
+            "inner_std": "standard deviation",
+        }
+
+        return pd.DataFrame(
+            {name: self.get_stripes_descriptor(location, descriptor) for descriptor, name in descriptors.items()}
+        )
+
+    def set_roi(self, coords: Dict[str, List[int]]):
+        if self._roi is not None:
+            raise RuntimeError("roi has already been set")
+
+        self._roi = coords
+
+    def set_min_persistence(self, min_persistence: float):
+        if self._min_persistence is not None:
+            raise RuntimeError("min_persistence has already been set")
+
+        self._min_persistence = min_persistence
+
+    def set(self, name: str, data: Union[Sequence[int], Sequence[float], Sequence[Stripe]], location: str):
+        if location not in {"LT", "UT"}:
+            raise RuntimeError("Location should be UT or LT")
+
+        attr_name = f"_{location.lower()}_{name}"
+        if not hasattr(self, attr_name):
+            raise RuntimeError(
+                f"No attribute named \"{name}\". Valid attributes are: {', '.join(self._valid_attributes)}"
+            )
+
+        if getattr(self, attr_name) is not None:
+            raise RuntimeError(f'Attribute "{name}" for {location} has already been set')
+
+        setattr(self, attr_name, np.array(data))
+
+
+class ResultFile(object):
+    def __init__(self, path: pathlib.Path, mode: str = "r"):
+        self._path = path
+        self._mode = mode
+
+    def __enter__(self):
+        self._h5 = h5py.File(self._path, self._mode)
+
+        if self._mode == "r":
+            self._validate(self._h5)
+
+        self._version = self._h5.attrs.get("format-version", 1)
+        self._attrs = dict(self._h5.attrs)
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._h5.close()
+
+    @property
+    def path(self) -> pathlib.Path:
+        return self._path
+
+    @staticmethod
+    def _validate(h5: h5py.File):
+        format = h5.attrs.get("format")  # noqa
+        format_version = h5.attrs.get("format-version")
+        try:
+            if format is None:
+                raise RuntimeError('attribute "format" is missing')
+
+            if format_version is None:
+                raise RuntimeError('attribute "format-version" is missing')
+
+            if format != "HDF5::StripePy":
+                raise RuntimeError(f'unrecognized file format: expected "HDF5::StripePy", found "{format}"')
+
+            if format_version != 1:
+                raise RuntimeError(
+                    f'unsupported file format version "{format_version}". At present only version 1 is supported'
+                )
+        except RuntimeError as e:
+            raise RuntimeError(
+                f'failed to validate input file "{h5.filename}": {e}: file is corrupt or was not generated by StripePy.'
+            )
+
+    def init_file(self, matrix_file: hictkpy.File, normalization: str, metadata: Dict[str, Any]):
+        self._h5.attrs["assembly"] = matrix_file.attributes().get("assembly", "unknown")
+        self._h5.attrs["bin-size"] = matrix_file.resolution()
+        self._h5.attrs["creation-date"] = datetime.datetime.now().isoformat()
+        self._h5.attrs["format"] = "HDF5::StripePy"
+        self._h5.attrs["format-url"] = "https://github.com/paulsengroup/StripePy"
+        self._h5.attrs["format-version"] = 1
+        self._h5.attrs["generated-by"] = f"StripePy v{version('stripepy')}"
+        self._h5.attrs["metadata"] = json.dumps(metadata, indent=2)
+        self._h5.attrs["normalization"] = normalization
+
+        chroms = matrix_file.chromosomes(include_ALL=False)
+        self._h5.create_group("/chroms")
+        self._h5.create_dataset("/chroms/name", data=list(chroms.keys()))
+        self._h5.create_dataset("/chroms/length", data=list(chroms.values()))
+
+    def write_descriptors(self, result: Result):
+        grp = self._h5.create_group(f"/{result.chrom}/global-pseudo-distribution/")
+
+        grp.attrs.create("min_persistence_used", result.min_persistence)
+
+        for location in ["UT", "LT"]:
+            grp = self._h5.create_group(f"/{result.chrom}/global-pseudo-distribution/{location}")
+            grp.create_dataset(
+                "pseudo-distribution",
+                data=result.get("pseudodistribution", location),
+                compression="gzip",
+                compression_opts=4,
+                shuffle=True,
+            )
+            grp.create_dataset(
+                "minima_pts_and_persistence",
+                data=np.array(
+                    [
+                        result.get("all_minimum_points", location),
+                        result.get("persistence_of_all_minimum_points", location),
+                    ]
+                ),
+                compression="gzip",
+                compression_opts=4,
+                shuffle=True,
+            )
+            grp.create_dataset(
+                "maxima_pts_and_persistence",
+                data=np.array(
+                    [
+                        result.get("all_maximum_points", location),
+                        result.get("persistence_of_all_maximum_points", location),
+                    ]
+                ),
+                compression="gzip",
+                compression_opts=4,
+                shuffle=True,
+            )
+
+            grp = self._h5.create_group(f"/{result.chrom}/stripes/{location}")
+            descriptors = result.get_stripe_geo_descriptors(location)
+            dset = grp.create_dataset(
+                "geo-descriptors",
+                data=descriptors.to_numpy(),
+                compression="gzip",
+                compression_opts=4,
+                shuffle=True,
+            )
+            dset.attrs.create("col_names", data=descriptors.columns.tolist())
+
+            descriptors = result.get_stripe_bio_descriptors(location)
+            dset = grp.create_dataset(
+                "bio-descriptors",
+                data=descriptors.to_numpy(),
+                compression="gzip",
+                compression_opts=4,
+                shuffle=True,
+            )
+            dset.attrs.create("col_names", data=descriptors.columns.tolist())
 
 
 class ANSI:
