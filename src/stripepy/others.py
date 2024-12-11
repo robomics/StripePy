@@ -63,14 +63,14 @@ def chromosomes_to_study(chromosomes, length_in_bp, min_size_allowed):
     deleted_indices = [i for i, e in enumerate(length_in_bp) if e <= min_size_allowed]
     if len(deleted_indices) > 0:
         print(
-            f"{IO.ANSI.RED}ATT: The following chromosomes are discarded because shorter than MIN_SIZE_CHROMOSOME = "
+            f"{IO.ANSI.RED}ATT: The following chromosomes are discarded because shorter than --min-chrom-size = "
             f"{min_size_allowed} bp: {[chromosomes[i] for i in deleted_indices]}{IO.ANSI.ENDC}"
         )
         c_pairs = [c_pairs[i] for i in surviving_indices]
 
         # If there is no chromosome left, exit:
         if len(c_pairs) == 0:
-            raise ValueError(f"\nNo chromosome is long enough... decrease the parameter MIN_SIZE_CHROMOSOME")
+            raise ValueError(f"\nNo chromosome is long enough... decrease the parameter --min-chrom-size")
 
     return c_pairs
 

@@ -18,9 +18,6 @@ import structlog
 
 from stripepy import IO, others, stripepy
 
-# TODO does this need to be global variable?
-MIN_SIZE_CHROMOSOME = 2000000
-
 
 # TODO can we remove this?
 def save_terminal_groups(name, obj):
@@ -65,9 +62,10 @@ def write_param_summary(
     logger.info(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
     logger.info(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
     logger.info(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
+    logger.info(f"--min-chrom-size: {configs_thresholds['min_chrom_size']}")
     logger.info(f"--output-folder: {configs_output['output_folder']}")
-    logger.info(f"--force: {configs_output['force']}")
     logger.info(f"--nproc: {configs_other['nproc']}")
+    logger.info(f"--force: {configs_output['force']}")
 
 
 def _init_h5_file(
@@ -100,7 +98,7 @@ def _generate_metadata_attribute(configs_input: Dict[str, Any], configs_threshol
         "local-persistence-minimum": configs_thresholds["loc_pers_min"],
         "local-trend-minimum": configs_thresholds["loc_trend_min"],
         "max-width": configs_thresholds["max_width"],
-        "min-chromosome-size": MIN_SIZE_CHROMOSOME,
+        "min-chromosome-size": configs_thresholds["min_chrom_size"],
     }
 
 
@@ -145,7 +143,9 @@ def run(
     IO.remove_and_create_folder(configs_output["output_folder"], configs_output["force"])
 
     # Extract a list of tuples where each tuple is (index, chr), e.g. (2,'chr3'):
-    c_pairs = others.chromosomes_to_study(list(f.chromosomes().keys()), bp_lengths, MIN_SIZE_CHROMOSOME)
+    c_pairs = others.chromosomes_to_study(
+        list(f.chromosomes().keys()), bp_lengths, configs_thresholds["min_chrom_size"]
+    )
 
     with contextlib.ExitStack() as ctx:
         # Create HDF5 file to store candidate stripes:

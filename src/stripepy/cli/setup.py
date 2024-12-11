@@ -63,7 +63,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "• Step 1: Pre-processing\n"
         "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
         "• Step 3: Shape analysis (i.e., width and height estimation)\n"
-        "• Step 4: Signal analysis and post-processing\n",
+        "• Step 4: Signal analysis\n",
     )
 
     sc.add_argument(
@@ -90,7 +90,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "-b",
         "--genomic-belt",
         type=int,
-        default=5000000,
+        default=5_000_000,
         help="Radius of the band, centred around the diagonal, where the search is restricted to (in bp, default: 5000000).",
     )
 
@@ -112,7 +112,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--max-width",
         type=int,
-        default=100000,
+        default=100_000,
         help="Maximum stripe width, in bp.",
     )
 
@@ -171,6 +171,13 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         type=_num_cpus,
         default=1,
         help="Maximum number of parallel processes to use.",
+    )
+
+    sc.add_argument(
+        "--min-chrom-size",
+        type=int,
+        default=2_000_000,
+        help="Minimum size, in bp, for a chromosome to be analysed (default: 2 Mbp).",
     )
 
     return sc
@@ -315,6 +322,7 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
             "loc_pers_min",
             "loc_trend_min",
             "max_width",
+            "min_chrom_size",
         ]
     }
     configs_output = {key: args[key] for key in ["output_folder", "force"]}
