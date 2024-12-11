@@ -65,7 +65,8 @@ def _normalize_df(df: pd.DataFrame) -> pd.DataFrame:
         new_cols.append(re.sub(r"\W+", "_", col.lower()))
 
     df.columns = new_cols
-    with warnings.catch_warnings(action="ignore"):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
         return df.convert_dtypes()
 
 

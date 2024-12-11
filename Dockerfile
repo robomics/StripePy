@@ -48,7 +48,7 @@ COPY --from=builder "$install_dir" "$install_dir"
 
 RUN "$install_dir/bin/pip" install "$src_dir[test]" -v --no-compile
 
-RUN "$install_dir/bin/python3" -m pytest "$src_dir/test"
+RUN "$install_dir/bin/python3" -m pytest "$src_dir/test/" -v -m unit
 
 
 ARG BASE_IMAGE
