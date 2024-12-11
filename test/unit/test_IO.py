@@ -2,15 +2,28 @@
 #
 # SPDX-License-Identifier: MIT
 
+import json
+import math
 import pathlib
 import shutil
 import tempfile
 
+import hictkpy as htk
+import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
 
-from stripepy.IO import Result, create_folders_for_plots, remove_and_create_folder
+from stripepy.IO import (
+    Result,
+    ResultFile,
+    create_folders_for_plots,
+    remove_and_create_folder,
+)
 from stripepy.utils.stripe import Stripe
+
+from .common.cool import generate_singleres_test_file
+
+testdir = pathlib.Path(__file__).resolve().parent.parent
 
 
 def _directory_is_empty(path) -> bool:
@@ -107,10 +120,10 @@ class TestResult:
         assert "foobar" in res.roi
         assert res.roi["foobar"] == [1, 2, 3]
 
-        with pytest.raises(RuntimeError, match='No attribute named "invalid name"'):
+        with pytest.raises(AttributeError, match='No attribute named "invalid name"'):
             res.set("invalid name", [], "LT")
 
-        with pytest.raises(RuntimeError, match="Location should be UT or LT"):
+        with pytest.raises(ValueError, match="Location should be UT or LT"):
             res.set("all_minimum_points", [], "invalid location")
 
         res.set("all_minimum_points", [1, 2, 3], "LT")
@@ -133,10 +146,10 @@ class TestResult:
         res.set_min_persistence(1.23)
         assert res.min_persistence == 1.23
 
-        with pytest.raises(RuntimeError, match='No attribute named "invalid name"'):
+        with pytest.raises(AttributeError, match='No attribute named "invalid name"'):
             res.get("invalid name", "LT")
 
-        with pytest.raises(RuntimeError, match="Location should be UT or LT"):
+        with pytest.raises(ValueError, match="Location should be UT or LT"):
             res.get("all_minimum_points", "invalid location")
 
         with pytest.raises(RuntimeError, match='Attribute "all_minimum_points" for "UT" is not set'):
@@ -157,10 +170,10 @@ class TestResult:
         stripes[0].set_horizontal_bounds(8, 12)
         stripes[0].compute_biodescriptors(csr_matrix((15, 15), dtype=float))
 
-        with pytest.raises(RuntimeError, match='does not have an attribute named "foobar"'):
+        with pytest.raises(AttributeError, match='does not have an attribute named "foobar"'):
             res.get_stripes_descriptor("foobar", "UT")
 
-        with pytest.raises(RuntimeError, match="Location should be UT or LT"):
+        with pytest.raises(ValueError, match="Location should be UT or LT"):
             res.get_stripes_descriptor("seed", "foobar")
 
         res.set("stripes", stripes, "LT")
@@ -194,3 +207,139 @@ class TestResult:
         assert df["outer_mean"].iloc[0] == 0
         assert df["rel_change"].iloc[0] == -1
         assert df["inner_std"].iloc[0] == 0
+
+
+@pytest.mark.unit
+class TestResultFile:
+    def test_ctor(self, tmpdir):
+        tmpdir = pathlib.Path(tmpdir)
+
+        path = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        with ResultFile(path) as f:
+            assert f.path == path
+
+        with pytest.raises(OSError):
+            ResultFile(tmpdir / "asdf123.hdf5")
+
+        path = pathlib.Path(tmpdir) / "test.hdf5"
+        f = ResultFile(path, "w")
+        assert f.path == path
+
+    def test_properties(self):
+        path = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        with ResultFile(path) as f:
+            assert f.path == path
+            assert f.assembly == "unknown"
+            assert f.resolution == 10_000
+
+            try:
+                f.creation_date  # noqa
+            except ValueError:
+                pytest.fail("creation-date attribute is not a valid date")
+
+            assert f.format == "HDF5::StripePy"
+            assert f.format_url == "https://github.com/paulsengroup/StripePy"
+            assert f.format_version == 1
+            assert f.generated_by.startswith("StripePy")
+
+            try:
+                f.metadata  # noqa
+            except json.decoder.JSONDecodeError:
+                pytest.fail("metadata attribute is not a valid JSON")
+
+            assert f.normalization is None
+
+            assert len(f.chromosomes) == 24
+            assert "chr1" in f.chromosomes
+
+    def test_getters(self):
+        path = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        with ResultFile(path) as f:
+            assert math.isclose(f.get_min_persistence("chr1"), 0.05)
+            with pytest.raises(KeyError):
+                f.get_min_persistence("foobar")
+
+            df = f.get("chr1", "pseudodistribution", "LT")
+
+            assert "pseudodistribution" in df
+            assert len(df) == 24896
+
+            df = f.get("chr1", "geo_descriptors", "LT")
+
+            geo_descriptor_cols = ["seed", "top_persistence", "left_bound", "right_bound", "top_bound", "bottom_bound"]
+            assert len(df.columns) == len(geo_descriptor_cols)
+            assert (df.columns == geo_descriptor_cols).all()
+            assert len(df) == 1305
+
+            df = f.get("chr1", "bio_descriptors", "LT")
+
+            bio_descriptor_cols = ["inner_mean", "outer_mean", "rel_change", "inner_std"]
+            assert len(df.columns) == len(bio_descriptor_cols)
+            assert (df.columns == bio_descriptor_cols).all()
+            assert len(df) == 1305
+
+            with pytest.raises(KeyError):
+                f.get("foobar", "pseudodistribution", "LT")
+
+            with pytest.raises(KeyError):
+                f.get("chr1", "foobar", "LT")
+
+            with pytest.raises(ValueError):
+                f.get("chr1", "pseudodistribution", "foobar")
+
+    def test_file_creation(self, tmpdir):
+        tmpdir = pathlib.Path(tmpdir)
+
+        clr_file = generate_singleres_test_file(tmpdir / "test.cool", 10_000)
+        chroms = htk.File(clr_file).chromosomes()
+        chrom = tuple(chroms.keys())[0]
+
+        points = [1, 2, 3]
+        persistence = [4.0, 5.0, 6.0]
+        pseudoditribution = [7.0, 8.0, 9.0]
+
+        # Create a mock ResultFile
+        with ResultFile(tmpdir / "results.hdf5", "w") as f:
+            f.init_file(htk.File(clr_file), "weight", {"key": "value"})
+
+            res = Result(chrom)
+            res.set_min_persistence(1.23)
+
+            for location in ["UT", "LT"]:
+                res.set("pseudodistribution", pseudoditribution, location)
+
+                for key in [
+                    "all_minimum_points",
+                    "all_maximum_points",
+                    "persistent_minimum_points",
+                    "persistent_maximum_points",
+                ]:
+                    res.set(key, points, location)
+
+                for key in [
+                    "persistence_of_all_minimum_points",
+                    "persistence_of_all_maximum_points",
+                    "persistence_of_minimum_points",
+                    "persistence_of_maximum_points",
+                ]:
+                    res.set(key, persistence, location)
+
+            f.write_descriptors(res)
+
+        shutil.copy(tmpdir / "results.hdf5", "/tmp/results.hdf5")
+
+        with ResultFile(tmpdir / "results.hdf5") as f:
+            assert f.chromosomes == chroms
+            assert f.normalization == "weight"
+            assert f.metadata.get("key", "missing") == "value"
+
+            for location in ["UT", "LT"]:
+                assert np.allclose(
+                    f.get(chrom, "pseudodistribution", location)["pseudodistribution"], pseudoditribution
+                )
+
+                for key in ["all_minimum_points", "all_maximum_points"]:
+                    assert (f.get(chrom, key, location)[key] == points).all()
+
+                for key in ["persistence_of_all_minimum_points", "persistence_of_all_maximum_points"]:
+                    assert np.allclose(f.get(chrom, key, location)[key], persistence)
