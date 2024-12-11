@@ -125,7 +125,7 @@ def main(args: Union[List[str], None] = None):
 
         if subcommand == "call":
             _setup_mpl_backend()
-            _setup_logger(verbosity.upper(), args["configs_output"]["output_folder"] / "log.txt")
+            _setup_logger(verbosity.upper())
             return call.run(**args)
         if subcommand == "download":
             _setup_logger(verbosity.upper())
