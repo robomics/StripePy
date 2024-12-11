@@ -165,6 +165,13 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Maximum number of parallel processes to use.",
     )
 
+    sc.add_argument(
+        "--min-chrom-size",
+        type=int,
+        default=2_000_000,
+        help="Minimum size, in bp, for a chromosome to be analysed (default: 2 Mbp).",
+    )
+
     return sc
 
 
@@ -293,6 +300,7 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
             "loc_pers_min",
             "loc_trend_min",
             "max_width",
+            "min_chrom_size",
         ]
     }
     configs_output = {key: args[key] for key in ["output_folder", "force"]}
@@ -311,9 +319,10 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     print(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
     print(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
     print(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
+    print(f"--min-chrom-size: {configs_thresholds['min_chrom_size']}")
     print(f"--output-folder: {configs_output['output_folder']}")
-    print(f"--force: {configs_output['force']}")
     print(f"--nproc: {configs_other['nproc']}")
+    print(f"--force: {configs_output['force']}")
 
     return {
         "configs_input": configs_input,
