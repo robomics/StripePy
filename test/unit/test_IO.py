@@ -225,6 +225,9 @@ class TestResultFile:
         f = ResultFile(path, "w")
         assert f.path == path
 
+        with pytest.raises(ValueError):
+            ResultFile(path, "a")
+
     def test_properties(self):
         path = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
         with ResultFile(path) as f:
