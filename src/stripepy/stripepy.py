@@ -962,6 +962,10 @@ def step_4(
     RoI=None,
     output_folder=None,
 ):
+    if result.empty:
+        print("4) No candidates found by step 2. Returning immediately!")
+        return result
+
     print("4.1) Computing and saving biological descriptors")
     for LT_candidate_stripe in result.get("stripes", "LT"):
         LT_candidate_stripe.compute_biodescriptors(L)
