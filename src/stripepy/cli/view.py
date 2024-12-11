@@ -28,10 +28,10 @@ def _normalize_df(df: pd.DataFrame) -> pd.DataFrame:
 
 def _read_stripes(f: ResultFile, chrom: str) -> pd.DataFrame:
     try:
-        bio_lt = f.get(chrom, "LT", "bio_descriptors")[["rel_change"]]
-        bio_ut = f.get(chrom, "UT", "bio_descriptors")[["rel_change"]]
-        geo_lt = f.get(chrom, "LT", "geo_descriptors")
-        geo_ut = f.get(chrom, "UT", "geo_descriptors")
+        bio_lt = f.get(chrom, "bio_descriptors", "LT")[["rel_change"]]
+        bio_ut = f.get(chrom, "bio_descriptors", "UT")[["rel_change"]]
+        geo_lt = f.get(chrom, "geo_descriptors", "LT")
+        geo_ut = f.get(chrom, "geo_descriptors", "UT")
 
         geo_lt["type"] = "lt"
         geo_ut["type"] = "ut"
