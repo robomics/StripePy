@@ -326,8 +326,6 @@ class TestResultFile:
 
             f.write_descriptors(res)
 
-        shutil.copy(tmpdir / "results.hdf5", "/tmp/results.hdf5")
-
         with ResultFile(tmpdir / "results.hdf5") as f:
             assert f.chromosomes == chroms
             assert f.normalization == "weight"
