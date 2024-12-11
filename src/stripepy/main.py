@@ -34,7 +34,7 @@ class _StructLogColorfulStyles:
     level_warn = colorama.Fore.YELLOW
     level_info = colorama.Fore.GREEN
     level_debug = colorama.Fore.GREEN
-    level_notset = colorama.Back.RED_BACK
+    level_notset = colorama.Back.RED
 
     timestamp = dim
     chromosome = colorama.Fore.BLUE
