@@ -3,16 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 import contextlib
-import datetime
-import json
 import multiprocessing as mp
-import pathlib
 import time
-from importlib.metadata import version
 from typing import Any, Dict
 
-import h5py
-import hictkpy
 import numpy as np
 
 from stripepy import IO, others, stripepy

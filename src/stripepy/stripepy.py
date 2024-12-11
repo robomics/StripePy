@@ -14,10 +14,7 @@ import scipy.sparse as ss
 import seaborn as sns
 from numpy.typing import NDArray
 
-import stripepy.IO
-
 from . import IO
-from .IO import Result
 from .utils import TDA, finders, regressions, stripe
 
 be_verbose = True  # TODO consider safe removal of be_verbose

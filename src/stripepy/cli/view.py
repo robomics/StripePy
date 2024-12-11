@@ -6,9 +6,8 @@ import pathlib
 import re
 import sys
 import warnings
-from typing import Dict, Union
+from typing import Union
 
-import h5py
 import numpy as np
 import pandas as pd
 
