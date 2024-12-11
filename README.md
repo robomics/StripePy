@@ -85,19 +85,17 @@ Feel free to use your own interaction matrix (make sure the matrix is in `.cool`
 
 ```console
 # This may take a while on slow internet connections
-user@dev:/tmp$ stripepy download --name 4DNFIOTPSS3L
+user@dev:/tmp$ stripepy download --name 4DNFI9GMP2J8
 
-[2024-11-28 17:33:43,197] INFO: downloading dataset "4DNFIOTPSS3L" (assembly=dm6)...
-[2024-11-28 17:33:43,728] INFO: downloaded 0.00/248.10 MB (0.00%)
-[2024-11-28 17:33:58,760] INFO: downloaded 43.16/248.10 MB (17.40%)
-[2024-11-28 17:34:13,792] INFO: downloaded 100.35/248.10 MB (40.45%)
-[2024-11-28 17:34:28,799] INFO: downloaded 159.46/248.10 MB (64.27%)
-[2024-11-28 17:34:43,801] INFO: downloaded 184.13/248.10 MB (74.22%)
-[2024-11-28 17:34:54,469] INFO: DONE! Downloading dataset "4DNFIOTPSS3L" took 71.27s.
-[2024-11-28 17:34:54,469] INFO: computing MD5 digest for file "/tmp/4DNFIOTPSS3L.wlua4he_"...
-[2024-11-28 17:34:54,786] INFO: MD5 checksum match!
-[2024-11-28 17:34:54,786] INFO: successfully downloaded dataset "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/7386f953-8da9-47b0-acb2-931cba810544/4DNFIOTPSS3L.hic" to file "4DNFIOTPSS3L.hic"
-[2024-11-28 17:34:54,786] INFO: file size: 248.10MB. Elapsed time: 71.59s
+[2024-12-11 15:25:56,101] INFO: downloading dataset "4DNFI9GMP2J8" (assembly=hg38)...
+[2024-12-11 15:25:56,296] INFO: downloaded 0.00/106.84 MB (0.00%)
+[2024-12-11 15:26:11,309] INFO: downloaded 57.53/106.84 MB (53.85%)
+[2024-12-11 15:26:26,312] INFO: downloaded 86.59/106.84 MB (81.05%)
+[2024-12-11 15:26:35,156] INFO: DONE! Downloading dataset "4DNFI9GMP2J8" took 39.06s.
+[2024-12-11 15:26:35,156] INFO: computing MD5 digest for file "/tmp/4DNFI9GMP2J8.zf9qbdmi"...
+[2024-12-11 15:26:35,304] INFO: MD5 checksum match!
+[2024-12-11 15:26:35,304] INFO: successfully downloaded dataset "https://zenodo.org/records/14283922/files/4DNFI9GMP2J8.stripepy.mcool?download=1" to file "4DNFI9GMP2J8.mcool"
+[2024-12-11 15:26:35,305] INFO: file size: 106.84MB. Elapsed time: 39.20s
 ```
 
 #### 2) Detect architectural stripes
@@ -105,69 +103,82 @@ user@dev:/tmp$ stripepy download --name 4DNFIOTPSS3L
 This is the core of the analysis and may take several minutes when processing large files.
 
 ```console
-user@dev:/tmp$ stripepy call 4DNFIOTPSS3L.hic 10000 -o /tmp/stripepy/
+user@dev:/tmp$ stripepy call 4DNFI9GMP2J8.mcool 10000 -o stripepy/
+
 
 Arguments:
---contact-map: 4DNFIOTPSS3L.hic
+--contact-map: 4DNFI9GMP2J8.mcool
 --resolution: 10000
 --normalization: NONE
 --genomic-belt: 5000000
 --roi: None
 --max-width: 100000
---glob-pers-type: constant
---glob-pers-min: 0.2
+--glob-pers-min: 0.05
 --constrain-heights: False
---loc-pers-min: 0.2
---loc-trend-min: 0.1
---output-folder: /tmp/stripepy
+--loc-pers-min: 0.33
+--loc-trend-min: 0.25
+--output-folder: stripepy
 --force: False
 --nproc: 1
-ATT: The following chromosomes are discarded because shorter than MIN_SIZE_CHROMOSOME = 2000000 bp: ['4']
 
-CHROMOSOME 2L
+CHROMOSOME chr1
 RoI is: None
 Step 1: pre-processing step
 1.1) Log-transformation...
 1.2) Focusing on a neighborhood of the main diagonal...
 1.3) Projection onto [0, 1]...
-...
+Execution time of step 1: 0.446779727935791 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 1353 to 1304
+Number of upper-triangular seed sites is reduced from 1217 to 1180
 2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.005518436431884766 seconds ---
-Chromosome is too sparse, no candidate returned
+Execution time of step 2: 0.3155953884124756 seconds ---
+Step 3: Shape analysis
+...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 0.3037407398223877 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.059529781341552734 seconds ---
+This chromosome has taken 0.450955867767334 seconds
 
 
-The code has run for 0.06784079869588217 minutes
+The code has run for 2.022001071770986 minutes
 ```
 
 <details>
 <summary>Complete log</summary>
 
-```txt
+```
 
 Arguments:
---contact-map: 4DNFIOTPSS3L.hic
+--contact-map: 4DNFI9GMP2J8.mcool
 --resolution: 10000
 --normalization: NONE
 --genomic-belt: 5000000
 --roi: None
 --max-width: 100000
---glob-pers-type: constant
---glob-pers-min: 0.2
+--glob-pers-min: 0.05
 --constrain-heights: False
---loc-pers-min: 0.2
---loc-trend-min: 0.1
---output-folder: /tmp/stripepy
+--loc-pers-min: 0.33
+--loc-trend-min: 0.25
+--output-folder: stripepy
 --force: False
 --nproc: 1
-ATT: The following chromosomes are discarded because shorter than MIN_SIZE_CHROMOSOME = 2000000 bp: ['4']
 
-CHROMOSOME 2L
+CHROMOSOME chr1
 RoI is: None
 Step 1: pre-processing step
 1.1) Log-transformation...
 1.2) Focusing on a neighborhood of the main diagonal...
 1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.07570600509643555 seconds ---
+Execution time of step 1: 0.446779727935791 seconds ---
 Step 2: Topological Data Analysis
 2.1) Global 1D pseudo-distributions...
 2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
@@ -175,34 +186,34 @@ Step 2: Topological Data Analysis
 2.2.1) Lower triangular part
 2.2.2) Upper triangular part
 2.2.3) Filter out seeds in sparse regions
-Number of lower-triangular seed sites is reduced from 59 to 58
-Number of upper-triangular seed sites is reduced from 75 to 74
+Number of lower-triangular seed sites is reduced from 1353 to 1304
+Number of upper-triangular seed sites is reduced from 1217 to 1180
 2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.03276181221008301 seconds ---
+Execution time of step 2: 0.3155953884124756 seconds ---
 Step 3: Shape analysis
 3.1) Width estimation
 3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
 3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.021106719970703125 seconds ---
+Execution time: 3.5695345401763916 seconds ---
 3.2) Height estimation
 3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
 3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.2394862174987793 seconds ---
+Execution time: 3.528017997741699 seconds ---
 3.5) Saving geometric descriptors...
 3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.2783341407775879 seconds ---
+Execution time of step 3: 7.102360963821411 seconds ---
 Step 4: Statistical analysis and post-processing
 4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.11352181434631348 seconds ---
-This chromosome has taken 0.7404417991638184 seconds
+Execution time of step 4: 0.9378914833068848 seconds ---
+This chromosome has taken 9.699488639831543 seconds
 
-CHROMOSOME 2R
+CHROMOSOME chr2
 RoI is: None
 Step 1: pre-processing step
 1.1) Log-transformation...
 1.2) Focusing on a neighborhood of the main diagonal...
 1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.08379077911376953 seconds ---
+Execution time of step 1: 0.47316646575927734 seconds ---
 Step 2: Topological Data Analysis
 2.1) Global 1D pseudo-distributions...
 2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
@@ -210,34 +221,34 @@ Step 2: Topological Data Analysis
 2.2.1) Lower triangular part
 2.2.2) Upper triangular part
 2.2.3) Filter out seeds in sparse regions
-Number of lower-triangular seed sites is reduced from 80 to 78
-Number of upper-triangular seed sites is reduced from 70 to 68
+Number of lower-triangular seed sites is reduced from 1504 to 1473
+Number of upper-triangular seed sites is reduced from 1402 to 1367
 2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.036416053771972656 seconds ---
+Execution time of step 2: 0.3005075454711914 seconds ---
 Step 3: Shape analysis
 3.1) Width estimation
 3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
 3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.024736881256103516 seconds ---
+Execution time: 3.9707601070404053 seconds ---
 3.2) Height estimation
 3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
 3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.2742347717285156 seconds ---
+Execution time: 3.9840147495269775 seconds ---
 3.5) Saving geometric descriptors...
 3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.31762170791625977 seconds ---
+Execution time of step 3: 7.959795951843262 seconds ---
 Step 4: Statistical analysis and post-processing
 4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.1293354034423828 seconds ---
-This chromosome has taken 0.803577184677124 seconds
+Execution time of step 4: 1.0786504745483398 seconds ---
+This chromosome has taken 10.67337441444397 seconds
 
-CHROMOSOME 3L
+CHROMOSOME chr3
 RoI is: None
 Step 1: pre-processing step
 1.1) Log-transformation...
 1.2) Focusing on a neighborhood of the main diagonal...
 1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.09990215301513672 seconds ---
+Execution time of step 1: 0.3940746784210205 seconds ---
 Step 2: Topological Data Analysis
 2.1) Global 1D pseudo-distributions...
 2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
@@ -245,33 +256,34 @@ Step 2: Topological Data Analysis
 2.2.1) Lower triangular part
 2.2.2) Upper triangular part
 2.2.3) Filter out seeds in sparse regions
-Number of upper-triangular seed sites is reduced from 92 to 90
+Number of lower-triangular seed sites is reduced from 1173 to 1168
+Number of upper-triangular seed sites is reduced from 1305 to 1297
 2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.03818702697753906 seconds ---
+Execution time of step 2: 0.2587897777557373 seconds ---
 Step 3: Shape analysis
 3.1) Width estimation
 3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
 3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.023464441299438477 seconds ---
+Execution time: 2.884906768798828 seconds ---
 3.2) Height estimation
 3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
 3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.260178804397583 seconds ---
+Execution time: 3.896686553955078 seconds ---
 3.5) Saving geometric descriptors...
 3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.30387020111083984 seconds ---
+Execution time of step 3: 6.78642725944519 seconds ---
 Step 4: Statistical analysis and post-processing
 4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.10239791870117188 seconds ---
-This chromosome has taken 0.8269245624542236 seconds
+Execution time of step 4: 1.012127161026001 seconds ---
+This chromosome has taken 9.16284704208374 seconds
 
-CHROMOSOME 3R
+CHROMOSOME chr4
 RoI is: None
 Step 1: pre-processing step
 1.1) Log-transformation...
 1.2) Focusing on a neighborhood of the main diagonal...
 1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.13510823249816895 seconds ---
+Execution time of step 1: 0.3355872631072998 seconds ---
 Step 2: Topological Data Analysis
 2.1) Global 1D pseudo-distributions...
 2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
@@ -279,33 +291,34 @@ Step 2: Topological Data Analysis
 2.2.1) Lower triangular part
 2.2.2) Upper triangular part
 2.2.3) Filter out seeds in sparse regions
-Number of upper-triangular seed sites is reduced from 76 to 75
+Number of lower-triangular seed sites is reduced from 1152 to 1144
+Number of upper-triangular seed sites is reduced from 993 to 985
 2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.044580936431884766 seconds ---
+Execution time of step 2: 0.27007126808166504 seconds ---
 Step 3: Shape analysis
 3.1) Width estimation
 3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
 3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.034942626953125 seconds ---
+Execution time: 2.4963622093200684 seconds ---
 3.2) Height estimation
 3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
 3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.3338663578033447 seconds ---
+Execution time: 3.3167238235473633 seconds ---
 3.5) Saving geometric descriptors...
 3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.3899509906768799 seconds ---
+Execution time of step 3: 5.8175835609436035 seconds ---
 Step 4: Statistical analysis and post-processing
 4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.15247011184692383 seconds ---
-This chromosome has taken 1.0828697681427002 seconds
+Execution time of step 4: 0.8550224304199219 seconds ---
+This chromosome has taken 7.937693357467651 seconds
 
-CHROMOSOME X
+CHROMOSOME chr5
 RoI is: None
 Step 1: pre-processing step
 1.1) Log-transformation...
 1.2) Focusing on a neighborhood of the main diagonal...
 1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.0595550537109375 seconds ---
+Execution time of step 1: 0.2822716236114502 seconds ---
 Step 2: Topological Data Analysis
 2.1) Global 1D pseudo-distributions...
 2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
@@ -313,34 +326,34 @@ Step 2: Topological Data Analysis
 2.2.1) Lower triangular part
 2.2.2) Upper triangular part
 2.2.3) Filter out seeds in sparse regions
-Number of lower-triangular seed sites is reduced from 48 to 46
-Number of upper-triangular seed sites is reduced from 64 to 63
+Number of lower-triangular seed sites is reduced from 978 to 967
+Number of upper-triangular seed sites is reduced from 1365 to 1353
 2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.0319368839263916 seconds ---
+Execution time of step 2: 0.2545452117919922 seconds ---
 Step 3: Shape analysis
 3.1) Width estimation
 3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
 3.1.2) Updating list of Stripe objects with HIoIs...
-Execution time: 0.01849651336669922 seconds ---
+Execution time: 2.7692947387695312 seconds ---
 3.2) Height estimation
 3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
 3.2.2) Updating list of Stripe objects with VIoIs...
-Execution time: 0.21211600303649902 seconds ---
+Execution time: 3.6233880519866943 seconds ---
 3.5) Saving geometric descriptors...
 3.6) Bar plots of widths and heights...
-Execution time of step 3: 0.24924921989440918 seconds ---
+Execution time of step 3: 6.397336721420288 seconds ---
 Step 4: Statistical analysis and post-processing
 4.1) Computing and saving biological descriptors
-Execution time of step 4: 0.09531784057617188 seconds ---
-This chromosome has taken 0.6071553230285645 seconds
+Execution time of step 4: 0.9528613090515137 seconds ---
+This chromosome has taken 8.481026411056519 seconds
 
-CHROMOSOME Y
+CHROMOSOME chr6
 RoI is: None
 Step 1: pre-processing step
 1.1) Log-transformation...
 1.2) Focusing on a neighborhood of the main diagonal...
 1.3) Projection onto [0, 1]...
-Execution time of step 1: 0.0005571842193603516 seconds ---
+Execution time of step 1: 0.26506567001342773 seconds ---
 Step 2: Topological Data Analysis
 2.1) Global 1D pseudo-distributions...
 2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
@@ -348,14 +361,659 @@ Step 2: Topological Data Analysis
 2.2.1) Lower triangular part
 2.2.2) Upper triangular part
 2.2.3) Filter out seeds in sparse regions
-Number of lower-triangular seed sites is reduced from 4 to 0
-Number of upper-triangular seed sites is reduced from 4 to 0
+Number of lower-triangular seed sites is reduced from 1102 to 1087
+Number of upper-triangular seed sites is reduced from 986 to 975
 2.3) Storing into a list of Stripe objects...
-Execution time of step 2: 0.005518436431884766 seconds ---
-Chromosome is too sparse, no candidate returned
+Execution time of step 2: 0.25983405113220215 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 2.29978084564209 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 3.2286500930786133 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 5.532674789428711 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.8356080055236816 seconds ---
+This chromosome has taken 7.442054748535156 seconds
+
+CHROMOSOME chr7
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.21904230117797852 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 770 to 735
+Number of upper-triangular seed sites is reduced from 1114 to 1083
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.22430944442749023 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 1.8583557605743408 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 2.8366761207580566 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 4.698970079421997 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.7353849411010742 seconds ---
+This chromosome has taken 6.372534275054932 seconds
+
+CHROMOSOME chr8
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.19896483421325684 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 950 to 927
+Number of upper-triangular seed sites is reduced from 789 to 770
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.20422124862670898 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 1.6131336688995361 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 2.68200421333313 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 4.298713445663452 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.7141485214233398 seconds ---
+This chromosome has taken 5.876908302307129 seconds
+
+CHROMOSOME chr9
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.13652896881103516 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 602 to 587
+Number of upper-triangular seed sites is reduced from 690 to 675
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.18230485916137695 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 1.1340200901031494 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 2.0012364387512207 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 3.138490915298462 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.5209352970123291 seconds ---
+This chromosome has taken 4.350054979324341 seconds
+
+CHROMOSOME chr10
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.1949782371520996 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 855 to 830
+Number of upper-triangular seed sites is reduced from 891 to 867
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.18785762786865234 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 1.5026066303253174 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 2.675481081008911 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 4.1818461418151855 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.7034149169921875 seconds ---
+This chromosome has taken 5.699317932128906 seconds
+
+CHROMOSOME chr11
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.1772167682647705 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 909 to 897
+Number of upper-triangular seed sites is reduced from 1056 to 1044
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.18897652626037598 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 1.6935629844665527 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 3.049086093902588 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 4.746764183044434 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.7810971736907959 seconds ---
+This chromosome has taken 6.334598541259766 seconds
+
+CHROMOSOME chr12
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.16396474838256836 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 633 to 629
+Number of upper-triangular seed sites is reduced from 883 to 878
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.2068781852722168 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 1.2998018264770508 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 2.355454206466675 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 3.6587283611297607 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.6075148582458496 seconds ---
+This chromosome has taken 5.056737422943115 seconds
+
+CHROMOSOME chr13
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.11529994010925293 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 686 to 675
+Number of upper-triangular seed sites is reduced from 653 to 643
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.15171098709106445 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.9743459224700928 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 2.0503764152526855 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 3.027937650680542 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.5435254573822021 seconds ---
+This chromosome has taken 4.14011549949646 seconds
+
+CHROMOSOME chr14
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.10641026496887207 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 567 to 561
+Number of upper-triangular seed sites is reduced from 523 to 521
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.14020061492919922 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.7857282161712646 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 1.7303550243377686 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 2.519143581390381 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.4577367305755615 seconds ---
+This chromosome has taken 3.510401725769043 seconds
+
+CHROMOSOME chr15
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.11155319213867188 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 637 to 602
+Number of upper-triangular seed sites is reduced from 635 to 607
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.12435340881347656 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.7276151180267334 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 1.8632171154022217 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 2.593841552734375 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.4837307929992676 seconds ---
+This chromosome has taken 3.5654518604278564 seconds
+
+CHROMOSOME chr16
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.08726286888122559 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 330 to 299
+Number of upper-triangular seed sites is reduced from 494 to 454
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.12026333808898926 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.4373819828033447 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 1.1490724086761475 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 1.5888426303863525 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.3165297508239746 seconds ---
+This chromosome has taken 2.3602585792541504 seconds
+
+CHROMOSOME chr17
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.09188055992126465 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 586 to 561
+Number of upper-triangular seed sites is reduced from 548 to 518
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.11394453048706055 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.5639193058013916 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 1.671928882598877 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 2.238788366317749 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.4385089874267578 seconds ---
+This chromosome has taken 3.1356685161590576 seconds
+
+CHROMOSOME chr18
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.08964848518371582 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 485 to 480
+Number of upper-triangular seed sites is reduced from 524 to 517
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.11319613456726074 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.535980224609375 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 1.5569026470184326 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 2.0957298278808594 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.4030795097351074 seconds ---
+This chromosome has taken 2.9409568309783936 seconds
+
+CHROMOSOME chr19
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.0656130313873291 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 547 to 543
+Number of upper-triangular seed sites is reduced from 558 to 555
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.08183503150939941 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.42258787155151367 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 1.7407689094543457 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 2.166306495666504 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.4351332187652588 seconds ---
+This chromosome has taken 2.9370124340057373 seconds
+
+CHROMOSOME chr20
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.07147622108459473 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 501 to 481
+Number of upper-triangular seed sites is reduced from 411 to 393
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.09188032150268555 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.36221981048583984 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 1.3752944469451904 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 1.7400612831115723 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.3595857620239258 seconds ---
+This chromosome has taken 2.4734344482421875 seconds
+
+CHROMOSOME chr21
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.026866912841796875 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 232 to 210
+Number of upper-triangular seed sites is reduced from 220 to 206
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.06076812744140625 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.12738490104675293 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 0.6408932209014893 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 0.769859790802002 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.167100191116333 seconds ---
+This chromosome has taken 1.1280708312988281 seconds
+
+CHROMOSOME chr22
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.03299999237060547 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 310 to 285
+Number of upper-triangular seed sites is reduced from 286 to 272
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.06340456008911133 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.1843411922454834 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 0.8908343315124512 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 1.0772550106048584 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.23577547073364258 seconds ---
+This chromosome has taken 1.5294694900512695 seconds
+
+CHROMOSOME chrX
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.13507843017578125 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 1183 to 1097
+Number of upper-triangular seed sites is reduced from 1142 to 1054
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.21353983879089355 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 1.9477896690368652 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 2.7261645793914795 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 4.678062200546265 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.6798150539398193 seconds ---
+This chromosome has taken 6.042936563491821 seconds
+
+CHROMOSOME chrY
+RoI is: None
+Step 1: pre-processing step
+1.1) Log-transformation...
+1.2) Focusing on a neighborhood of the main diagonal...
+1.3) Projection onto [0, 1]...
+Execution time of step 1: 0.00628972053527832 seconds ---
+Step 2: Topological Data Analysis
+2.1) Global 1D pseudo-distributions...
+2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...
+2.2.0) All maxima and their persistence
+2.2.1) Lower triangular part
+2.2.2) Upper triangular part
+2.2.3) Filter out seeds in sparse regions
+Number of lower-triangular seed sites is reduced from 130 to 97
+Number of upper-triangular seed sites is reduced from 148 to 112
+2.3) Storing into a list of Stripe objects...
+Execution time of step 2: 0.05667591094970703 seconds ---
+Step 3: Shape analysis
+3.1) Width estimation
+3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...
+3.1.2) Updating list of Stripe objects with HIoIs...
+Execution time: 0.07381796836853027 seconds ---
+3.2) Height estimation
+3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...
+3.2.2) Updating list of Stripe objects with VIoIs...
+Execution time: 0.2287464141845703 seconds ---
+3.5) Saving geometric descriptors...
+3.6) Bar plots of widths and heights...
+Execution time of step 3: 0.3037407398223877 seconds ---
+Step 4: Statistical analysis and post-processing
+4.1) Computing and saving biological descriptors
+Execution time of step 4: 0.059529781341552734 seconds ---
+This chromosome has taken 0.450955867767334 seconds
 
 
-The code has run for 0.06784079869588217 minutes
+The code has run for 2.022001071770986 minutes
 ```
 
 </details>
@@ -364,7 +1022,7 @@ Running the above command produces the following output:
 
 ```
 /tmp/stripepy
-└── 4DNFIOTPSS3L
+└── 4DNFI9GMP2J8
     └── 10000
         └── results.hdf5
 
@@ -383,24 +1041,24 @@ While having access to all this information can be useful, usually we are mostly
 
 ```console
 # Fetch the first 10 stripes in BEDPE format
-user@dev:/tmp$ stripepy view stripepy/4DNFIOTPSS3L/10000/results.hdf5 | head
+user@dev:/tmp$ stripepy view stripepy/4DNFI9GMP2J8/10000/results.hdf5 | head
 
-2L	840000	920000	2L	860000	5800000
-2L	1120000	1170000	2L	1150000	5940000
-2L	1390000	1460000	2L	1420000	5940000
-2L	1580000	1630000	2L	90000	1610000
-2L	1700000	1780000	2L	1720000	6610000
-2L	1880000	1980000	2L	310000	1940000
-2L	2130000	2220000	2L	2160000	7020000
-2L	2130000	2180000	2L	110000	2160000
-2L	2330000	2400000	2L	2370000	7290000
-2L	2550000	2600000	2L	2570000	7410000
+chr1	910000	960000	chr1	930000	3590000
+chr1	1060000	1110000	chr1	1080000	3540000
+chr1	1400000	1490000	chr1	1430000	3540000
+chr1	1600000	1670000	chr1	880000	1620000
+chr1	1670000	1700000	chr1	1680000	2610000
+chr1	1730000	1780000	chr1	1750000	2570000
+chr1	1890000	1940000	chr1	1920000	3540000
+chr1	2020000	2060000	chr1	2020000	3550000
+chr1	2070000	2120000	chr1	2090000	3540000
+chr1	2170000	2230000	chr1	2190000	3500000
 
 # Redirect stdout to a file
-user@dev:/tmp$ stripepy view stripepy/4DNFIOTPSS3L/10000/results.hdf5 > stripes.bedpe
+user@dev:/tmp$ stripepy view stripepy/4DNFI9GMP2J8/10000/results.hdf5 > stripes.bedpe
 
 # Compress stripes on the fly before writing to a file
-user@dev:/tmp$ stripepy view stripepy/4DNFIOTPSS3L/10000/results.hdf5 | gzip -9 > stripes.bedpe.gz
+user@dev:/tmp$ stripepy view stripepy/4DNFI9GMP2J8/10000/results.hdf5 | gzip -9 > stripes.bedpe.gz
 ```
 
 #### 5) Quickly visualize architectural stripes
@@ -417,13 +1075,18 @@ For more details, please refer to hictk's documentation: [hictk.readthedocs.io](
 
 We recommend running the notebook using [JupyterLab](https://jupyter.org/install).
 
-Furthermore, the notebook depends on a few Python packages that can be installed with `pip`:
+Furthermore, the notebook depends on a few Python packages that can be installed with `pip`.
+Please make sure that the following packages are installed in a virtual environment that is accessible from Jupyter. Refer to [IPython](https://ipython.readthedocs.io/en/stable/install/kernel_install.html) documentation for instructions on how to add a virtual environment to Jupyter.
 
 ```bash
 pip install 'clodius>=0.20,<1' 'hictkpy>=1,<2' 'higlass-python>=1.2,<2'
 ```
 
 Next, launch JupyterLab and open notebook [visualize_stripes_with_highlass.ipynb](utils/visualize_stripes_with_highlass.ipynb).
+
+```bash
+jupyter lab
+```
 
 Before running the notebook, scroll down to the following cell
 
@@ -435,18 +1098,15 @@ bedpe = ensure_file_exists("CHANGEME.bedpe")
 and set the `mcool` and `bedpe` variables to the path to the `.mcool` file used to call stripes and the path to the stripe coordinates extracted with `stripepy view`, respectively.
 
 ```jupyter
-mcool = ensure_file_exists("4DNFIOTPSS3L.mcool")
+mcool = ensure_file_exists("4DNFI9GMP2J8.mcool")
 bedpe = ensure_file_exists("stripes.bedpe")
 ```
 
 Now you are ready to run all cells.
 
-Running the last cell will display a HiGlass window embedded in the Jupyter notebook.
+Running the last cell will display a HiGlass window embedded in the Jupyter notebook (note that the interface may take a while to load).
 
-<!--
-![HiGlass window](docs/assets/readme_example_stripes_higlass.png)
-TODO @rea1991 show a good example region
--->
+![HiGlass window](docs/assets/4DNFI9GMP2J8_chr2_156mbp_higlass_view.png)
 
 ## Getting help
 
