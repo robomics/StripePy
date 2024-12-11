@@ -2,11 +2,13 @@
 #
 # SPDX-License-Identifier: MIT
 
-import logging
+import collections.abc
 import pathlib
+import platform
 import sys
-from typing import List, Union
+from typing import List, Optional, Union
 
+import colorama
 import structlog
 
 from .cli import call, download, setup, view
@@ -19,6 +21,144 @@ def _setup_mpl_backend():
     import matplotlib
 
     matplotlib.use("Agg")
+
+
+class _StructLogColorfulStyles:
+    reset = colorama.Style.RESET_ALL
+    bright = colorama.Style.BRIGHT
+    dim = colorama.Style.DIM
+
+    level_critical = colorama.Fore.RED
+    level_exception = colorama.Fore.RED
+    level_error = colorama.Fore.RED
+    level_warn = colorama.Fore.YELLOW
+    level_info = colorama.Fore.GREEN
+    level_debug = colorama.Fore.GREEN
+    level_notset = colorama.Back.RED_BACK
+
+    timestamp = dim
+    chromosome = colorama.Fore.BLUE
+    step = colorama.Fore.BLUE
+    logger_name = colorama.Fore.BLUE
+
+
+class _StructLogPlainStyles:
+    reset = ""
+    bright = ""
+    dim = ""
+
+    level_critical = ""
+    level_exception = ""
+    level_error = ""
+    level_warn = ""
+    level_info = ""
+    level_debug = ""
+    level_notset = ""
+
+    timestamp = ""
+    chromosome = ""
+    step = ""
+    logger_name = ""
+
+
+def _configure_logger_columns(
+    colors: bool,
+    level_styles: Optional[structlog.dev.Styles] = None,
+    event_key: str = "event",
+    timestamp_key: str = "timestamp",
+    pad_level: bool = True,
+    longest_chrom_name: str = "chr22",
+    max_step_nest_levels: int = 3,
+) -> List:
+    """
+    The body of this function is an extension of the structlog.dev.ConsoleRenderer:
+    https://github.com/hynek/structlog/blob/a60ce7bbb50451ed786ace3c3893fb3a6a01df0a/src/structlog/dev.py#L433
+    """
+    level_to_color = (
+        structlog.dev.ConsoleRenderer().get_default_level_styles(colors) if level_styles is None else level_styles
+    )
+
+    if hasattr(structlog.dev, "_EVENT_WIDTH"):
+        pad_event = structlog.dev._EVENT_WIDTH  # noqa
+    else:
+        pad_event = 30
+
+    pad_chrom = len(longest_chrom_name)
+    pad_step = len("step ") + max_step_nest_levels + (max_step_nest_levels - 1)
+
+    level_width = 0 if not pad_level else None
+
+    styles: structlog.Styles
+    if colors:
+        if platform.system() == "Windows":
+            # Colorama must be init'd on Windows, but must NOT be
+            # init'd on other OSes, because it can break colors.
+            colorama.init()
+
+        styles = _StructLogColorfulStyles
+    else:
+        styles = _StructLogPlainStyles
+
+    def step_formatter(data):
+        if isinstance(data, collections.abc.Sequence):
+            return f"step {'.'.join(str(x) for x in data)}"
+        return f"step {data}"
+
+    return [
+        structlog.dev.Column(
+            timestamp_key,
+            structlog.dev.KeyValueColumnFormatter(
+                key_style=None,
+                value_style=styles.timestamp,
+                reset_style=styles.reset,
+                value_repr=str,
+            ),
+        ),
+        structlog.dev.Column(
+            "level",
+            structlog.dev.LogLevelColumnFormatter(level_to_color, reset_style=styles.reset, width=level_width),
+        ),
+        structlog.dev.Column(
+            "chrom",
+            structlog.dev.KeyValueColumnFormatter(
+                key_style=None,
+                value_style=styles.chromosome,
+                reset_style=styles.reset,
+                value_repr=str,
+                width=pad_chrom,
+                prefix="[",
+                postfix="]",
+            ),
+        ),
+        structlog.dev.Column(
+            "step",
+            structlog.dev.KeyValueColumnFormatter(
+                key_style=None,
+                value_style=styles.step,
+                reset_style=styles.reset,
+                value_repr=step_formatter,
+                width=pad_step,
+                prefix="[",
+                postfix="]",
+            ),
+        ),
+        structlog.dev.Column(
+            event_key,
+            structlog.dev.KeyValueColumnFormatter(
+                key_style=None,
+                value_style=styles.bright,
+                reset_style=styles.reset,
+                value_repr=str,
+                width=pad_event,
+            ),
+        ),
+        structlog.dev.Column(
+            "",
+            structlog.dev.KeyValueColumnFormatter(
+                key_style=None, value_style=styles.dim, reset_style=styles.reset, value_repr=str
+            ),
+        ),
+    ]
 
 
 def _setup_logger(level: str, file: Union[pathlib.Path, None] = None):
@@ -39,7 +179,7 @@ def _setup_logger(level: str, file: Union[pathlib.Path, None] = None):
                 "processors": [
                     structlog.stdlib.ProcessorFormatter.remove_processors_meta,
                     structlog.processors.format_exc_info,
-                    structlog.dev.ConsoleRenderer(colors=False),
+                    structlog.dev.ConsoleRenderer(columns=_configure_logger_columns(colors=False)),
                 ],
                 "foreign_pre_chain": pre_chain,
             },
@@ -47,7 +187,7 @@ def _setup_logger(level: str, file: Union[pathlib.Path, None] = None):
                 "()": structlog.stdlib.ProcessorFormatter,
                 "processors": [
                     structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-                    structlog.dev.ConsoleRenderer(colors=True),
+                    structlog.dev.ConsoleRenderer(columns=_configure_logger_columns(colors=True)),
                 ],
                 "foreign_pre_chain": pre_chain,
             },
