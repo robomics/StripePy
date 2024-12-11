@@ -76,7 +76,7 @@ jobs:
         id: cache-dset
         uses: actions/cache/restore@v4
         with:
-          key: ${{ env.TEST_DATASET_ID }}
+          key: test-dataset
           path: ${{ env.TEST_DATASET_ID }}.mcool
 
       - name: Download test dataset
@@ -90,7 +90,7 @@ jobs:
         if: steps.cache-dset.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          key: ${{ env.TEST_DATASET_ID }}
+          key: test-dataset
           path: ${{ env.TEST_DATASET_ID }}.mcool
 
       - name: Generate build args
