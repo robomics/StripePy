@@ -50,11 +50,16 @@ def _num_cpus(arg: str) -> int:
 
 def make_cli():
     cli = argparse.ArgumentParser(
-        description="stripepy's run over StripeBench ",
+        description="This script runs StripePy over StripeBench, a benchmark containing 64 simulated Hi-C contact maps generated "
+        "via the computational tool MoDLE at different resolutions, contact densities and noise levels.",
         formatter_class=CustomFormatter,
     )
 
-    cli.add_argument("stripepy-exec", type=pathlib.Path)
+    cli.add_argument(
+        "stripepy-exec",
+        type=pathlib.Path,
+        help="Path to StripePy executable",
+    )
 
     cli.add_argument(
         "stripebench-path",
@@ -67,7 +72,7 @@ def make_cli():
         "-b",
         "--genomic-belt",
         type=int,
-        default=5000000,
+        default=5_000_000,
         help="Radius of the band, centred around the diagonal, where the search is restricted to "
         "(in bp). The value used for the StripeBench benchmark is here set as default.",
     )
@@ -83,7 +88,7 @@ def make_cli():
     cli.add_argument(
         "--max-width",
         type=int,
-        default=20000,
+        default=20_000,
         help="Maximum stripe width, in bp.",
     )
 
@@ -91,8 +96,8 @@ def make_cli():
         "--glob-pers-min",
         type=_probability,
         default=0.05,
-        help="Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest "
-        "(aka seeds). The value used for the StripeBench benchmark is here set as default.",
+        help="Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest, "
+        "aka seeds. The value used for the StripeBench benchmark is here set as default.",
     )
 
     cli.add_argument(
@@ -231,7 +236,7 @@ def main():
                         args["nproc"],
                     )
         delta = time.time() - t0
-        print("Total time", file=f)
+        print("Total time: ", file=f)
         print(delta, file=f)
 
 
