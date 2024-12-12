@@ -70,7 +70,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "• Step 1: Pre-processing\n"
         "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
         "• Step 3: Shape analysis (i.e., width and height estimation)\n"
-        "• Step 4: Signal analysis and post-processing\n",
+        "• Step 4: Signal analysis\n",
     )
 
     sc.add_argument(
@@ -96,7 +96,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "-b",
         "--genomic-belt",
         type=int,
-        default=5000000,
+        default=5_000_000,
         help="Radius of the band, centred around the diagonal, where the search is restricted to (in bp, default: 5000000).",
     )
 
@@ -118,14 +118,14 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--max-width",
         type=int,
-        default=100000,
+        default=100_000,
         help="Maximum stripe width, in bp.",
     )
 
     sc.add_argument(
         "--glob-pers-min",
         type=_probability,
-        default=0.2,
+        default=0.05,
         help="Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest, "
         "aka seeds (default: 0.2).",
     )
@@ -140,7 +140,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--loc-pers-min",
         type=_probability,
-        default=0.2,
+        default=0.33,
         help="Threshold value between 0 and 1 to find peaks in signal in a horizontal domain while estimating the "
         "height of a stripe; when --constrain-heights is set to 'False', it is not used (default: 0.2).",
     )
@@ -148,7 +148,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--loc-trend-min",
         type=_probability,
-        default=0.1,
+        default=0.25,
         help="Threshold value between 0 and 1 to estimate the height of a stripe (default: 0.1); "
         "the higher this value, the shorter the stripe; it is always used when --constrain-heights is set to "
         "'False', but could be necessary also when --constrain-heights is 'True' and no persistent maximum other "
@@ -169,6 +169,13 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         type=_num_cpus,
         default=1,
         help="Maximum number of parallel processes to use.",
+    )
+
+    sc.add_argument(
+        "--min-chrom-size",
+        type=int,
+        default=2_000_000,
+        help="Minimum size, in bp, for a chromosome to be analysed (default: 2 Mbp).",
     )
 
     return sc
@@ -367,6 +374,7 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
             "loc_pers_min",
             "loc_trend_min",
             "max_width",
+            "min_chrom_size",
         ]
     }
     configs_output = {key: args[key] for key in ["output_folder", "force"]}
@@ -385,9 +393,10 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     print(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
     print(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
     print(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
+    print(f"--min-chrom-size: {configs_thresholds['min_chrom_size']}")
     print(f"--output-folder: {configs_output['output_folder']}")
-    print(f"--force: {configs_output['force']}")
     print(f"--nproc: {configs_other['nproc']}")
+    print(f"--force: {configs_output['force']}")
 
     return {
         "configs_input": configs_input,
