@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
-import multiprocessing as mp
 import pathlib
 import subprocess as sp
-import sys
 import time
 
 
@@ -35,17 +33,6 @@ def _probability(arg) -> float:
         return n
 
     raise ValueError("Not a valid probability")
-
-
-def _num_cpus(arg: str) -> int:
-    try:
-        n = int(arg)
-        if 0 < n <= mp.cpu_count():
-            return n
-    except:  # noqa
-        pass
-
-    raise ValueError(f"Not a valid number of CPU cores (allowed values are integers between 1 and {mp.cpu_count()})")
 
 
 def make_cli():
@@ -101,14 +88,6 @@ def make_cli():
     )
 
     cli.add_argument(
-        "--constrain-heights",
-        action="store_true",
-        default=True,
-        help="Use peaks in signal to constrain the stripe height. The value used for the StripeBench benchmark "
-        "is here set as default.",
-    )
-
-    cli.add_argument(
         "--loc-pers-min",
         type=_probability,
         default=0.25,
@@ -134,14 +113,6 @@ def make_cli():
         help="Overwrite existing file(s).",
     )
 
-    cli.add_argument(
-        "-p",
-        "--nproc",
-        type=_num_cpus,
-        default=1,
-        help="Maximum number of parallel processes to use.",
-    )
-
     return cli
 
 
@@ -153,55 +124,33 @@ def run_stripepy(
     output_folder,
     max_width,
     glob_pers_min,
-    constrain_heights,
     loc_pers_min,
     loc_trend_min,
     force,
-    nproc,
 ):
+    args = [
+        stripepy_exec,
+        "call",
+        path_to_mcool,
+        resolution,
+        "-b",
+        str(genomic_belt),
+        "-o",
+        output_folder,
+        "--max-width",
+        str(max_width),
+        "--glob-pers-min",
+        str(glob_pers_min),
+        "--loc-pers-min",
+        str(loc_pers_min),
+        "--loc-trend-min",
+        str(loc_trend_min),
+    ]
+
     if force:
-        sp.check_call(
-            [
-                stripepy_exec,
-                "call",
-                path_to_mcool,
-                resolution,
-                "-b",
-                str(genomic_belt),
-                "-o",
-                output_folder,
-                "--max-width",
-                str(max_width),
-                "--glob-pers-min",
-                str(glob_pers_min),
-                "--loc-pers-min",
-                str(loc_pers_min),
-                "--loc-trend-min",
-                str(loc_trend_min),
-                "-f",
-            ]
-        )
-    else:
-        sp.check_call(
-            [
-                stripepy_exec,
-                "call",
-                path_to_mcool,
-                resolution,
-                "-b",
-                str(genomic_belt),
-                "-o",
-                output_folder,
-                "--max-width",
-                str(max_width),
-                "--glob-pers-min",
-                str(glob_pers_min),
-                "--loc-pers-min",
-                str(loc_pers_min),
-                "--loc-trend-min",
-                str(loc_trend_min),
-            ]
-        )
+        args.append("--force")
+
+    sp.check_call(args)
 
 
 def main():
@@ -229,11 +178,9 @@ def main():
                         args["output_folder"],
                         args["max_width"],
                         args["glob_pers_min"],
-                        args["constrain_heights"],
                         args["loc_pers_min"],
                         args["loc_trend_min"],
                         args["force"],
-                        args["nproc"],
                     )
         delta = time.time() - t0
         print("Total time: ", file=f)
