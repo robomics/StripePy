@@ -551,8 +551,16 @@ def step_3(
     UT_L_mP = np.argmin(UT_pseudo_distrib[UT_L_nb]) if len(UT_L_nb) > 0 else -1
     UT_R_mP = UT_MPs[-1] + np.argmin(UT_pseudo_distrib[UT_R_nb]) if len(UT_R_nb) > 0 else -1
 
-    LT_bounded_mPs = np.concatenate(([max(LT_L_mP, 0)], LT_mPs, [max(LT_R_mP, L.shape[0])]))
-    UT_bounded_mPs = np.concatenate(([max(UT_L_mP, 0)], UT_mPs, [max(UT_R_mP, U.shape[0])]))
+    LT_bounded_mPs = [(max(LT_L_mP, 0),), (max(LT_R_mP, L.shape[0]),)]
+    UT_bounded_mPs = [(max(UT_L_mP, 0),), (max(UT_R_mP, U.shape[0]),)]
+    # We need to check that the list of minimum points are not empty, otherwise np.concatenate will create an array with dtype=float
+    if len(LT_mPs) != 0:
+        LT_bounded_mPs.insert(1, LT_mPs)
+    if len(UT_mPs) != 0:
+        UT_bounded_mPs.insert(1, UT_mPs)
+
+    LT_bounded_mPs = np.concatenate(LT_bounded_mPs, dtype=int)
+    UT_bounded_mPs = np.concatenate(UT_bounded_mPs, dtype=int)
 
     # List of pairs (pair = left and right boundaries):
     # Choose the variable criterion between max_ascent and max_perc_descent
