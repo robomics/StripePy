@@ -8,6 +8,7 @@ import random
 from typing import Optional, Tuple, Union
 
 import hictkpy
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 
@@ -108,6 +109,24 @@ def _find_seeds_in_RoI(
     return ids_seeds_in_RoI.astype(int), seeds_in_RoI.astype(int)
 
 
+def _fetch_persistence_maximum_points(
+    path: pathlib.Path, chrom: str, start: int, end: int
+) -> Tuple[NDArray[float], NDArray[float], NDArray[int], NDArray[int]]:
+    with ResultFile(path) as h5:
+        pd_lt = h5.get(chrom, "pseudodistribution", "LT")["pseudodistribution"].to_numpy()
+        pd_ut = h5.get(chrom, "pseudodistribution", "UT")["pseudodistribution"].to_numpy()
+
+        min_persistence = h5.get_min_persistence(chrom)
+        _, lt_seeds = _find_seeds_in_RoI(
+            np.sort(TDA(pd_lt, min_persistence=min_persistence)[2]), start // h5.resolution, end // h5.resolution
+        )
+        _, ut_seeds = _find_seeds_in_RoI(
+            np.sort(TDA(pd_ut, min_persistence=min_persistence)[2]), start // h5.resolution, end // h5.resolution
+        )
+
+        return pd_lt, pd_ut, lt_seeds, ut_seeds
+
+
 def run(
     contact_map: pathlib.Path,
     resolution: int,
@@ -122,7 +141,7 @@ def run(
     seed: int,
 ):
 
-    if plot_type in {"pseudodistribution"} and stripepy_hdf5 is None:
+    if plot_type in {"pseudodistribution", "hic-matrix-with-sites"} and stripepy_hdf5 is None:
         raise RuntimeError('--stripepy-hdf5 is required when plot-type is "pseudodistribution"')
 
     if output_name.exists():
@@ -145,37 +164,67 @@ def run(
     title = f"{chrom}:{start}-{end}"
 
     if plot_type == "hic-matrix":
-        fig, _ = stripepy.plot.hic_matrix(
+        fig, _, _ = stripepy.plot.hic_matrix(
             matrix,
             (start, end),
             title=title,
             cmap=cmap,
             log_scale=True,
+            with_colorbar=True,
         )
     elif plot_type == "pseudodistribution":
-        with ResultFile(stripepy_hdf5) as h5:
-            pd_lt = h5.get(chrom, "pseudodistribution", "LT")["pseudodistribution"].to_numpy()
-            pd_ut = h5.get(chrom, "pseudodistribution", "UT")["pseudodistribution"].to_numpy()
-
-            min_persistence = h5.get_min_persistence(chrom)
-            _, LT_ps_MPs = _find_seeds_in_RoI(
-                np.sort(TDA(pd_lt, min_persistence=min_persistence)[2]), start // resolution, end // resolution
-            )
-            _, UT_ps_MPs = _find_seeds_in_RoI(
-                np.sort(TDA(pd_ut, min_persistence=min_persistence)[2]), start // resolution, end // resolution
-            )
-
+        pd_lt, pd_ut, seeds_lt, seeds_ut = _fetch_persistence_maximum_points(stripepy_hdf5, chrom, start, end)
         fig, _ = stripepy.plot.pseudodistribution(
             pd_lt,
             pd_ut,
             (start, end),
             f.resolution(),
             title=title,
-            coords2scatter_lt=LT_ps_MPs,
-            coords2scatter_ut=UT_ps_MPs,
+            coords2scatter_lt=seeds_lt,
+            coords2scatter_ut=seeds_ut,
         )
+    elif plot_type == "hic-matrix-with-sites":
+        _, _, seeds_lt, seeds_ut = _fetch_persistence_maximum_points(stripepy_hdf5, chrom, start, end)
+
+        fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.4), sharey=True)
+
+        for ax in axs:
+            _, _, img = stripepy.plot.hic_matrix(
+                matrix,
+                (start, end),
+                cmap=cmap,
+                log_scale=True,
+                with_colorbar=False,
+                fig=fig,
+                ax=ax,
+            )
+
+        stripepy.plot.plot_sites(
+            seeds_lt * f.resolution(),
+            (start, end),
+            location="lower",
+            title=title,
+            fig=fig,
+            ax=axs[0],
+        )
+
+        stripepy.plot.plot_sites(
+            seeds_ut * f.resolution(),
+            (start, end),
+            location="upper",
+            title=title,
+            fig=fig,
+            ax=axs[1],
+        )
+
+        fig.tight_layout()
+
+        fig.subplots_adjust(right=0.9)
+        cbar_ax = fig.add_axes((0.925, 0.15, 0.03, 0.7))
+        fig.colorbar(img, cax=cbar_ax)  # noqa
+
     else:
         raise NotImplementedError
-
-    fig.tight_layout()
+    if plot_type not in {"hic-matrix-with-sites"}:
+        fig.tight_layout()
     fig.savefig(output_name, dpi=dpi)

@@ -780,7 +780,7 @@ def HiC_and_sites(
     file_name=None,
     title=None,
     display=False,
-):
+):  # TODO remove
     """
     :param I:                  Hi-C matrix to be plotted as image and saved
     :param sites:              list of locations of interest

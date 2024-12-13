@@ -10,6 +10,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+from matplotlib.image import AxesImage
 from matplotlib.ticker import EngFormatter, ScalarFormatter
 
 
@@ -177,9 +178,10 @@ def hic_matrix(
     cmap="fruit_punch",
     log_scale: bool = True,
     compact: bool = False,
+    with_colorbar: bool = False,
     fig: Optional[plt.Figure] = None,
     ax: Optional[plt.Axes] = None,
-) -> Tuple[plt.Figure, plt.Axes]:
+) -> Tuple[plt.Figure, plt.Axes, AxesImage]:
     """
     :param I:                   Hi-C matrix to be plotted as image and saved
     :param  RoI:                refers to the Region of Interest [RoI[0], RoI[1]]x[RoI[2], RoI[3]]
@@ -207,19 +209,27 @@ def hic_matrix(
     else:
         kwargs["vmax"] = np.amax(I)
 
-    ax.matshow(I, **kwargs)
+    img = ax.imshow(I, **kwargs)
     _format_ticks(ax)
-
-    if compact:
-        if title is not None:
-            warnings.warn("value of the title parameter is ignored when compact is True")
-        ax.axis("off")
-    elif title is not None:
-        fig.suptitle(title)
 
     ax.axis("scaled")
 
-    return fig, ax
+    if compact:
+        ax.axis("off")
+
+    if title is not None:
+        if compact:
+            warnings.warn("value of the title parameter is ignored when compact is True")
+        else:
+            fig.suptitle(title)
+
+    if with_colorbar:
+        if compact:
+            warnings.warn("the with_colorbar parameter is ignored when compact is True")
+        else:
+            fig.colorbar(img, ax=ax)
+
+    return fig, ax, img
 
 
 def pseudodistribution(
@@ -252,8 +262,6 @@ def pseudodistribution(
     :param fig:                     figure to use for plotting
     :param axs:                     a tuple of two axes to use for plotting
     """
-    _register_cmaps()
-
     if fig is None:
         if axs is not None:
             raise RuntimeError("axs should be None when fig is None")
@@ -302,3 +310,55 @@ def pseudodistribution(
         fig.suptitle(title)
 
     return fig, axs
+
+
+def plot_sites(
+    sites: npt.NDArray[int],
+    RoI: Tuple[int, int],
+    location: Optional[str],
+    color: str = "blue",
+    title: Optional[str] = None,
+    fig: Optional[plt.Figure] = None,
+    ax: Optional[plt.Axes] = None,
+):
+    """
+    :param sites:              list of locations of interest. Locations should be expressed in genomic coordinates
+    :param RoI:                refers to the region of interest RoI[0], RoI[1] in genomic coordinates
+    :param location:           if "lower" (resp. "upper"), then it plots sites only on the lower (resp. upper) part of
+                               the Hi-C matrix; otherwise, it plots sites spanning the whole Hi-C matrix
+    :param color:              color used for plotting
+    :param title:              title to give to the image
+    :param fig:                figure to use for plotting
+    :param ax:                 axis to use for plotting
+    """
+    if location is not None and location not in {"lower", "upper"}:
+        raise ValueError('location should be "lower" or "upper"')
+
+    if fig is None:
+        if ax is not None:
+            raise RuntimeError("ax should be None when fig is None")
+        fig, ax = plt.subplots(1, 1)
+    elif ax is None:
+        raise RuntimeError("ax cannot be None when fig is not None")
+
+    if len(sites) == 0:
+        warnings.warn("stripepy.plot.plot_sites: no sites to plot!")
+
+    for site in sites:
+        x = [site] * 2
+        if location == "lower":
+            y = [site, RoI[1] - 1]
+        elif location == "upper":
+            y = [RoI[0] + 1, site]
+        else:
+            y = [RoI[0] + 1, RoI[1] - 1]
+
+        if site < RoI[0] or site > RoI[1]:
+            raise RuntimeError("site outside of bounds")
+
+        ax.plot(x, y, color=color, linestyle="dashed", linewidth=1)
+
+    if title is not None:
+        fig.suptitle(title)
+
+    return fig, ax
