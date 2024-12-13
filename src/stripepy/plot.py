@@ -4,7 +4,7 @@
 
 import functools
 import warnings
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -185,3 +185,85 @@ def hic_matrix(
     ax.axis("scaled")
 
     return fig, ax
+
+
+def pseudodistribution(
+    pseudo_distrib_lt: npt.NDArray[float],
+    pseudo_distrib_ut: npt.NDArray[float],
+    IoI: Tuple[int, int],
+    resolution: int,
+    title: Optional[str] = None,
+    coords2scatter_lt: Optional[npt.NDArray[int]] = None,
+    coords2scatter_ut: Optional[npt.NDArray[int]] = None,
+    colors: Optional[List] = None,
+    fig: Optional[plt.Figure] = None,
+    axs: Optional[Tuple[plt.Axes, plt.Axes]] = None,
+) -> Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]:
+    """
+    :param pseudo_distrib_lt:       1D ndarray representing a scalar function sampled over a uniform mesh (lower-triangular matrix)
+    :param pseudo_distrib_ut:       same as pseudo_distrib_lt but for the upper-triangular matrix
+    :param IoI:                     refers to the Interval of Interest [IoI[0], IoI[1]] (e.g., in genomic coordinates)
+                                    where the scalar function was sampled on; see also plot_in_bp
+    :param resolution:              resolution of the Hi-C matrix
+    :param title:                   title to give to the image
+    :param coords2scatter_lt:       list of lists of genomic coordinates (lower-triangular matrix);
+                                    each list of genomic coordinates determines a point cloud as follows: for genomic coordinate x, we sample the value of
+                                    pseudo_distrib at x; each point cloud is scatterplotted with a specific color,
+                                    potentially given in input, read below;
+                                    if set to None, nothing happens
+    :param coords2scatter_ut:       same as coords2scatter_lt but for the upper-triangular matrix
+    :param colors:                  list of colors, one color per list of genomic coordinates (see coords2scatter);
+                                    if set to None, use red
+    :param fig:                     figure to use for plotting
+    :param axs:                     a tuple of two axes to use for plotting
+    """
+    _register_cmaps()
+
+    if fig is None:
+        if axs is not None:
+            raise RuntimeError("axs should be None when fig is None")
+        fig, axs = plt.subplots(2, 1, sharex=True)
+    elif axs is None:
+        raise RuntimeError("axs cannot be None when fig is not None")
+
+    if len(axs) != 2:
+        raise RuntimeError("axs should be a tuple with exactly two plt.Axes")
+
+    i1 = IoI[0] // resolution
+    i2 = IoI[1] // resolution
+
+    def _plot(data, coords2scatter, ax, title):
+        ax.plot(
+            np.arange(i1, i2) * resolution,
+            data[i1:i2],
+            color="red",
+            linewidth=0.5,
+            linestyle="solid",
+        )
+        if coords2scatter is not None:
+            for n, cur_coords2scatter in enumerate(coords2scatter):
+                if colors is not None:
+                    color = colors[n]
+                else:
+                    color = "blue"
+                ax.plot(
+                    np.array(cur_coords2scatter) * resolution,
+                    data[cur_coords2scatter],
+                    marker=".",
+                    linestyle="",
+                    markersize=5,
+                    color=color,
+                )
+        ax.xaxis.set_major_formatter(EngFormatter("b"))
+        ax.set(title=title, ylim=(0, 1), ylabel="Pseudo-distribution")
+        ax.grid(True)
+
+    _plot(pseudo_distrib_ut, coords2scatter_ut, axs[0], "Upper Triangular")
+    _plot(pseudo_distrib_lt, coords2scatter_lt, axs[1], "Lower Triangular")
+
+    axs[1].set(xlabel="Genomic coordinates (bp)")
+
+    if title is not None:
+        fig.suptitle(title)
+
+    return fig, axs

@@ -706,6 +706,7 @@ def pseudodistrib(
     title=None,
     display=False,
 ):
+    # TODO remove
     """
     :param pseudo_distrib:          1D ndarray representing a scalar function sampled over a uniform mesh
     :param  IoI:                    refers to the Interval of Interest [IoI[0], IoI[1]] (e.g., in genomic coordinates)

@@ -4,7 +4,7 @@
 
 import pathlib
 import time
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Sequence, Tuple, Union
 
 import h5py
 import matplotlib.pyplot as plt
@@ -15,7 +15,7 @@ import seaborn as sns
 from numpy.typing import NDArray
 
 from . import IO, plot
-from .utils import TDA, finders, regressions, stripe
+from .utils import TDA, common, finders, regressions, stripe
 
 be_verbose = True  # TODO consider safe removal of be_verbose
 
@@ -201,41 +201,10 @@ def _compute_global_pseudodistribution(T: ss.csr_matrix, smooth: bool = True) ->
     return pseudo_dist
 
 
-def _sort_extrema_by_coordinate(ps_ePs: List[int], pers_of_ps_ePs: List[float]) -> Tuple[List[int], List[float]]:
-    """
-    Sort the two lists given as input in ascending order based on values from ps_ePs.
-
-    Parameters
-    ----------
-    ps_ePs: List[int]
-        the location of the local maximum points
-    pers_of_ps_ePs: List[float]
-        the values of topological persistence corresponding to the locations listed in ps_ePs
-
-    Returns
-    -------
-    Tuple[List[int], List[float]]
-        the two input lists sorted based on ps_ePs
-    """
-    # Some notation:
-    # ps = persistence-sorted
-    # ePs = extremum points
-    # pers = topological persistence
-
-    assert len(ps_ePs) == len(pers_of_ps_ePs)
-
-    permutation_ps2cs_ePs = np.argsort(ps_ePs)
-
-    # Maximum and minimum points sorted w.r.t. coordinates: actual application of permutations
-    cs_ePs = np.array(ps_ePs)[permutation_ps2cs_ePs].tolist()
-    cs_pers_of_ePs = np.array(pers_of_ps_ePs)[permutation_ps2cs_ePs].tolist()
-
-    return cs_ePs, cs_pers_of_ePs
-
-
 def _find_seeds_in_RoI(
     seeds: List[int], left_bound_RoI: int, right_bound_RoI: int
 ) -> Tuple[NDArray[np.int64], List[int]]:
+    # TODO remove
     """
     Select seed coordinates that fall within the given left and right boundaries.
 
@@ -313,8 +282,12 @@ def _check_neighborhood(
 
 
 def _filter_extrema_by_sparseness(
-    ps_mPs: List[int], pers_of_ps_mPs: List[float], ps_MPs: List[int], pers_of_ps_MPs: List[float], mask: List[int]
-) -> Tuple[List[int], List[float], List[int], List[float]]:
+    ps_mPs: NDArray[int],
+    pers_of_ps_mPs: NDArray[float],
+    ps_MPs: NDArray[int],
+    pers_of_ps_MPs: NDArray[float],
+    mask: NDArray[int],
+) -> Tuple[NDArray[int], NDArray[float], NDArray[int], NDArray[float]]:
     ps_mPs_2, pers_of_ps_mPs_2, ps_MPs_2, pers_of_ps_MPs_2 = [], [], [], []
 
     for i in range(len(ps_MPs)):
@@ -332,7 +305,7 @@ def _filter_extrema_by_sparseness(
         ps_mPs_2.pop()
         pers_of_ps_mPs_2.pop()
 
-    return ps_mPs_2, pers_of_ps_mPs_2, ps_MPs_2, pers_of_ps_MPs_2
+    return np.array(ps_mPs_2), np.array(pers_of_ps_mPs_2), np.array(ps_MPs_2), np.array(pers_of_ps_MPs_2)
 
 
 def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
@@ -393,10 +366,10 @@ def step_2(chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=No
     # so that each maximum is still paired to its minimum.
 
     # Maximum and minimum points sorted w.r.t. coordinates (NOTATION: cs = coordinate-sorted):
-    LT_mPs, LT_pers_of_mPs = _sort_extrema_by_coordinate(LT_ps_mPs, pers_of_LT_ps_mPs)
-    LT_MPs, LT_pers_of_MPs = _sort_extrema_by_coordinate(LT_ps_MPs, pers_of_LT_ps_MPs)
-    UT_mPs, UT_pers_of_mPs = _sort_extrema_by_coordinate(UT_ps_mPs, pers_of_UT_ps_mPs)
-    UT_MPs, UT_pers_of_MPs = _sort_extrema_by_coordinate(UT_ps_MPs, pers_of_UT_ps_MPs)
+    LT_mPs, LT_pers_of_mPs = common.sort_based_on_arg0(LT_ps_mPs, pers_of_LT_ps_mPs)
+    LT_MPs, LT_pers_of_MPs = common.sort_based_on_arg0(LT_ps_MPs, pers_of_LT_ps_MPs)
+    UT_mPs, UT_pers_of_mPs = common.sort_based_on_arg0(UT_ps_mPs, pers_of_UT_ps_mPs)
+    UT_MPs, UT_pers_of_MPs = common.sort_based_on_arg0(UT_ps_MPs, pers_of_UT_ps_MPs)
 
     print("2.2.3) Filter out seeds in sparse regions")
     LT_mask = _check_neighborhood(_compute_global_pseudodistribution(L, smooth=False))
