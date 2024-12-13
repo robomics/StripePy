@@ -370,7 +370,7 @@ def _make_cli() -> argparse.ArgumentParser:
 def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
 
     # Gather input parameters in dictionaries:
-    configs_input = {key: args[key] for key in ["contact-map", "resolution", "normalization", "genomic_belt", "roi"]}
+    configs_input = {key: args[key] for key in ["contact_map", "resolution", "normalization", "genomic_belt", "roi"]}
     configs_thresholds = {
         key: args[key]
         for key in [
