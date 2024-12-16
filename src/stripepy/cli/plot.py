@@ -292,32 +292,23 @@ def _plot_hic_matrix_with_stripes(
     ]
 
     if mask_regions:
+        whitelist = [(x, y) for x, y, _ in outlines_lt]
         m1 = np.triu(matrix) + np.tril(
             stripepy.plot.mask_regions_1d(
                 matrix,
                 resolution,
-                whitelist=[
-                    (
-                        x,
-                        y,
-                    )
-                    for x, y, _ in outlines_lt
-                ],
+                whitelist=whitelist,
                 location="lower",
             ),
             k=1,
         )
+
+        whitelist = [(x, y) for x, y, _ in outlines_ut]
         m2 = np.tril(matrix) + np.triu(
             stripepy.plot.mask_regions_1d(
                 matrix,
                 resolution,
-                whitelist=[
-                    (
-                        x,
-                        y,
-                    )
-                    for x, y, _ in outlines_ut
-                ],
+                whitelist=whitelist,
                 location="upper",
             ),
             k=1,
