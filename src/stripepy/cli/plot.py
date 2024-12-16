@@ -6,7 +6,8 @@ import itertools
 import logging
 import pathlib
 import random
-from typing import Dict, Optional, Tuple, Union
+import warnings
+from typing import Dict, Optional, Tuple
 
 import hictkpy
 import matplotlib.pyplot as plt
@@ -21,9 +22,8 @@ from stripepy.utils.TDA import TDA
 
 
 def _generate_random_region(
-    chroms: Dict[str, int], resolution: int, seed: int, region_size: int = 2_500_000
+    chroms: Dict[str, int], resolution: int, region_size: int = 2_500_000
 ) -> Tuple[str, int, int]:
-    random.seed(seed)
     chrom_names = list(chroms.keys())
     random.shuffle(chrom_names)
 
@@ -57,28 +57,34 @@ def _generate_random_region(
 def _fetch_random_region(
     f: hictkpy.File,
     normalization: Optional[str],
-    seed: int,
     region_size: int = 2_500_000,
 ) -> Tuple[str, int, int, NDArray]:
-    # TODO deal with sparse regions
-    chrom, start_pos, end_pos = _generate_random_region(
-        f.chromosomes(include_ALL=False), f.resolution(), seed, region_size
+    for attempt in range(10):
+        chrom, start_pos, end_pos = _generate_random_region(
+            f.chromosomes(include_ALL=False), f.resolution(), region_size
+        )
+        m = f.fetch(f"{chrom}:{start_pos}-{end_pos}", normalization=normalization).to_numpy()
+        nnz = (np.isfinite(m) & (m != 0)).sum()
+
+        if nnz / m.size >= 0.75:
+            return chrom, start_pos, end_pos, m
+
+    warnings.warn(
+        "Failed to randomly select a genomic region with appropriate density for plotting.\n"
+        "Continuing anyway.\n"
+        "For best results, please manually provide the coordinates for a region to be plotted using parameter --region."
     )
-    return (
-        chrom,
-        start_pos,
-        end_pos,
-        f.fetch(f"{chrom}:{start_pos}-{end_pos}", normalization=normalization).to_numpy(),
-    )
+
+    return chrom, start_pos, end_pos, m  # noqa
 
 
 def _fetch_matrix(
-    path: pathlib.Path, resolution: int, normalization: str, seed: int, region: Optional[str]
+    path: pathlib.Path, resolution: int, normalization: str, region: Optional[str]
 ) -> Tuple[str, int, int, NDArray]:
     f = hictkpy.MultiResFile(path)[resolution]
 
     if region is None:
-        return _fetch_random_region(f, normalization, seed)
+        return _fetch_random_region(f, normalization)
 
     matrix = f.fetch(region, normalization=normalization).to_numpy()
     chrom, start, end = _parse_ucsc_region(region, f.chromosomes(include_ALL=False))
@@ -184,10 +190,9 @@ def _plot_hic_matrix(
     region: Optional[str],
     cmap: str,
     normalization: str,
-    seed: int,
     **kwargs,
 ) -> plt.Figure:
-    chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, seed, region)
+    chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
 
     fig, _, _ = stripepy.plot.hic_matrix(
         matrix,
@@ -208,10 +213,9 @@ def _plot_hic_matrix_with_seeds(
     region: Optional[str],
     cmap: str,
     normalization: str,
-    seed: int,
     **kwargs,
 ) -> plt.Figure:
-    chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, seed, region)
+    chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
 
     with ResultFile(stripepy_hdf5) as h5:
         data = _fetch_persistence_maximum_points(h5, chrom, start, end)
@@ -263,12 +267,11 @@ def _plot_hic_matrix_with_stripes(
     region: Optional[str],
     cmap: str,
     normalization: str,
-    seed: int,
     override_height: Optional[int],
     mask_regions: bool,
     **kwargs,
 ) -> plt.Figure:
-    chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, seed, region)
+    chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
 
     with ResultFile(stripepy_hdf5) as h5:
         chrom_size = h5.chromosomes[chrom]
@@ -371,10 +374,10 @@ def _plot_hic_matrix_with_stripes(
     return fig
 
 
-def _plot_pseudodistribution(stripepy_hdf5: pathlib.Path, region: Optional[str], seed: int, **kwargs) -> plt.Figure:
+def _plot_pseudodistribution(stripepy_hdf5: pathlib.Path, region: Optional[str], **kwargs) -> plt.Figure:
     with ResultFile(stripepy_hdf5) as h5:
         if region is None:
-            chrom, start, end = _generate_random_region(h5.chromosomes, h5.resolution, seed)
+            chrom, start, end = _generate_random_region(h5.chromosomes, h5.resolution)
         else:
             chrom, start, end = _parse_ucsc_region(region, h5.chromosomes)
         data = _fetch_persistence_maximum_points(h5, chrom, start, end)
@@ -449,6 +452,9 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
             raise RuntimeError(
                 f'Refusing to overwrite file "{output_name}". Pass --force to overwrite existing file(s).'
             )
+
+    if "seed" in kwargs:
+        random.seed(kwargs["seed"])
 
     if plot_type == "matrix":
         plot_seeds = kwargs.pop("highlight_seeds")
