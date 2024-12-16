@@ -369,6 +369,7 @@ def plot_sites(
 
 def mask_regions_1d(
     matrix: npt.NDArray,
+    resolution: int,
     location: Optional[str],
     whitelist: Optional[List[Tuple[int, int]]] = None,
     blacklist: Optional[List[Tuple[int, int]]] = None,
@@ -380,6 +381,8 @@ def mask_regions_1d(
     ----------
     matrix: npt.NDArray
         matrix to be masked. The matrix is expected to be a 2D matrix and be symmetric.
+    resolution: int
+        matrix resolution in bp.
     location: str
         location where the selective masking should be applied.
         When "lower", values in the upper triangular matrix are all set to 0 and values
@@ -408,6 +411,8 @@ def mask_regions_1d(
         idx = []
         if len(whitelist) > 0:
             for i1, i2 in whitelist:
+                i1 //= resolution
+                i2 //= resolution
                 idx.extend(list(range(i1, i2 + 1)))
 
         mask = np.setdiff1d(np.arange(m.shape[0]), np.unique(idx))
@@ -416,6 +421,8 @@ def mask_regions_1d(
         mask = []
         if len(blacklist) > 0:
             for i1, i2 in blacklist:
+                i1 //= resolution
+                i2 //= resolution
                 mask.extend(list(range(i1, i2 + 1)))
 
         mask = np.unique(mask)

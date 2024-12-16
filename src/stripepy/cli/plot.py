@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-import contextlib
 import itertools
 import logging
 import pathlib
@@ -21,15 +20,10 @@ from stripepy.IO import ResultFile
 from stripepy.utils.TDA import TDA
 
 
-def _fetch_random_region(
-    f: hictkpy.File,
-    normalization: Union[str, None],
-    seed: int,
-    region_size: int = 2_500_000,
-) -> Tuple[str, int, int, NDArray]:
-    # TODO deal with sparse regions
+def _generate_random_region(
+    chroms: Dict[str, int], resolution: int, seed: int, region_size: int = 2_500_000
+) -> Tuple[str, int, int]:
     random.seed(seed)
-    chroms = f.chromosomes(include_ALL=False)
     chrom_names = list(chroms.keys())
     random.shuffle(chrom_names)
 
@@ -43,23 +37,53 @@ def _fetch_random_region(
                 chrom,
                 0,
                 size,
-                f.fetch(chrom, normalization=normalization).to_numpy(),
             )
 
         offset = region_size // 2
         pos = random.randint(offset, chroms[chrom] - offset)
-        start_pos = ((pos - offset) // f.resolution()) * f.resolution()
+        start_pos = ((pos - offset) // resolution) * resolution
         end_pos = start_pos + region_size
         return (
             chrom,
             start_pos,
             end_pos,
-            f.fetch(f"{chrom}:{start_pos}-{end_pos}", normalization=normalization).to_numpy(),
         )
 
     raise RuntimeError(
         "Unable to randomly select a region to be plotted. Please manually select the desired region by passing the --region option."
     )
+
+
+def _fetch_random_region(
+    f: hictkpy.File,
+    normalization: Optional[str],
+    seed: int,
+    region_size: int = 2_500_000,
+) -> Tuple[str, int, int, NDArray]:
+    # TODO deal with sparse regions
+    chrom, start_pos, end_pos = _generate_random_region(
+        f.chromosomes(include_ALL=False), f.resolution(), seed, region_size
+    )
+    return (
+        chrom,
+        start_pos,
+        end_pos,
+        f.fetch(f"{chrom}:{start_pos}-{end_pos}", normalization=normalization).to_numpy(),
+    )
+
+
+def _fetch_matrix(
+    path: pathlib.Path, resolution: int, normalization: str, seed: int, region: Optional[str]
+) -> Tuple[str, int, int, NDArray]:
+    f = hictkpy.MultiResFile(path)[resolution]
+
+    if region is None:
+        return _fetch_random_region(f, normalization, seed)
+
+    matrix = f.fetch(region, normalization=normalization).to_numpy()
+    chrom, start, end = _parse_ucsc_region(region, f.chromosomes(include_ALL=False))
+
+    return chrom, start, end, matrix
 
 
 def _parse_ucsc_region(region: str, chromosomes: Dict[str, int]) -> Tuple[str, int, int]:
@@ -154,7 +178,17 @@ def _fetch_persistence_maximum_points(h5: ResultFile, chrom: str, start: int, en
     }
 
 
-def _plot_hic_matrix(matrix: NDArray, chrom: str, start: int, end: int, cmap: str) -> plt.Figure:
+def _plot_hic_matrix(
+    contact_map: pathlib.Path,
+    resolution: int,
+    region: Optional[str],
+    cmap: str,
+    normalization: str,
+    seed: int,
+    **kwargs,
+) -> plt.Figure:
+    chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, seed, region)
+
     fig, _, _ = stripepy.plot.hic_matrix(
         matrix,
         (start, end),
@@ -167,26 +201,21 @@ def _plot_hic_matrix(matrix: NDArray, chrom: str, start: int, end: int, cmap: st
     return fig
 
 
-def _plot_pseudodistribution(h5: ResultFile, chrom: str, start: int, end: int) -> plt.Figure:
-    data = _fetch_persistence_maximum_points(h5, chrom, start, end)
-    fig, _ = stripepy.plot.pseudodistribution(
-        data["pseudodistribution_lt"],
-        data["pseudodistribution_ut"],
-        (start, end),
-        h5.resolution,
-        title=f"{chrom}:{start}-{end}",
-        coords2scatter_lt=data["seeds_lt"],
-        coords2scatter_ut=data["seeds_ut"],
-    )
-
-    fig.tight_layout()
-    return fig
-
-
-def _plot_hic_matrix_with_sites(
-    h5: ResultFile, matrix: NDArray, chrom: str, start: int, end: int, cmap: str
+def _plot_hic_matrix_with_seeds(
+    contact_map: pathlib.Path,
+    stripepy_hdf5: pathlib.Path,
+    resolution: int,
+    region: Optional[str],
+    cmap: str,
+    normalization: str,
+    seed: int,
+    **kwargs,
 ) -> plt.Figure:
-    data = _fetch_persistence_maximum_points(h5, chrom, start, end)
+    chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, seed, region)
+
+    with ResultFile(stripepy_hdf5) as h5:
+        data = _fetch_persistence_maximum_points(h5, chrom, start, end)
+        resolution = h5.resolution
 
     fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.4), sharey=True)
 
@@ -202,7 +231,7 @@ def _plot_hic_matrix_with_sites(
         )
 
     stripepy.plot.plot_sites(
-        data["seeds_lt"] * h5.resolution,
+        data["seeds_lt"] * resolution,
         (start, end),
         location="lower",
         fig=fig,
@@ -210,7 +239,7 @@ def _plot_hic_matrix_with_sites(
     )
 
     stripepy.plot.plot_sites(
-        data["seeds_ut"] * h5.resolution,
+        data["seeds_ut"] * resolution,
         (start, end),
         location="upper",
         fig=fig,
@@ -228,27 +257,33 @@ def _plot_hic_matrix_with_sites(
 
 
 def _plot_hic_matrix_with_stripes(
-    h5: ResultFile,
-    matrix: NDArray,
-    chrom: str,
-    start: int,
-    end: int,
+    contact_map: pathlib.Path,
+    stripepy_hdf5: pathlib.Path,
+    resolution: int,
+    region: Optional[str],
     cmap: str,
-    override_height: Optional[int] = None,
-    mask_regions: bool = False,
+    normalization: str,
+    seed: int,
+    override_height: Optional[int],
+    mask_regions: bool,
+    **kwargs,
 ) -> plt.Figure:
+    chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, seed, region)
+
+    with ResultFile(stripepy_hdf5) as h5:
+        chrom_size = h5.chromosomes[chrom]
+        geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
+        geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
+
     fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.4), sharey=True)
 
-    chrom_size = h5.chromosomes[chrom]
-
-    geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
     outlines_lt = [
         (min(lb - start, chrom_size), min(rb - start, chrom_size), min(bb - tb, chrom_size))
         for lb, rb, bb, tb in geo_descriptors_lt[["left_bound", "right_bound", "bottom_bound", "top_bound"]].itertuples(
             index=False
         )
     ]
-    geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
+
     outlines_ut = [
         (min(lb - start, chrom_size), min(rb - start, chrom_size), min(tb - bb, chrom_size))
         for lb, rb, bb, tb in geo_descriptors_ut[["left_bound", "right_bound", "bottom_bound", "top_bound"]].itertuples(
@@ -260,6 +295,7 @@ def _plot_hic_matrix_with_stripes(
         m1 = np.triu(matrix) + np.tril(
             stripepy.plot.mask_regions_1d(
                 matrix,
+                resolution,
                 whitelist=[
                     (
                         x,
@@ -274,6 +310,7 @@ def _plot_hic_matrix_with_stripes(
         m2 = np.tril(matrix) + np.triu(
             stripepy.plot.mask_regions_1d(
                 matrix,
+                resolution,
                 whitelist=[
                     (
                         x,
@@ -314,7 +351,7 @@ def _plot_hic_matrix_with_stripes(
         y = min(start + lb, chrom_size)
         width = min(ub - lb, h5.chromosomes[chrom])
         if override_height is not None:
-            height = min(end - start, override_height)
+            height = min(end - x, override_height)
         rectangles.append((x, y, width, height))
 
     stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[0])
@@ -325,7 +362,7 @@ def _plot_hic_matrix_with_stripes(
         y = min(start + lb, chrom_size)
         width = min(ub - lb, chrom_size)
         if override_height is not None:
-            height = min(end - start, override_height)
+            height = min(start - x, override_height)
         rectangles.append((x, y, width, height))
 
     stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[1])
@@ -343,21 +380,47 @@ def _plot_hic_matrix_with_stripes(
     return fig
 
 
-def _plot_stripe_dimension_distribution(
-    h5: ResultFile, chrom: Optional[str], start: Optional[int], end: Optional[int]
-) -> plt.Figure:
-    fig, axs = plt.subplots(2, 2, figsize=(12.8, 8), sharex="col", sharey="col")
+def _plot_pseudodistribution(stripepy_hdf5: pathlib.Path, region: Optional[str], seed: int, **kwargs) -> plt.Figure:
+    with ResultFile(stripepy_hdf5) as h5:
+        if region is None:
+            chrom, start, end = _generate_random_region(h5.chromosomes, h5.resolution, seed)
+        else:
+            chrom, start, end = _parse_ucsc_region(region, h5.chromosomes)
+        data = _fetch_persistence_maximum_points(h5, chrom, start, end)
+        resolution = h5.resolution
 
-    if chrom is None:
-        assert start is None
-        assert end is None
-        geo_descriptors_lt = _fetch_geo_descriptors_gw(h5, "LT")
-        geo_descriptors_ut = _fetch_geo_descriptors_gw(h5, "UT")
-    else:
-        assert start is not None
-        assert end is not None
-        geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
-        geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
+    fig, _ = stripepy.plot.pseudodistribution(
+        data["pseudodistribution_lt"],
+        data["pseudodistribution_ut"],
+        (start, end),
+        resolution,
+        title=f"{chrom}:{start}-{end}",
+        coords2scatter_lt=data["seeds_lt"],
+        coords2scatter_ut=data["seeds_ut"],
+    )
+
+    fig.tight_layout()
+    return fig
+
+
+def _plot_stripe_dimension_distribution(
+    stripepy_hdf5: pathlib.Path,
+    region: Optional[str],
+    seed: int,
+    **kwargs,
+) -> plt.Figure:
+    with ResultFile(stripepy_hdf5) as h5:
+        if region is None:
+            geo_descriptors_lt = _fetch_geo_descriptors_gw(h5, "LT")
+            geo_descriptors_ut = _fetch_geo_descriptors_gw(h5, "UT")
+        else:
+            chrom, start, end = _parse_ucsc_region(region, h5.chromosomes)
+            geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
+            geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
+
+        resolution = h5.resolution
+
+    fig, axs = plt.subplots(2, 2, figsize=(12.8, 8), sharex="col", sharey="col")
 
     stripe_widths_lt = geo_descriptors_lt["right_bound"] - geo_descriptors_lt["left_bound"]
     stripe_heights_lt = geo_descriptors_lt["bottom_bound"] - geo_descriptors_lt["top_bound"]
@@ -369,9 +432,9 @@ def _plot_stripe_dimension_distribution(
         ax.xaxis.set_major_formatter(EngFormatter("b"))
         ax.xaxis.tick_bottom()
 
-    axs[0][0].hist(stripe_widths_lt, bins=max(1, (stripe_widths_lt.max() - stripe_widths_lt.min()) // h5.resolution))
+    axs[0][0].hist(stripe_widths_lt, bins=max(1, (stripe_widths_lt.max() - stripe_widths_lt.min()) // resolution))
     axs[0][1].hist(stripe_heights_lt, bins="auto")
-    axs[1][0].hist(stripe_widths_ut, bins=max(1, (stripe_widths_ut.max() - stripe_widths_ut.min()) // h5.resolution))
+    axs[1][0].hist(stripe_widths_ut, bins=max(1, (stripe_widths_ut.max() - stripe_widths_ut.min()) // resolution))
     axs[1][1].hist(stripe_heights_ut, bins="auto")
 
     axs[0][0].set(title="Stripe width distribution (lower triangle)", ylabel="Count")
@@ -379,41 +442,14 @@ def _plot_stripe_dimension_distribution(
     axs[1][0].set(title="Stripe width distribution (upper triangle)", xlabel="Width (bp)", ylabel="Count")
     axs[1][1].set(title="Stripe height distribution (upper triangle)", xlabel="Height (bp)")
 
-    if chrom is not None:
-        assert start is not None
-        assert end is not None
+    if region is not None:
         fig.suptitle(f"{chrom}:{start}-{end}")
 
     fig.tight_layout()
     return fig
 
 
-def run(
-    contact_map: pathlib.Path,
-    resolution: int,
-    plot_type: str,
-    output_name: pathlib.Path,
-    stripepy_hdf5: Optional[pathlib.Path],
-    region: Optional[str],
-    cmap: str,
-    dpi: int,
-    normalization: Optional[str],
-    force: bool,
-    seed: int,
-):
-
-    plot_types_requiring_hdf5_file = {
-        "pseudodistribution",
-        "hic-matrix-with-sites",
-        "hic-matrix-with-stipes",
-        "stripe-dimension-distributions",
-    }
-
-    if stripepy_hdf5 is None and plot_type in plot_types_requiring_hdf5_file:
-        raise RuntimeError(
-            f"--stripepy-hdf5 is required when plot-type is one of {', '.join(plot_types_requiring_hdf5_file)}"
-        )
-
+def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwargs):
     if output_name.exists():
         if force:
             logging.debug('removing existing output file "%s"', output_name)
@@ -423,48 +459,31 @@ def run(
                 f'Refusing to overwrite file "{output_name}". Pass --force to overwrite existing file(s).'
             )
 
-    f = hictkpy.MultiResFile(contact_map)[resolution]
+    if plot_type == "matrix":
+        plot_seeds = kwargs.pop("highlight_seeds")
+        plot_stripes = kwargs.pop("highlight_stripes")
+        ignore_stripe_heights = kwargs.pop("ignore_stripe_heights")
 
-    if region is None:
-        chrom, start, end, matrix = _fetch_random_region(f, normalization, seed)
+        if (plot_seeds or plot_stripes) and kwargs["stripepy_hdf5"] is None:
+            raise RuntimeError("--stripepy-hdf5 is required when highlighting stripes or seeds.")
+
+        if not plot_seeds and not plot_stripes:
+            fig = _plot_hic_matrix(**kwargs)
+        elif plot_seeds:
+            fig = _plot_hic_matrix_with_seeds(**kwargs)
+        else:
+            if ignore_stripe_heights:
+                kwargs["override_height"] = 2_500_000
+                kwargs["mask_regions"] = True
+            else:
+                kwargs["override_height"] = None
+                kwargs["mask_regions"] = False
+            fig = _plot_hic_matrix_with_stripes(**kwargs)
+    elif plot_type == "pd":
+        fig = _plot_pseudodistribution(**kwargs)
+    elif plot_type == "stripe-hist":
+        fig = _plot_stripe_dimension_distribution(**kwargs)
     else:
-        matrix = f.fetch(region, normalization=normalization).to_numpy()
-        chrom, start, end = _parse_ucsc_region(region, f.chromosomes(include_ALL=False))
-
-    with contextlib.ExitStack() as ctx:
-        if stripepy_hdf5 is not None:
-            h5 = ctx.enter_context(ResultFile(stripepy_hdf5))
-        else:
-            h5 = None
-
-        if plot_type == "hic-matrix":
-            assert matrix is not None
-            fig = _plot_hic_matrix(matrix, chrom, start, end, cmap)
-        elif plot_type == "pseudodistribution":
-            assert h5 is not None
-            fig = _plot_pseudodistribution(h5, chrom, start, end)
-        elif plot_type == "hic-matrix-with-sites":
-            assert matrix is not None
-            assert h5 is not None
-            fig = _plot_hic_matrix_with_sites(h5, matrix, chrom, start, end, cmap)
-        elif plot_type == "hic-matrix-with-hioi":
-            assert matrix is not None
-            assert h5 is not None
-            fig = _plot_hic_matrix_with_stripes(
-                h5, matrix, chrom, start, end, cmap, override_height=2_000_000, mask_regions=True
-            )
-        elif plot_type == "hic-matrix-with-stripes":
-            assert matrix is not None
-            assert h5 is not None
-            fig = _plot_hic_matrix_with_stripes(h5, matrix, chrom, start, end, cmap)
-        elif plot_type == "stripe-dimension-distributions":
-            assert h5 is not None
-            if region is None:
-                chrom = None
-                start = None
-                end = None
-            fig = _plot_stripe_dimension_distribution(h5, chrom, start, end)
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
 
     fig.savefig(output_name, dpi=dpi)
