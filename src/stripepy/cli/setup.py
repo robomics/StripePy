@@ -261,6 +261,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
             "hic-matrix-with-hioi",
             "hic-matrix-with-stripes",
             "pseudodistribution",
+            "stripe-dimension-distributions",
         },
         help="Type of plot to be generated.",
     )

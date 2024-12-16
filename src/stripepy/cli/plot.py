@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import contextlib
+import itertools
 import logging
 import pathlib
 import random
@@ -12,6 +13,7 @@ import hictkpy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import EngFormatter
 from numpy.typing import NDArray
 
 import stripepy.plot
@@ -60,9 +62,12 @@ def _fetch_random_region(
     )
 
 
-def _parse_ucsc_region(region: str) -> Tuple[str, int, int]:
+def _parse_ucsc_region(region: str, chromosomes: Dict[str, int]) -> Tuple[str, int, int]:
     try:
-        chrom, _, pos = region.partition(":")
+        chrom, sep, pos = region.partition(":")
+        if len(sep) == 0 and len(pos) == 0:
+            return chrom, 0, chromosomes[chrom]
+
         start_pos, _, end_pos = pos.partition("-")
         return chrom, int(start_pos.replace(",", "")), int(end_pos.replace(",", ""))
     except Exception as e:
@@ -96,6 +101,28 @@ def _fetch_geo_descriptors(
         df[col] = np.minimum(df[col] * h5.resolution, h5.chromosomes[chrom])
 
     return df[df["seed"].between(left_bound, right_bound, inclusive="both")]
+
+
+def _fetch_geo_descriptors_gw(
+    h5: ResultFile,
+    location: str,
+) -> pd.DataFrame:
+    assert location in {"LT", "UT"}
+
+    dfs = []
+    for chrom in h5.chromosomes:
+        try:
+            df = h5.get(chrom, "geo_descriptors", location)
+            for col in df.columns:
+                if col == "top_persistence":
+                    continue
+                df[col] = np.minimum(df[col] * h5.resolution, h5.chromosomes[chrom])
+            dfs.append(df)
+
+        except KeyError:
+            pass
+
+    return pd.concat(dfs).reset_index(drop=True)
 
 
 def _fetch_persistence_maximum_points(path: pathlib.Path, chrom: str, start: int, end: int) -> Dict[str, NDArray]:
@@ -142,7 +169,12 @@ def run(
     seed: int,
 ):
 
-    plot_types_requiring_hdf5_file = {"pseudodistribution", "hic-matrix-with-sites", "hic-matrix-with-stipes"}
+    plot_types_requiring_hdf5_file = {
+        "pseudodistribution",
+        "hic-matrix-with-sites",
+        "hic-matrix-with-stipes",
+        "stripe-dimension-distributions",
+    }
 
     if stripepy_hdf5 is None and plot_type in plot_types_requiring_hdf5_file:
         raise RuntimeError(
@@ -164,7 +196,7 @@ def run(
         chrom, start, end, matrix = _fetch_random_region(f, normalization, seed)
     else:
         matrix = f.fetch(region, normalization=normalization).to_numpy()
-        chrom, start, end = _parse_ucsc_region(region)
+        chrom, start, end = _parse_ucsc_region(region, f.chromosomes(include_ALL=False))
 
     chrom_size = f.chromosomes()[chrom]
 
@@ -365,6 +397,51 @@ def run(
             fig.subplots_adjust(right=0.95)
             cbar_ax = fig.add_axes((0.95, 0.15, 0.015, 0.7))
             fig.colorbar(img, cax=cbar_ax)
+        elif plot_type == "stripe-dimension-distributions":
+            fig, axs = plt.subplots(2, 2, figsize=(12.8, 8), sharex="col", sharey="col")
+
+            if region is None:
+                geo_descriptors_lt = _fetch_geo_descriptors_gw(h5, "LT")
+                geo_descriptors_ut = _fetch_geo_descriptors_gw(h5, "UT")
+            else:
+                geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
+                geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
+
+            stripe_widths_lt = np.minimum(
+                geo_descriptors_lt["right_bound"] - geo_descriptors_lt["left_bound"], chrom_size
+            )
+            stripe_heights_lt = np.minimum(
+                geo_descriptors_lt["bottom_bound"] - geo_descriptors_lt["top_bound"], chrom_size
+            )
+
+            stripe_widths_ut = np.minimum(
+                geo_descriptors_ut["right_bound"] - geo_descriptors_ut["left_bound"], chrom_size
+            )
+            stripe_heights_ut = np.minimum(
+                geo_descriptors_ut["bottom_bound"] - geo_descriptors_ut["top_bound"], chrom_size
+            )
+
+            for ax in itertools.chain.from_iterable(axs):
+                ax.xaxis.set_major_formatter(EngFormatter("b"))
+                ax.xaxis.tick_bottom()
+
+            axs[0][0].hist(
+                stripe_widths_lt, bins=max(1, (stripe_widths_lt.max() - stripe_widths_lt.min()) // h5.resolution)
+            )
+            axs[0][1].hist(stripe_heights_lt, bins="auto")
+            axs[1][0].hist(
+                stripe_widths_ut, bins=max(1, (stripe_widths_ut.max() - stripe_widths_ut.min()) // h5.resolution)
+            )
+            axs[1][1].hist(stripe_heights_ut, bins="auto")
+
+            axs[0][0].set(title="Stripe width distribution (lower triangle)", ylabel="Count")
+            axs[0][1].set(title="Stripe height distribution (lower triangle)")
+            axs[1][0].set(title="Stripe width distribution (upper triangle)", xlabel="Width (bp)", ylabel="Count")
+            axs[1][1].set(title="Stripe height distribution (upper triangle)", xlabel="Height (bp)")
+
+            if region is not None:
+                fig.suptitle(f"{chrom}:{start}-{end}")
+
         else:
             raise NotImplementedError
     if plot_type not in {"hic-matrix-with-sites", "hic-matrix-with-hioi", "hic-matrix-with-stripes"}:
