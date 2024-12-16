@@ -137,40 +137,6 @@ def _format_ticks(ax: plt.Axes, x: bool = True, y: bool = True, rotation: int = 
         ax.tick_params(axis="x", rotation=rotation)
 
 
-def _find_seeds_in_RoI(
-    seeds: List[int], left_bound_RoI: int, right_bound_RoI: int
-) -> Tuple[npt.NDArray[int], List[int]]:
-    """
-    Select seed coordinates that fall within the given left and right boundaries.
-
-    Parameters
-    ----------
-    seeds: List[int]
-        a list with the seed coordinates
-    left_bound_RoI: int
-        left bound of the region of interest
-    right_bound_RoI: int
-        right bound of the region of interest
-
-    Returns
-    -------
-    Tuple[NDArray[int], List[int]]
-        a tuple consisting of:
-
-         * the indices of seed coordinates falling within the given boundaries
-         * the coordinates of the selected seeds
-    """
-
-    assert left_bound_RoI >= 0
-    assert right_bound_RoI >= left_bound_RoI
-
-    # Find sites within the range of interest -- lower-triangular:
-    ids_seeds_in_RoI = np.where((left_bound_RoI <= np.array(seeds)) & (np.array(seeds) <= right_bound_RoI))[0]
-    seeds_in_RoI = np.array(seeds)[ids_seeds_in_RoI].tolist()
-
-    return ids_seeds_in_RoI, seeds_in_RoI
-
-
 def hic_matrix(
     I: npt.NDArray,
     RoI: Tuple[int, int],
