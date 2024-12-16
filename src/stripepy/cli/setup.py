@@ -255,7 +255,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "plot-type",
         type=str,
-        choices={"hic-matrix", "hic-matrix-with-sites", "pseudodistribution"},
+        choices={"hic-matrix", "hic-matrix-with-sites", "hic-matrix-with-hioi", "pseudodistribution"},
         help="Type of plot to be generated.",
     )
     sc.add_argument(

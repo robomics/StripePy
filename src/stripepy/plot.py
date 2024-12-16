@@ -297,12 +297,13 @@ def pseudodistribution(
                     markersize=5,
                     color=color,
                 )
-        ax.xaxis.set_major_formatter(EngFormatter("b"))
         ax.set(title=title, ylim=(0, 1), ylabel="Pseudo-distribution")
         ax.grid(True)
 
     _plot(pseudo_distrib_ut, coords2scatter_ut, axs[0], "Upper Triangular")
     _plot(pseudo_distrib_lt, coords2scatter_lt, axs[1], "Lower Triangular")
+
+    _format_ticks(axs[1], y=False, x=True)
 
     axs[1].set(xlabel="Genomic coordinates (bp)")
 
@@ -358,7 +359,121 @@ def plot_sites(
 
         ax.plot(x, y, color=color, linestyle="dashed", linewidth=1)
 
+    _format_ticks(ax)
+
     if title is not None:
         fig.suptitle(title)
 
+    return fig, ax
+
+
+def mask_regions_1d(
+    matrix: npt.NDArray,
+    location: Optional[str],
+    whitelist: Optional[List[Tuple[int, int]]] = None,
+    blacklist: Optional[List[Tuple[int, int]]] = None,
+) -> npt.NDArray:
+    """
+    Mask rows or columns of the given matrix based on whitelisted or blacklisted regions.
+
+    Parameters
+    ----------
+    matrix: npt.NDArray
+        matrix to be masked. The matrix is expected to be a 2D matrix and be symmetric.
+    location: str
+        location where the selective masking should be applied.
+        When "lower", values in the upper triangular matrix are all set to 0 and values
+        in the lower triangular matrix are masked based on whitelisted or blacklisted regions.
+        When "upper", values in the lower triangular matrix are all set to 0 and values
+        in the upper triangular matrix are masked based on whitelisted or blacklisted regions.
+    whitelist: Optional[List[Tuple[int, int]]]
+        list of regions to NOT be masked. Regions should be expressed in matrix coordinates.
+    blacklist: Optional[List[Tuple[int, int]]]
+        list of regions to be masked. Regions should be expressed in matrix coordinates.
+
+    Returns
+    -------
+    matrix: npt.NDArray
+        the masked matrix
+    """
+    if location is not None and location not in {"lower", "upper"}:
+        raise ValueError('location should be "lower" or "upper"')
+
+    if (whitelist is None and blacklist is None) or (whitelist is not None and blacklist is not None):
+        raise ValueError("please specify either whitelist or blacklist")
+
+    m = matrix.copy()
+    mask = None
+    if whitelist is not None:
+        idx = []
+        if len(whitelist) > 0:
+            for i1, i2 in whitelist:
+                idx.extend(list(range(i1, i2 + 1)))
+
+        mask = np.setdiff1d(np.arange(m.shape[0]), np.unique(idx))
+
+    if blacklist is not None:
+        mask = []
+        if len(blacklist) > 0:
+            for i1, i2 in blacklist:
+                mask.extend(list(range(i1, i2 + 1)))
+
+        mask = np.unique(mask)
+
+    if mask is not None:
+        m[:, mask] = 0
+
+    if location == "upper":
+        return np.triu(m)
+    if location == "lower":
+        return np.tril(m)
+    return np.tril(m.T) + np.triu(m)
+
+
+def draw_boxes(
+    regions: List[Tuple[int, int, int, int]],
+    bound_box: Tuple[int, int],
+    fig: Optional[plt.Figure] = None,
+    ax: Optional[plt.Axes] = None,
+    **kwargs,
+) -> Tuple[plt.Figure, plt.Axes]:
+    """
+    Draw bounding boxes around a list of regions of interest.
+
+    Parameters
+    ----------
+    regions:
+        a list of genomic regions, each consisting of a 4-element tuple (x, y, width, height).
+        All coordinates are in genomic units (i.e. bp).
+    bound_box:
+        first and last genomic position that should be plotted.
+        Used to ensure that boxes do not extend outside the plotted area.
+    fig:
+        figure to use for plotting
+    ax:
+        axis to use for plotting
+    **kwargs:
+        additional keyword arguments to pass to plt.plot()
+
+    Returns
+    -------
+    figure, axes:
+        the plt.Figure and plt.Axes used for plotting
+    """
+    if fig is None:
+        if ax is not None:
+            raise RuntimeError("ax should be None when fig is None")
+        fig, ax = plt.subplots(1, 1)
+    elif ax is None:
+        raise RuntimeError("ax cannot be None when fig is not None")
+
+    if "color" not in kwargs:
+        kwargs["color"] = "blue"
+    if "linestyle" not in kwargs:
+        kwargs["linestyle"] = "dashed"
+
+    for x, y, width, height in regions:
+        x = np.clip([x, x, x + width, x + width, x], bound_box[0], bound_box[1])
+        y = np.clip([y, y + height, y + height, y + width, y], bound_box[0], bound_box[1])
+        ax.plot(x, y, **kwargs)
     return fig, ax

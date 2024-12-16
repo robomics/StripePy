@@ -152,10 +152,10 @@ def _plot_RoIs(
         Iproc_RoI = _extract_RoIs(Iproc, RoI)
 
         if output_folder is not None:
-            start_pos, end_pos = RoI["genomic"]
+            start_pos, end_pos, _, _ = RoI["genomic"]
             # Plots:
-            dest = output_folder / f"I_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
-            fig, _ = plot.hic_matrix(
+            dest = pathlib.Path(output_folder) / f"I_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
+            fig, _, _ = plot.hic_matrix(
                 I_RoI,
                 (start_pos, end_pos),
                 log_scale=False,
@@ -164,8 +164,8 @@ def _plot_RoIs(
             fig.savefig(dest, dpi=256)
             plt.close(fig)
 
-            dest = output_folder / f"Iproc_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
-            fig, _ = plot.hic_matrix(
+            dest = pathlib.Path(output_folder) / f"Iproc_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
+            fig, _, _ = plot.hic_matrix(
                 Iproc_RoI,
                 (start_pos, end_pos),
                 log_scale=False,

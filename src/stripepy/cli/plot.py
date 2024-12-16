@@ -2,14 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 
+import contextlib
 import logging
 import pathlib
 import random
-from typing import Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import hictkpy
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from numpy.typing import NDArray
 
 import stripepy.plot
@@ -75,56 +77,55 @@ def _validate_hdf5_result(hf: hictkpy.File, rf: ResultFile):
         raise RuntimeError(f'File "{hf.uri()}" and "{rf.path}" have different chromosomes')
 
 
-def _find_seeds_in_RoI(
-    seeds: NDArray[int], left_bound_RoI: int, right_bound_RoI: int
-) -> Tuple[NDArray[int], NDArray[int]]:
-    """
-    Select seed coordinates that fall within the given left and right boundaries.
+def _fetch_geo_descriptors(
+    h5: ResultFile,
+    chrom: str,
+    left_bound: int,
+    right_bound: int,
+    location: str,
+) -> pd.DataFrame:
+    assert location in {"LT", "UT"}
+    assert left_bound >= 0
+    assert right_bound >= left_bound
 
-    Parameters
-    ----------
-    seeds: NDArray[int]
-        a list with the seed coordinates
-    left_bound_RoI: int
-        left bound of the region of interest
-    right_bound_RoI: int
-        right bound of the region of interest
+    df = h5.get(chrom, "geo_descriptors", location)
 
-    Returns
-    -------
-    Tuple[NDArray[int], NDArray[int]]
-        a tuple consisting of:
+    for col in df.columns:
+        if col == "top_persistence":
+            continue
+        df[col] = np.minimum(df[col] * h5.resolution, h5.chromosomes[chrom])
 
-         * the indices of seed coordinates falling within the given boundaries
-         * the coordinates of the selected seeds
-    """
-
-    assert left_bound_RoI >= 0
-    assert right_bound_RoI >= left_bound_RoI
-
-    # Find sites within the range of interest -- lower-triangular:
-    ids_seeds_in_RoI = np.where((left_bound_RoI <= np.array(seeds)) & (np.array(seeds) <= right_bound_RoI))[0]
-    seeds_in_RoI = np.array(seeds)[ids_seeds_in_RoI]
-
-    return ids_seeds_in_RoI.astype(int), seeds_in_RoI.astype(int)
+    return df[df["seed"].between(left_bound, right_bound, inclusive="both")]
 
 
-def _fetch_persistence_maximum_points(
-    path: pathlib.Path, chrom: str, start: int, end: int
-) -> Tuple[NDArray[float], NDArray[float], NDArray[int], NDArray[int]]:
+def _fetch_persistence_maximum_points(path: pathlib.Path, chrom: str, start: int, end: int) -> Dict[str, NDArray]:
+    def fetch(v: NDArray[int], left_bound: int, right_bound: int) -> Tuple[NDArray[int], NDArray[int]]:
+        assert left_bound >= 0
+        assert right_bound >= left_bound
+
+        idx = np.where((v >= left_bound) & (v <= right_bound))[0]
+        return idx.astype(int), v[idx].astype(int)
+
     with ResultFile(path) as h5:
         pd_lt = h5.get(chrom, "pseudodistribution", "LT")["pseudodistribution"].to_numpy()
         pd_ut = h5.get(chrom, "pseudodistribution", "UT")["pseudodistribution"].to_numpy()
 
         min_persistence = h5.get_min_persistence(chrom)
-        _, lt_seeds = _find_seeds_in_RoI(
+        lt_idx, lt_seeds = fetch(
             np.sort(TDA(pd_lt, min_persistence=min_persistence)[2]), start // h5.resolution, end // h5.resolution
         )
-        _, ut_seeds = _find_seeds_in_RoI(
+        ut_idx, ut_seeds = fetch(
             np.sort(TDA(pd_ut, min_persistence=min_persistence)[2]), start // h5.resolution, end // h5.resolution
         )
 
-        return pd_lt, pd_ut, lt_seeds, ut_seeds
+        return {
+            "pseudodistribution_lt": pd_lt,
+            "pseudodistribution_ut": pd_ut,
+            "seeds_lt": lt_seeds,
+            "seeds_ut": ut_seeds,
+            "seed_indices_lt": lt_idx,
+            "seed_indices_ut": ut_idx,
+        }
 
 
 def run(
@@ -163,68 +164,139 @@ def run(
 
     title = f"{chrom}:{start}-{end}"
 
-    if plot_type == "hic-matrix":
-        fig, _, _ = stripepy.plot.hic_matrix(
-            matrix,
-            (start, end),
-            title=title,
-            cmap=cmap,
-            log_scale=True,
-            with_colorbar=True,
-        )
-    elif plot_type == "pseudodistribution":
-        pd_lt, pd_ut, seeds_lt, seeds_ut = _fetch_persistence_maximum_points(stripepy_hdf5, chrom, start, end)
-        fig, _ = stripepy.plot.pseudodistribution(
-            pd_lt,
-            pd_ut,
-            (start, end),
-            f.resolution(),
-            title=title,
-            coords2scatter_lt=seeds_lt,
-            coords2scatter_ut=seeds_ut,
-        )
-    elif plot_type == "hic-matrix-with-sites":
-        _, _, seeds_lt, seeds_ut = _fetch_persistence_maximum_points(stripepy_hdf5, chrom, start, end)
+    with contextlib.ExitStack() as ctx:
+        if stripepy_hdf5 is not None:
+            h5 = ctx.enter_context(ResultFile(stripepy_hdf5))
+        else:
+            h5 = None
 
-        fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.4), sharey=True)
-
-        for ax in axs:
-            _, _, img = stripepy.plot.hic_matrix(
+        if plot_type == "hic-matrix":
+            fig, _, _ = stripepy.plot.hic_matrix(
                 matrix,
                 (start, end),
+                title=title,
+                cmap=cmap,
+                log_scale=True,
+                with_colorbar=True,
+            )
+        elif plot_type == "pseudodistribution":
+            data = _fetch_persistence_maximum_points(stripepy_hdf5, chrom, start, end)
+            fig, _ = stripepy.plot.pseudodistribution(
+                data["pseudodistribution_lt"],
+                data["pseudodistribution_ut"],
+                (start, end),
+                f.resolution(),
+                title=title,
+                coords2scatter_lt=data["seeds_lt"],
+                coords2scatter_ut=data["seeds_ut"],
+            )
+        elif plot_type == "hic-matrix-with-sites":
+            data = _fetch_persistence_maximum_points(stripepy_hdf5, chrom, start, end)
+
+            fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.4), sharey=True)
+
+            for ax in axs:
+                _, _, img = stripepy.plot.hic_matrix(
+                    matrix,
+                    (start, end),
+                    cmap=cmap,
+                    log_scale=True,
+                    with_colorbar=False,
+                    fig=fig,
+                    ax=ax,
+                )
+
+            stripepy.plot.plot_sites(
+                data["seeds_lt"] * f.resolution(),
+                (start, end),
+                location="lower",
+                title=title,
+                fig=fig,
+                ax=axs[0],
+            )
+
+            stripepy.plot.plot_sites(
+                data["seeds_ut"] * f.resolution(),
+                (start, end),
+                location="upper",
+                title=title,
+                fig=fig,
+                ax=axs[1],
+            )
+
+            fig.tight_layout()
+
+            fig.subplots_adjust(right=0.95)
+            cbar_ax = fig.add_axes((0.95, 0.15, 0.015, 0.7))
+            fig.colorbar(img, cax=cbar_ax)  # noqa
+        elif plot_type == "hic-matrix-with-hioi":
+            fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.4), sharey=True)
+
+            geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
+            outlines_lt = [
+                ((lb - start) // h5.resolution, (rb - start) // h5.resolution)
+                for lb, rb in geo_descriptors_lt[["left_bound", "right_bound"]].itertuples(index=False)
+            ]
+            geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
+            outlines_ut = [
+                ((lb - start) // h5.resolution, (rb - start) // h5.resolution)
+                for lb, rb in geo_descriptors_ut[["left_bound", "right_bound"]].itertuples(index=False)
+            ]
+
+            _, _, img = stripepy.plot.hic_matrix(
+                np.triu(matrix)
+                + np.tril(stripepy.plot.mask_regions_1d(matrix, whitelist=outlines_lt, location="lower"), k=1),
+                (start, end),
+                title=title,
                 cmap=cmap,
                 log_scale=True,
                 with_colorbar=False,
                 fig=fig,
-                ax=ax,
+                ax=axs[0],
+            )
+            stripepy.plot.hic_matrix(
+                np.tril(matrix)
+                + np.triu(stripepy.plot.mask_regions_1d(matrix, whitelist=outlines_ut, location="upper"), k=1),
+                (start, end),
+                title=title,
+                cmap=cmap,
+                log_scale=True,
+                with_colorbar=False,
+                fig=fig,
+                ax=axs[1],
             )
 
-        stripepy.plot.plot_sites(
-            seeds_lt * f.resolution(),
-            (start, end),
-            location="lower",
-            title=title,
-            fig=fig,
-            ax=axs[0],
-        )
+            rectangles = []
+            for lb, ub in outlines_lt:
+                x = start + (lb * h5.resolution)
+                y = start + (lb * h5.resolution)
+                width = (ub - lb + 1) * h5.resolution
+                height = end - x
+                rectangles.append((x, y, width, height))
 
-        stripepy.plot.plot_sites(
-            seeds_ut * f.resolution(),
-            (start, end),
-            location="upper",
-            title=title,
-            fig=fig,
-            ax=axs[1],
-        )
+            stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[0])
 
-        fig.tight_layout()
+            rectangles = []
+            for lb, ub in outlines_ut:
+                x = start + (lb * h5.resolution)
+                y = start + (lb * h5.resolution)
+                width = (ub - lb + 1) * h5.resolution
+                height = start - x
+                rectangles.append((x, y, width, height))
 
-        fig.subplots_adjust(right=0.9)
-        cbar_ax = fig.add_axes((0.925, 0.15, 0.03, 0.7))
-        fig.colorbar(img, cax=cbar_ax)  # noqa
+            stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[1])
 
-    else:
-        raise NotImplementedError
-    if plot_type not in {"hic-matrix-with-sites"}:
+            axs[0].set(title="Lower Triangular")
+            axs[1].set(title="Upper Triangular")
+
+            fig.tight_layout()
+
+            fig.subplots_adjust(right=0.95)
+            cbar_ax = fig.add_axes((0.95, 0.15, 0.015, 0.7))
+            fig.colorbar(img, cax=cbar_ax)
+
+        else:
+            raise NotImplementedError
+    if plot_type not in {"hic-matrix-with-sites", "hic-matrix-with-hioi"}:
         fig.tight_layout()
     fig.savefig(output_name, dpi=dpi)
