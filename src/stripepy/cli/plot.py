@@ -142,8 +142,12 @@ def run(
     seed: int,
 ):
 
-    if plot_type in {"pseudodistribution", "hic-matrix-with-sites"} and stripepy_hdf5 is None:
-        raise RuntimeError('--stripepy-hdf5 is required when plot-type is "pseudodistribution"')
+    plot_types_requiring_hdf5_file = {"pseudodistribution", "hic-matrix-with-sites", "hic-matrix-with-stipes"}
+
+    if stripepy_hdf5 is None and plot_type in plot_types_requiring_hdf5_file:
+        raise RuntimeError(
+            f"--stripepy-hdf5 is required when plot-type is one of {', '.join(plot_types_requiring_hdf5_file)}"
+        )
 
     if output_name.exists():
         if force:
@@ -161,6 +165,8 @@ def run(
     else:
         matrix = f.fetch(region, normalization=normalization).to_numpy()
         chrom, start, end = _parse_ucsc_region(region)
+
+    chrom_size = f.chromosomes()[chrom]
 
     title = f"{chrom}:{start}-{end}"
 
@@ -268,20 +274,20 @@ def run(
 
             rectangles = []
             for lb, ub in outlines_lt:
-                x = start + (lb * h5.resolution)
-                y = start + (lb * h5.resolution)
-                width = (ub - lb + 1) * h5.resolution
-                height = end - x
+                x = min(start + (lb * h5.resolution), chrom_size)
+                y = min(start + (lb * h5.resolution), chrom_size)
+                width = min((ub - lb + 1) * h5.resolution, chrom_size)
+                height = min(end - x, chrom_size)
                 rectangles.append((x, y, width, height))
 
             stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[0])
 
             rectangles = []
             for lb, ub in outlines_ut:
-                x = start + (lb * h5.resolution)
-                y = start + (lb * h5.resolution)
-                width = (ub - lb + 1) * h5.resolution
-                height = start - x
+                x = min(start + (lb * h5.resolution), chrom_size)
+                y = min(start + (lb * h5.resolution), chrom_size)
+                width = min((ub - lb + 1) * h5.resolution, chrom_size)
+                height = min(start - x, chrom_size)
                 rectangles.append((x, y, width, height))
 
             stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[1])
@@ -294,9 +300,73 @@ def run(
             fig.subplots_adjust(right=0.95)
             cbar_ax = fig.add_axes((0.95, 0.15, 0.015, 0.7))
             fig.colorbar(img, cax=cbar_ax)
+        elif plot_type == "hic-matrix-with-stripes":
+            fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.4), sharey=True)
 
+            geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
+            outlines_lt = [
+                (min(lb - start, chrom_size), min(rb - start, chrom_size), min(bb - tb, chrom_size))
+                for lb, rb, bb, tb in geo_descriptors_lt[
+                    ["left_bound", "right_bound", "bottom_bound", "top_bound"]
+                ].itertuples(index=False)
+            ]
+            geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
+            outlines_ut = [
+                (min(lb - start, chrom_size), min(rb - start, chrom_size), min(tb - bb, chrom_size))
+                for lb, rb, bb, tb in geo_descriptors_ut[
+                    ["left_bound", "right_bound", "bottom_bound", "top_bound"]
+                ].itertuples(index=False)
+            ]
+
+            _, _, img = stripepy.plot.hic_matrix(
+                matrix,
+                (start, end),
+                title=title,
+                cmap=cmap,
+                log_scale=True,
+                with_colorbar=False,
+                fig=fig,
+                ax=axs[0],
+            )
+            stripepy.plot.hic_matrix(
+                matrix,
+                (start, end),
+                title=title,
+                cmap=cmap,
+                log_scale=True,
+                with_colorbar=False,
+                fig=fig,
+                ax=axs[1],
+            )
+
+            rectangles = []
+            for lb, ub, height in outlines_lt:
+                x = min(start + lb, chrom_size)
+                y = min(start + lb, chrom_size)
+                width = min(ub - lb, f.chromosomes()[chrom])
+                rectangles.append((x, y, width, height))
+
+            stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[0])
+
+            rectangles = []
+            for lb, ub, height in outlines_ut:
+                x = min(start + lb, chrom_size)
+                y = min(start + lb, chrom_size)
+                width = min(ub - lb, chrom_size)
+                rectangles.append((x, y, width, height))
+
+            stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[1])
+
+            axs[0].set(title="Lower Triangular")
+            axs[1].set(title="Upper Triangular")
+
+            fig.tight_layout()
+
+            fig.subplots_adjust(right=0.95)
+            cbar_ax = fig.add_axes((0.95, 0.15, 0.015, 0.7))
+            fig.colorbar(img, cax=cbar_ax)
         else:
             raise NotImplementedError
-    if plot_type not in {"hic-matrix-with-sites", "hic-matrix-with-hioi"}:
+    if plot_type not in {"hic-matrix-with-sites", "hic-matrix-with-hioi", "hic-matrix-with-stripes"}:
         fig.tight_layout()
     fig.savefig(output_name, dpi=dpi)

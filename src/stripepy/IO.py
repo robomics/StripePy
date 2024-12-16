@@ -997,6 +997,7 @@ def plot_stripes(
     title=None,
     display=False,
 ):
+    # TODO remove
     """
     :param I:                  Hi-C matrix to be plotted as image and saved
     :param LT_HIoIs:           Horizontal Intervals of Interest (lower-triangular part)
