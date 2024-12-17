@@ -4,7 +4,7 @@
 
 import functools
 import warnings
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -112,23 +112,17 @@ def _register_cmaps():
     _register_cmaps.called = True
 
 
-def _format_ticks(ax: plt.Axes, x: bool = True, y: bool = True, rotation: int = 0):
+def _format_ticks(ax: plt.Axes, xaxis: bool = True, yaxis: bool = True, rotation: int = 0):
     """
     Function taken from https://cooltools.readthedocs.io/en/latest/notebooks/viz.html
-    :param ax:        an Axes object.
-    :param x:         if True, it formats labels in engineering notation for the x-axis
-    :param y:         if True, it formats labels in engineering notation for the y-axis
-    :param y:         if True, it formats labels in engineering notation for the y-axis
-    :param rotation:  degrees of rotation of the x-axis ticks
-    :return:          -
     """
-    if x:
+    if xaxis:
         ax.xaxis.set_major_formatter(EngFormatter("b"))
     else:
         ax.xaxis.set_major_formatter(ScalarFormatter())
     ax.xaxis.tick_bottom()
 
-    if y:
+    if yaxis:
         ax.yaxis.set_major_formatter(EngFormatter("b"))
     else:
         ax.yaxis.set_major_formatter(ScalarFormatter())
@@ -138,9 +132,8 @@ def _format_ticks(ax: plt.Axes, x: bool = True, y: bool = True, rotation: int = 
 
 
 def hic_matrix(
-    I: npt.NDArray,
-    RoI: Tuple[int, int],
-    title: Optional[str] = None,
+    matrix: npt.NDArray,
+    region: Tuple[int, int],
     cmap="fruit_punch",
     log_scale: bool = True,
     with_colorbar: bool = False,
@@ -148,13 +141,33 @@ def hic_matrix(
     ax: Optional[plt.Axes] = None,
 ) -> Tuple[plt.Figure, plt.Axes, AxesImage]:
     """
-    :param I:                   Hi-C matrix to be plotted as image and saved
-    :param  RoI:                refers to the Region of Interest [RoI[0], RoI[1]]x[RoI[2], RoI[3]]
-                                (e.g., in genomic coordinates)
-    :param title:               title to give to the image
-    :param compact:             if False, it adds axes ticks, color bars
-    :param fig:                 figure to use for plotting
-    :param ax:                  axis to use for plotting
+    Plot the given matrix as a heatmap
+
+    Parameters
+    ----------
+    matrix: npt.NDArray
+        the 2D matrix to be plotted
+    region: Tuple[int, int]
+        a 2 int tuple containing the first and last genomic coordinates (bp) to be plotted
+    cmap
+        color map to be used for plotting
+    log_scale: bool
+        if True, plot the heatmap in log scale
+    with_colorbar: bool
+        if True, add a color bar for the plotted heatmap
+    fig: Optional[plt.Figure]
+        figure to use for plotting
+    ax: Optional[plt.Axes]
+        axis to use for plotting
+
+    Returns
+    -------
+    fig: plt.Figure
+        figure used for plotting
+    ax: plt.Axes
+        axis used for plotting
+    img:
+        image returned by ax.imshow()
     """
     _register_cmaps()
 
@@ -166,19 +179,16 @@ def hic_matrix(
         raise RuntimeError("ax cannot be None when fig is not None")
 
     kwargs = {
-        "extent": (RoI[0], RoI[1], RoI[1], RoI[0]),
+        "extent": (region[0], region[1], region[1], region[0]),
         "cmap": cmap,
     }
     if log_scale:
         kwargs["norm"] = mpl.colors.LogNorm()
     else:
-        kwargs["vmax"] = np.amax(I)
+        kwargs["vmax"] = np.amax(matrix)
 
-    img = ax.imshow(I, **kwargs)
+    img = ax.imshow(matrix, **kwargs)
     _format_ticks(ax)
-
-    if title is not None:
-        fig.suptitle(title)
 
     if with_colorbar:
         fig.colorbar(img, ax=ax)
@@ -187,34 +197,55 @@ def hic_matrix(
 
 
 def pseudodistribution(
-    pseudo_distrib_lt: npt.NDArray[float],
-    pseudo_distrib_ut: npt.NDArray[float],
-    IoI: Tuple[int, int],
+    pseudo_distrib_lt: Sequence[float],
+    pseudo_distrib_ut: Sequence[float],
+    region: Tuple[int, int],
     resolution: int,
-    title: Optional[str] = None,
-    coords2scatter_lt: Optional[npt.NDArray[int]] = None,
-    coords2scatter_ut: Optional[npt.NDArray[int]] = None,
-    colors: Optional[List] = None,
+    highlighted_points_lt: Optional[Sequence[int]] = None,
+    highlighted_points_ut: Optional[Sequence[int]] = None,
+    colors: Optional[Any] = None,
     fig: Optional[plt.Figure] = None,
     axs: Optional[Tuple[plt.Axes, plt.Axes]] = None,
 ) -> Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]:
     """
-    :param pseudo_distrib_lt:       1D ndarray representing a scalar function sampled over a uniform mesh (lower-triangular matrix)
-    :param pseudo_distrib_ut:       same as pseudo_distrib_lt but for the upper-triangular matrix
-    :param IoI:                     refers to the Interval of Interest [IoI[0], IoI[1]] (e.g., in genomic coordinates)
-                                    where the scalar function was sampled on; see also plot_in_bp
-    :param resolution:              resolution of the Hi-C matrix
-    :param title:                   title to give to the image
-    :param coords2scatter_lt:       list of lists of genomic coordinates (lower-triangular matrix);
-                                    each list of genomic coordinates determines a point cloud as follows: for genomic coordinate x, we sample the value of
-                                    pseudo_distrib at x; each point cloud is scatterplotted with a specific color,
-                                    potentially given in input, read below;
-                                    if set to None, nothing happens
-    :param coords2scatter_ut:       same as coords2scatter_lt but for the upper-triangular matrix
-    :param colors:                  list of colors, one color per list of genomic coordinates (see coords2scatter);
-                                    if set to None, use red
-    :param fig:                     figure to use for plotting
-    :param axs:                     a tuple of two axes to use for plotting
+    Plot the given pseudo-distributions as a two line plots
+
+    Parameters
+    ----------
+    pseudo_distrib_lt: Sequence[float]
+        pseudo-distribution values computed on the lower-triangular matrix
+    pseudo_distrib_ut: Sequence[float]
+        pseudo-distribution values computed on the upper-triangular matrix
+    region: Tuple[int, int]
+        a 2 int tuple containing the first and last genomic coordinates (bp) to be plotted
+    resolution: int
+        resolution (bp) of the Hi-C matrix from which the pseudo-distribution were computed
+    highlighted_points_lt: Optional[Sequence[int]]
+        list of genomic coordinates (lower-triangular matrix) to be highlighted.
+        Each pair of genomic coordinates determines a point cloud as follows:
+        - for genomic coordinate x, we sample the value of pseudo_distrib_lt at x
+        - each point cloud is scatterplotted with the color specified through the colors parameter.
+    highlighted_points_ut: Optional[Sequence[int]]
+        same as coords2scatter_lt but for the upper-triangular matrix
+    colors: Optional[Any]
+        one or more colors to be used when generating the scatter plot.
+        When provided it should be either:
+        - a single color: all points are plotted using the same color
+        - a list colors: the list should contain at least
+          max(len(color2scatter_lt), len(color2scatter_ut)) colors
+    fig: Optional[plt.Figure]
+        figure to use for plotting
+    axs: Optional[Tuple[plt.Axes, plt.Axes]]
+        axes to use for plotting
+
+    Returns
+    -------
+    fig: plt.Figure
+        figure used for plotting
+    ax1: plt.Axes
+        axis with the plot for upper-triangular pseudo-distribution
+    ax2: plt.Axes
+        axis with the plot for lower-triangular pseudo-distribution
     """
     if fig is None:
         if axs is not None:
@@ -226,10 +257,20 @@ def pseudodistribution(
     if len(axs) != 2:
         raise RuntimeError("axs should be a tuple with exactly two plt.Axes")
 
-    i1 = IoI[0] // resolution
-    i2 = IoI[1] // resolution
+    i1 = region[0] // resolution
+    i2 = region[1] // resolution
 
-    def _plot(data, coords2scatter, ax, title):
+    if colors is None:
+        num_colors = 0
+        if highlighted_points_lt is not None:
+            num_colors = len(highlighted_points_lt)
+        if highlighted_points_ut is not None:
+            num_colors = max(num_colors, len(highlighted_points_ut))
+
+        if num_colors > 0:
+            colors = ["blue"] * num_colors
+
+    def _plot(data, points, ax, title):
         ax.plot(
             np.arange(i1, i2) * resolution,
             data[i1:i2],
@@ -237,54 +278,64 @@ def pseudodistribution(
             linewidth=0.5,
             linestyle="solid",
         )
-        if coords2scatter is not None:
-            for n, cur_coords2scatter in enumerate(coords2scatter):
-                if colors is not None:
-                    color = colors[n]
-                else:
-                    color = "blue"
+        if points is not None:
+            for n, x in enumerate(points):
+                if not region[0] <= x <= region[1]:
+                    raise RuntimeError("point outside of bounds")
                 ax.plot(
-                    np.array(cur_coords2scatter) * resolution,
-                    data[cur_coords2scatter],
+                    x,
+                    data[x // resolution],
                     marker=".",
                     linestyle="",
                     markersize=5,
-                    color=color,
+                    color=colors[n],
                 )
         ax.set(title=title, ylim=(0, 1), ylabel="Pseudo-distribution")
         ax.grid(True)
 
-    _plot(pseudo_distrib_ut, coords2scatter_ut, axs[0], "Upper Triangular")
-    _plot(pseudo_distrib_lt, coords2scatter_lt, axs[1], "Lower Triangular")
+    _plot(pseudo_distrib_ut, highlighted_points_ut, axs[0], "Upper Triangular")
+    _plot(pseudo_distrib_lt, highlighted_points_lt, axs[1], "Lower Triangular")
 
-    _format_ticks(axs[1], y=False, x=True)
+    _format_ticks(axs[1], yaxis=False, xaxis=True)
 
     axs[1].set(xlabel="Genomic coordinates (bp)")
-
-    if title is not None:
-        fig.suptitle(title)
 
     return fig, axs
 
 
 def plot_sites(
-    sites: npt.NDArray[int],
-    RoI: Tuple[int, int],
+    sites: Sequence[int],
+    region: Tuple[int, int],
     location: Optional[str],
-    color: str = "blue",
-    title: Optional[str] = None,
+    color="blue",
     fig: Optional[plt.Figure] = None,
     ax: Optional[plt.Axes] = None,
 ):
     """
-    :param sites:              list of locations of interest. Locations should be expressed in genomic coordinates
-    :param RoI:                refers to the region of interest RoI[0], RoI[1] in genomic coordinates
-    :param location:           if "lower" (resp. "upper"), then it plots sites only on the lower (resp. upper) part of
-                               the Hi-C matrix; otherwise, it plots sites spanning the whole Hi-C matrix
-    :param color:              color used for plotting
-    :param title:              title to give to the image
-    :param fig:                figure to use for plotting
-    :param ax:                 axis to use for plotting
+    Plot one or more sites of interest (e.g. stipe seeds).
+
+    Parameters
+    ----------
+    sites: Sequence[int]
+        list of genomic coordinates (bp) corresponding to the x-coordinates of the sites to be plotted
+    region: Tuple[int, int]
+        a 2 int tuple containing the first and last genomic coordinates (bp) to be plotted
+    location: Optional[str]
+        if "lower" (resp. "upper"), then plot sites only on the lower (resp. upper) part of
+        the Hi-C matrix. Otherwise, plot sites spanning the whole Hi-C matrix
+    color:
+        color to be used for plotting
+    fig: Optional[plt.Figure]
+        figure to use for plotting
+    ax: Optional[Tuple[plt.Axes, plt.Axes]]
+        axis to use for plotting
+
+    Returns
+    -------
+    fig: plt.Figure
+        figure used for plotting
+    ax: plt.Axes
+        axis used for plotting
     """
     if location is not None and location not in {"lower", "upper"}:
         raise ValueError('location should be "lower" or "upper"')
@@ -300,23 +351,20 @@ def plot_sites(
         warnings.warn("stripepy.plot.plot_sites: no sites to plot!")
 
     for site in sites:
+        if not region[0] <= site <= region[1]:
+            raise RuntimeError("site outside of bounds")
+
         x = [site] * 2
         if location == "lower":
-            y = [site, RoI[1] - 1]
+            y = [site, region[1] - 1]
         elif location == "upper":
-            y = [RoI[0] + 1, site]
+            y = [region[0] + 1, site]
         else:
-            y = [RoI[0] + 1, RoI[1] - 1]
-
-        if site < RoI[0] or site > RoI[1]:
-            raise RuntimeError("site outside of bounds")
+            y = [region[0] + 1, region[1] - 1]
 
         ax.plot(x, y, color=color, linestyle="dashed", linewidth=1)
 
     _format_ticks(ax)
-
-    if title is not None:
-        fig.suptitle(title)
 
     return fig, ax
 
