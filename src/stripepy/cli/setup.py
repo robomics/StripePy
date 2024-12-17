@@ -291,8 +291,9 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         )
 
     sc = subparser.add_parser(
-        "matrix",
+        "contact-map",
         help="Plot the Hi-C matrix.",
+        aliases=["cm"],
     )
     sc.add_argument(
         "contact-map",
@@ -340,8 +341,9 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
     add_common_options(sc, region_is_randomized=True)
 
     sc = subparser.add_parser(
-        "pd",
+        "pseudodistribution",
         help="Plot the pseudodistribution.",
+        aliases=["pd"],
     )
     add_stripepy_hdf5_option(sc)
     add_common_options(sc, region_is_randomized=True)
@@ -349,6 +351,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
     sc = subparser.add_parser(
         "stripe-hist",
         help="Generate and plot the histograms showing the distribution of the stripe heights and widths.",
+        aliases=["hist"],
     )
     add_stripepy_hdf5_option(sc)
     add_common_options(sc, region_is_randomized=False)

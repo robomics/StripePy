@@ -456,7 +456,7 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
     if "seed" in kwargs:
         random.seed(kwargs["seed"])
 
-    if plot_type == "matrix":
+    if plot_type == "contact-map":
         plot_seeds = kwargs.pop("highlight_seeds")
         plot_stripes = kwargs.pop("highlight_stripes")
         ignore_stripe_heights = kwargs.pop("ignore_stripe_heights")
@@ -476,7 +476,7 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
                 kwargs["override_height"] = None
                 kwargs["mask_regions"] = False
             fig = _plot_hic_matrix_with_stripes(**kwargs)
-    elif plot_type == "pd":
+    elif plot_type == "pseudodistribution":
         fig = _plot_pseudodistribution(**kwargs)
     elif plot_type == "stripe-hist":
         fig = _plot_stripe_dimension_distribution(**kwargs)
