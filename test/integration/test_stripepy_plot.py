@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 import pathlib
+import shutil
+import tarfile
 
 import pytest
 
@@ -19,6 +21,17 @@ def compare_images(expected: pathlib.Path, actual: pathlib.Path, tol: float = 0.
         pytest.fail(res)
 
 
+def extract_image(
+    name: str, dest_dir: pathlib.Path, prefix: pathlib.Path = pathlib.Path("stripepy-plot-test-images")
+) -> pathlib.Path:
+    dest = dest_dir / name
+    with tarfile.TarFile.open(testdir / "data" / "stripepy-plot-test-images.tar.xz") as tar:
+        with tar.extractfile(str(prefix / name)) as fin, dest.open("wb") as fout:
+            shutil.copyfileobj(fin, fout)  # noqa
+
+    return dest_dir / name
+
+
 @pytest.mark.end2end
 class TestStripePyPlot:
     @staticmethod
@@ -26,13 +39,7 @@ class TestStripePyPlot:
         test_files = [
             testdir / "data" / "4DNFI9GMP2J8.mcool",
             testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5",
-            testdir / "data" / "contact_map.png",
-            testdir / "data" / "contact_map_with_seeds.png",
-            testdir / "data" / "contact_map_with_stripes.png",
-            testdir / "data" / "contact_map_with_stripes_no_heights.png",
-            testdir / "data" / "pseudodistribution.png",
-            testdir / "data" / "stripe_hist.png",
-            testdir / "data" / "stripe_hist_gw.png",
+            testdir / "data" / "stripepy-plot-test-images.tar.xz",
         ]
 
         for f in test_files:
@@ -46,7 +53,7 @@ class TestStripePyPlot:
         tmpdir = pathlib.Path(tmpdir)
 
         matrix_file = testdir / "data" / "4DNFI9GMP2J8.mcool"
-        expected = testdir / "data" / "contact_map.png"
+        expected = extract_image("contact_map.png", tmpdir)
 
         resolution = 10_000
         region = "chr2:120100000-122100000"
@@ -64,7 +71,7 @@ class TestStripePyPlot:
 
         matrix_file = testdir / "data" / "4DNFI9GMP2J8.mcool"
         stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
-        expected = testdir / "data" / "contact_map_with_seeds.png"
+        expected = extract_image("contact_map_with_seeds.png", tmpdir)
 
         resolution = 10_000
         region = "chr2:120100000-122100000"
@@ -93,7 +100,7 @@ class TestStripePyPlot:
 
         matrix_file = testdir / "data" / "4DNFI9GMP2J8.mcool"
         stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
-        expected = testdir / "data" / "contact_map_with_stripes.png"
+        expected = extract_image("contact_map_with_stripes.png", tmpdir)
 
         resolution = 10_000
         region = "chr2:120100000-122100000"
@@ -122,7 +129,7 @@ class TestStripePyPlot:
 
         matrix_file = testdir / "data" / "4DNFI9GMP2J8.mcool"
         stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
-        expected = testdir / "data" / "contact_map_with_stripes_no_heights.png"
+        expected = extract_image("contact_map_with_stripes_no_heights.png", tmpdir)
 
         resolution = 10_000
         region = "chr2:120100000-122100000"
@@ -151,7 +158,7 @@ class TestStripePyPlot:
         tmpdir = pathlib.Path(tmpdir)
 
         stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
-        expected = testdir / "data" / "pseudodistribution.png"
+        expected = extract_image("pseudodistribution.png", tmpdir)
 
         region = "chr2:120100000-122100000"
 
@@ -167,7 +174,7 @@ class TestStripePyPlot:
         tmpdir = pathlib.Path(tmpdir)
 
         stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
-        expected = testdir / "data" / "stripe_hist.png"
+        expected = extract_image("stripe_hist.png", tmpdir)
 
         region = "chr2:120100000-122100000"
 
@@ -183,7 +190,7 @@ class TestStripePyPlot:
         tmpdir = pathlib.Path(tmpdir)
 
         stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
-        expected = testdir / "data" / "stripe_hist_gw.png"
+        expected = extract_image("stripe_hist_gw.png", tmpdir)
 
         outfile = tmpdir / "img.png"
         args = ["plot", "stripe-hist", str(stripe_file), str(outfile)]
