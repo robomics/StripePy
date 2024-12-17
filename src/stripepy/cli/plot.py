@@ -225,7 +225,7 @@ def _plot_hic_matrix_with_seeds(
         data = _fetch_persistence_maximum_points(h5, chrom, start, end)
         resolution = h5.resolution
 
-    fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.4), sharey=True)
+    fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.6), sharey=True)
 
     for ax in axs:
         _, _, img = stripepy.plot.hic_matrix(
@@ -283,7 +283,7 @@ def _plot_hic_matrix_with_stripes(
         geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
         geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
 
-    fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.4), sharey=True)
+    fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.6), sharey=True)
 
     outlines_lt = [
         (min(lb - start, chrom_size), min(rb - start, chrom_size), min(bb - tb, chrom_size))

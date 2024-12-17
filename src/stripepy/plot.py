@@ -112,7 +112,7 @@ def _register_cmaps():
     _register_cmaps.called = True
 
 
-def _format_ticks(ax: plt.Axes, xaxis: bool = True, yaxis: bool = True, rotation: int = 0):
+def _format_ticks(ax: plt.Axes, xaxis: bool = True, yaxis: bool = True, rotation: int = 30):
     """
     Function taken from https://cooltools.readthedocs.io/en/latest/notebooks/viz.html
     """
