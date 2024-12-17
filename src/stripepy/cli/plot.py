@@ -198,11 +198,13 @@ def _plot_hic_matrix(
     fig, _, _ = stripepy.plot.hic_matrix(
         matrix,
         (start, end),
-        title=f"{chrom}:{start}-{end}",
         cmap=cmap,
         log_scale=log_scale,
         with_colorbar=True,
     )
+
+    fig.suptitle(f"{chrom}:{start}-{end}")
+    fig.tight_layout()
 
     return fig
 
@@ -389,11 +391,10 @@ def _plot_pseudodistribution(stripepy_hdf5: pathlib.Path, region: Optional[str],
     fig, _ = stripepy.plot.pseudodistribution(
         data["pseudodistribution_lt"],
         data["pseudodistribution_ut"],
-        (start, end),
-        resolution,
-        title=f"{chrom}:{start}-{end}",
-        coords2scatter_lt=data["seeds_lt"],
-        coords2scatter_ut=data["seeds_ut"],
+        region=(start, end),
+        resolution=resolution,
+        highlighted_points_lt=data["seeds_lt"] * resolution,
+        highlighted_points_ut=data["seeds_ut"] * resolution,
     )
 
     fig.tight_layout()
@@ -458,7 +459,7 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
     if "seed" in kwargs:
         random.seed(kwargs["seed"])
 
-    if plot_type == "contact-map":
+    if plot_type in {"contact-map", "cm"}:
         plot_seeds = kwargs.pop("highlight_seeds")
         plot_stripes = kwargs.pop("highlight_stripes")
         ignore_stripe_heights = kwargs.pop("ignore_stripe_heights")
@@ -478,9 +479,9 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
                 kwargs["override_height"] = None
                 kwargs["mask_regions"] = False
             fig = _plot_hic_matrix_with_stripes(**kwargs)
-    elif plot_type == "pseudodistribution":
+    elif plot_type in {"pseudodistribution", "pd"}:
         fig = _plot_pseudodistribution(**kwargs)
-    elif plot_type == "stripe-hist":
+    elif plot_type in {"stripe-hist", "hist"}:
         fig = _plot_stripe_dimension_distribution(**kwargs)
     else:
         raise NotImplementedError
