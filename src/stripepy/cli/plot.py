@@ -255,7 +255,7 @@ def _plot_hic_matrix_with_seeds(
     fig.suptitle(f"{chrom}:{start}-{end}")
     fig.tight_layout()
 
-    fig.subplots_adjust(right=0.95)
+    fig.subplots_adjust(right=0.94)
     cbar_ax = fig.add_axes((0.95, 0.15, 0.015, 0.7))
     fig.colorbar(img, cax=cbar_ax)  # noqa
 
@@ -370,7 +370,7 @@ def _plot_hic_matrix_with_stripes(
     fig.suptitle(f"{chrom}:{start}-{end}")
     fig.tight_layout()
 
-    fig.subplots_adjust(right=0.95)
+    fig.subplots_adjust(right=0.94)
     cbar_ax = fig.add_axes((0.95, 0.15, 0.015, 0.7))
     fig.colorbar(img, cax=cbar_ax)
 

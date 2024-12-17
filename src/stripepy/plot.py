@@ -112,7 +112,7 @@ def _register_cmaps():
     _register_cmaps.called = True
 
 
-def _format_ticks(ax: plt.Axes, x: bool = True, y: bool = True, rotation: int = 45):
+def _format_ticks(ax: plt.Axes, x: bool = True, y: bool = True, rotation: int = 0):
     """
     Function taken from https://cooltools.readthedocs.io/en/latest/notebooks/viz.html
     :param ax:        an Axes object.
@@ -143,7 +143,6 @@ def hic_matrix(
     title: Optional[str] = None,
     cmap="fruit_punch",
     log_scale: bool = True,
-    compact: bool = False,
     with_colorbar: bool = False,
     fig: Optional[plt.Figure] = None,
     ax: Optional[plt.Axes] = None,
@@ -178,22 +177,11 @@ def hic_matrix(
     img = ax.imshow(I, **kwargs)
     _format_ticks(ax)
 
-    ax.axis("scaled")
-
-    if compact:
-        ax.axis("off")
-
     if title is not None:
-        if compact:
-            warnings.warn("value of the title parameter is ignored when compact is True")
-        else:
-            fig.suptitle(title)
+        fig.suptitle(title)
 
     if with_colorbar:
-        if compact:
-            warnings.warn("the with_colorbar parameter is ignored when compact is True")
-        else:
-            fig.colorbar(img, ax=ax)
+        fig.colorbar(img, ax=ax)
 
     return fig, ax, img
 
