@@ -15,14 +15,21 @@ testdir = pathlib.Path(__file__).resolve().parent.parent
 @pytest.mark.end2end
 class TestStripePyCall:
     @staticmethod
+    def setup_class():
+        test_files = [
+            testdir / "data" / "4DNFI9GMP2J8.mcool",
+        ]
+
+        for f in test_files:
+            if not f.exists():
+                raise RuntimeError(
+                    f'unable to find file "{f}". Did you download the test files prior to running pytest?'
+                )
+
+    @staticmethod
     def test_stripepy_call(tmpdir):
         testfile = testdir / "data" / "4DNFI9GMP2J8.mcool"
         resolution = 10_000
-
-        if not testfile.exists():
-            raise RuntimeError(
-                f'unable to find file "{testfile}". Did you download the test files prior to running pytest?'
-            )
 
         args = [
             "call",
