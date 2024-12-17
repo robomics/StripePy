@@ -190,6 +190,7 @@ def _plot_hic_matrix(
     region: Optional[str],
     cmap: str,
     normalization: str,
+    log_scale: bool,
     **kwargs,
 ) -> plt.Figure:
     chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
@@ -199,7 +200,7 @@ def _plot_hic_matrix(
         (start, end),
         title=f"{chrom}:{start}-{end}",
         cmap=cmap,
-        log_scale=True,
+        log_scale=log_scale,
         with_colorbar=True,
     )
 
@@ -213,6 +214,7 @@ def _plot_hic_matrix_with_seeds(
     region: Optional[str],
     cmap: str,
     normalization: str,
+    log_scale: bool,
     **kwargs,
 ) -> plt.Figure:
     chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
@@ -228,7 +230,7 @@ def _plot_hic_matrix_with_seeds(
             matrix,
             (start, end),
             cmap=cmap,
-            log_scale=True,
+            log_scale=log_scale,
             with_colorbar=False,
             fig=fig,
             ax=ax,
@@ -269,6 +271,7 @@ def _plot_hic_matrix_with_stripes(
     normalization: str,
     override_height: Optional[int],
     mask_regions: bool,
+    log_scale: bool,
     **kwargs,
 ) -> plt.Figure:
     chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
@@ -324,7 +327,7 @@ def _plot_hic_matrix_with_stripes(
         m1,
         (start, end),
         cmap=cmap,
-        log_scale=True,
+        log_scale=log_scale,
         with_colorbar=False,
         fig=fig,
         ax=axs[0],
@@ -333,7 +336,7 @@ def _plot_hic_matrix_with_stripes(
         m2,
         (start, end),
         cmap=cmap,
-        log_scale=True,
+        log_scale=log_scale,
         with_colorbar=False,
         fig=fig,
         ax=axs[1],
@@ -400,7 +403,6 @@ def _plot_pseudodistribution(stripepy_hdf5: pathlib.Path, region: Optional[str],
 def _plot_stripe_dimension_distribution(
     stripepy_hdf5: pathlib.Path,
     region: Optional[str],
-    seed: int,
     **kwargs,
 ) -> plt.Figure:
     with ResultFile(stripepy_hdf5) as h5:

@@ -331,13 +331,28 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         default=False,
         help="Ignore the stripes height. Has no effect when --highlight-stripes is not specified.",
     )
-
     sc.add_argument(
         "--cmap",
         type=str,
         default="fruit_punch",
         help="Color map used to plot Hi-C interactions. Can be any of the color maps supported by matplotlib as well as: fall, fruit_punch, blues, acidblues, and nmeth.",
     )
+
+    grp = sc.add_mutually_exclusive_group()
+    grp.add_argument(
+        "--linear-scale",
+        action="store_false",
+        dest="log_scale",
+        help="Plot interactions in linear scale.",
+    )
+    grp.add_argument(
+        "--log-scale",
+        action="store_true",
+        dest="log_scale",
+        default=True,
+        help="Plot interactions in log scale.",
+    )
+
     add_common_options(sc, region_is_randomized=True)
 
     sc = subparser.add_parser(
