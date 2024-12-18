@@ -17,14 +17,14 @@ defaults:
 
 env:
   TEST_MCOOL_NAME: 4DNFI9GMP2J8.mcool
-  TEST_MCOOL_URL: "https://zenodo.org/records/14283922/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
+  TEST_MCOOL_URL: "https://zenodo.org/records/14517632/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
   TEST_MCOOL_MD5: "a17d08460c03cf6c926e2ca5743e4888"
   TEST_RESULT_FILE_V1_NAME: results_4DNFI9GMP2J8_v1.hdf5
-  TEST_RESULT_FILE_V1_URL: "https://zenodo.org/records/14283922/files/results_4DNFI9GMP2J8_v1.hdf5?download=1"
+  TEST_RESULT_FILE_V1_URL: "https://zenodo.org/records/14517632/files/results_4DNFI9GMP2J8_v1.hdf5?download=1"
   TEST_RESULT_FILE_V1_MD5: "632b2a7a6e5c1a24dc3635710ed68a80"
   TEST_PLOTS_NAME: stripepy-plot-test-images.tar.xz
-  TEST_PLOTS_URL: "https://zenodo.org/records/14510452/files/stripepy-plot-test-images.tar.xz?download=1"
-  TEST_PLOTS_MD5: "696c8b7e61a292667581d98846dfc684"
+  TEST_PLOTS_URL: "https://zenodo.org/records/14517632/files/stripepy-plot-test-images.tar.xz?download=1"
+  TEST_PLOTS_MD5: "d4ab74937dd9062efe4b2acc6ebc8780"
 
 jobs:
   cache-test-datasets:
