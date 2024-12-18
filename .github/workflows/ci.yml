@@ -8,6 +8,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/cache-test-datasets.yml"
       - ".github/workflows/ci.yml"
       - "src/**"
       - "test/**"
@@ -16,6 +17,7 @@ on:
 
   pull_request:
     paths:
+      - ".github/workflows/cache-test-datasets.yml"
       - ".github/workflows/ci.yml"
       - "src/**"
       - "test/**"
@@ -62,16 +64,17 @@ jobs:
 
             return { include: includes }
 
+  cache-test-datasets:
+    name: Cache test datasets
+    uses: paulsengroup/StripePy/.github/workflows/cache-test-datasets.yml@main
+
   ci:
     name: CI
-    needs: [matrix-factory]
+    needs: [cache-test-datasets, matrix-factory]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix-factory.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
-
-    env:
-      TEST_DATASET_ID: 4DNFI9GMP2J8
 
     steps:
       - uses: actions/checkout@v4
@@ -93,35 +96,13 @@ jobs:
           stripepy --help
           stripepy --version
 
-      - name: Cache test dataset
-        id: cache-dset
+      - name: Restore test dataset
         uses: actions/cache/restore@v4
         with:
-          key: test-dataset
-          path: |
-            test/data/${{env.TEST_DATASET_ID }}.mcool
-            test/data/results*.hdf5
-
-      - name: Download test dataset
-        if: steps.cache-dset.outputs.cache-hit != 'true'
-        run: |
-          mkdir test/data/
-          stripepy download \
-            --name ${{ env.TEST_DATASET_ID }} \
-            --output test/data/${{ env.TEST_DATASET_ID }}.mcool
-
-          stripepy download \
-            --name __results_v1 \
-            --output test/data/results_4DNFI9GMP2J8_v1.hdf5
-
-      - name: Save test dataset
-        if: steps.cache-dset.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          key: test-dataset
-          path: |
-            test/data/${{env.TEST_DATASET_ID }}.mcool
-            test/data/results*.hdf5
+          key: ${{ needs.cache-test-datasets.outputs.cache-key }}
+          path: test/data/
+          fail-on-cache-miss: true
+          enableCrossOsArchive: true
 
       - name: Run unit tests
         run: |
