@@ -160,7 +160,7 @@ def _fetch_persistence_maximum_points(h5: ResultFile, chrom: str, start: int, en
         assert left_bound >= 0
         assert right_bound >= left_bound
 
-        idx = np.where((v >= left_bound) & (v <= right_bound))[0]
+        idx = np.where((v >= left_bound) & (v < right_bound))[0]
         return idx.astype(int), v[idx].astype(int)
 
     pd_lt = h5.get(chrom, "pseudodistribution", "LT")["pseudodistribution"].to_numpy()
