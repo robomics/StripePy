@@ -695,43 +695,6 @@ def format_ticks(ax, x=True, y=True, rotate=True):
         ax.tick_params(axis="x", rotation=45)
 
 
-def HiC(I, RoI, plot_in_bp=False, output_folder=None, file_name=None, title=None, compactify=False):
-    """
-    :param I:                   Hi-C matrix to be plotted as image and saved
-    :param  RoI:                refers to the Region of Interest [RoI[0], RoI[1]]x[RoI[2], RoI[3]]
-                                (e.g., in genomic coordinates)
-    :param plot_in_bp:          if True, labels are set in base pairs w.r.t. the genomic interval in RoI;
-                                if False, labels are set in pixel coordinates
-    :param output_folder:       path to folder where to save the image
-    :param file_name:           name of the file to be created
-    :param title:               title to give to the image
-    :param compactify:          if False, it adds axes ticks, color bars
-    :return:                    -
-    """
-    if output_folder is None or file_name is None:
-        return
-
-    fig, ax = plt.subplots(1, 1)
-    img = ax.matshow(I, vmax=np.amax(I), extent=(RoI[0], RoI[1], RoI[3], RoI[2]), cmap=fruit_punch)
-    if plot_in_bp:
-        format_ticks(ax)
-
-    if compactify is True:
-        plt.axis("off")
-    else:
-        # plt.colorbar(img)
-        if title is not None:
-            fig.suptitle(title)
-
-    fig.set_dpi(256)
-    plt.axis("scaled")
-    fig.tight_layout()
-
-    plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
-
-    plt.close()
-
-
 def pseudodistrib(
     pseudo_distrib,
     IoI,
@@ -743,6 +706,7 @@ def pseudodistrib(
     title=None,
     display=False,
 ):
+    # TODO remove
     """
     :param pseudo_distrib:          1D ndarray representing a scalar function sampled over a uniform mesh
     :param  IoI:                    refers to the Interval of Interest [IoI[0], IoI[1]] (e.g., in genomic coordinates)
@@ -808,6 +772,7 @@ def pseudodistrib(
 def pseudodistrib_and_HIoIs(
     pseudo_distrib, IoIs, resolution, colors=None, output_folder=None, file_name=None, title=None, display=False
 ):
+    # TODO remove
     """
     :param pseudo_distrib:          1D ndarray representing a scalar function sampled over a uniform mesh
     :param  IoIs:                   list of lists, where the innermost lists are pairs of coordinates; the first pair
@@ -824,7 +789,6 @@ def pseudodistrib_and_HIoIs(
     :param display:                 if False, it does not display the plot
     :return:                        -
     """
-
     fig, ax = plt.subplots(1, 1)
     for IoI, color in zip(IoIs, colors):
         ax.plot(
@@ -834,21 +798,17 @@ def pseudodistrib_and_HIoIs(
             linewidth=0.5,
             linestyle="solid",
         )
-
     ax.xaxis.set_major_formatter(EngFormatter("b"))
     if no_frills_in_images is False:
         if title is not None:
             fig.suptitle(title)
-
     ax.set_xlabel("genomic coordinates (bp)")
     ax.set_ylabel("pseudo-distribution")
     fig.tight_layout()
     ax.grid(True)
     # plt.axis('scaled')
-
     if output_folder is not None and file_name is not None:
         plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
-
     if display:
         plt.show()
     plt.close()
@@ -865,7 +825,7 @@ def HiC_and_sites(
     file_name=None,
     title=None,
     display=False,
-):
+):  # TODO remove
     """
     :param I:                  Hi-C matrix to be plotted as image and saved
     :param sites:              list of locations of interest
@@ -935,6 +895,7 @@ def HiC_and_HIoIs(
     title=None,
     display=False,
 ):
+    # TODO: remove
     """
     :param I:                   Hi-C matrix to be plotted as image and saved
     :param HIoIs:               list of lists, where the innermost lists are pairs of elements
@@ -1036,6 +997,7 @@ def plot_stripes(
     title=None,
     display=False,
 ):
+    # TODO remove
     """
     :param I:                  Hi-C matrix to be plotted as image and saved
     :param LT_HIoIs:           Horizontal Intervals of Interest (lower-triangular part)
@@ -1280,22 +1242,3 @@ def plot_stripes_and_peaks(
     if display:
         plt.show()
     plt.close()
-
-
-def save_candidates_bedpe(HIoIs, VIoIs, resolution, chr, output_folder, file_name):
-    """
-    :param HIoIs:              Horizontal Intervals of Interest
-    :param VIoIs:              Vertical Intervals of Interest
-    :param resolution:         resolution
-    :param chr:                chromosome
-    :param output_folder:      path to folder where to save the image
-    :param file_name:          name of the file to be created
-    :return:                   -
-    """
-
-    with open(f"{output_folder}/{file_name}", "w") as f:
-        for HIoI, VIoI in zip(HIoIs, VIoIs):
-            f.write(
-                f"{chr}\t{resolution * HIoI[0]}\t{resolution * HIoI[1]}\t"
-                f"{chr}\t{resolution * VIoI[0]}\t{resolution * VIoI[1]}\n"
-            )

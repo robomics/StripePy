@@ -2,14 +2,10 @@
 #
 # SPDX-License-Identifier: MIT
 
-import functools
-import gc
 import pathlib
 import tempfile
-from typing import Dict, List, Union
+from typing import List
 
-import hictkpy as htk
-import pandas as pd
 import pytest
 
 from stripepy.others import cmap_loading
@@ -63,10 +59,6 @@ class TestCmapLoading:
         assert len(starts) == len(chromosomes)
         assert len(starts) == len(ends)
         assert len(starts) == len(sizes)
-
-        print(starts)
-        print(ends)
-        print(sizes)
 
         assert starts == _discretize([0, 100_000, 150_000], resolution)
         assert ends == _discretize([100_000, 150_000, 160_000], resolution)
