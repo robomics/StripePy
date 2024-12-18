@@ -1,0 +1,79 @@
+# Copyright (C) 2024 Roberto Rossini <roberros@uio.no>
+#
+# SPDX-License-Identifier: MIT
+
+name: Cache test datasets
+
+on:
+  workflow_call:
+    outputs:
+      cache-key:
+        description: "Test dataset cache key"
+        value: ${{ jobs.cache-test-datasets.outputs.cache-key }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TEST_MCOOL_NAME: 4DNFI9GMP2J8.mcool
+  TEST_MCOOL_URL: "https://zenodo.org/records/14517632/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
+  TEST_MCOOL_MD5: "a17d08460c03cf6c926e2ca5743e4888"
+  TEST_RESULT_FILE_V1_NAME: results_4DNFI9GMP2J8_v1.hdf5
+  TEST_RESULT_FILE_V1_URL: "https://zenodo.org/records/14517632/files/results_4DNFI9GMP2J8_v1.hdf5?download=1"
+  TEST_RESULT_FILE_V1_MD5: "632b2a7a6e5c1a24dc3635710ed68a80"
+  TEST_PLOTS_NAME: stripepy-plot-test-images.tar.xz
+  TEST_PLOTS_URL: "https://zenodo.org/records/14517632/files/stripepy-plot-test-images.tar.xz?download=1"
+  TEST_PLOTS_MD5: "d4ab74937dd9062efe4b2acc6ebc8780"
+
+jobs:
+  cache-test-datasets:
+    name: Cache test datasets
+    runs-on: ubuntu-latest
+
+    outputs:
+      cache-key: ${{ steps.generate-cache-key.outputs.key }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Generate cache key
+        id: generate-cache-key
+        run: |
+          key="test-dataset-${{ hashFiles( '.github/workflows/cache-test-datasets.yml' ) }}"
+
+          echo "key=$key" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Restore cache
+        id: cache-dset
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ steps.generate-cache-key.outputs.key }}
+          path: test/data/
+          lookup-only: true
+
+      - name: Download test datasets
+        if: steps.cache-dset.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p test/data
+
+          curl -L "${{env.TEST_MCOOL_URL }}" -o "test/data/${{env.TEST_MCOOL_NAME }}"
+          curl -L "${{env.TEST_RESULT_FILE_V1_URL }}" -o "test/data/${{env.TEST_RESULT_FILE_V1_NAME }}"
+          curl -L "${{env.TEST_PLOTS_URL }}" -o "test/data/${{env.TEST_PLOTS_NAME }}"
+
+      - name: Checksum test datasets
+        if: steps.cache-dset.outputs.cache-hit != 'true'
+        run: |
+          echo "${{env.TEST_MCOOL_MD5 }}  test/data/${{env.TEST_MCOOL_NAME }}" | tee checksums.md5
+          echo "${{env.TEST_RESULT_FILE_V1_MD5 }}  test/data/${{env.TEST_RESULT_FILE_V1_NAME }}" | tee -a checksums.md5
+          echo "${{env.TEST_PLOTS_MD5 }}  test/data/${{env.TEST_PLOTS_NAME }}" | tee -a checksums.md5
+
+          md5sum -c checksums.md5
+
+      - name: Save cache
+        uses: actions/cache/save@v4
+        if: steps.cache-dset.outputs.cache-hit != 'true'
+        with:
+          key: ${{ steps.generate-cache-key.outputs.key }}
+          path: test/data/
