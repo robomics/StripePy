@@ -26,7 +26,7 @@ def extract_image(
 ) -> pathlib.Path:
     dest = dest_dir / name
     with tarfile.TarFile.open(testdir / "data" / "stripepy-plot-test-images.tar.xz") as tar:
-        with tar.extractfile(str(prefix / name)) as fin, dest.open("wb") as fout:
+        with tar.extractfile((prefix / name).as_posix()) as fin, dest.open("wb") as fout:
             shutil.copyfileobj(fin, fout)  # noqa
 
     return dest_dir / name
