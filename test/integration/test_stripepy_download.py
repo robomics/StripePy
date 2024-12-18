@@ -51,4 +51,4 @@ class TestStripePyDownload:
 
         assert dest.is_file()
 
-        assert _hash_file(dest) == "696c8b7e61a292667581d98846dfc684"
+        assert _hash_file(dest) == "d4ab74937dd9062efe4b2acc6ebc8780"
