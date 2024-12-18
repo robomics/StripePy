@@ -249,8 +249,12 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
             help="Path where to store the generated plot.",
         )
 
-        region_help_msg1 = "Genomic region to be plotted. When not specified, a random 2.5Mb region is plotted."
-        region_help_msg2 = "Genomic region to be plotted. When not specified, the genome-wide data is plotted."
+        region_help_msg1 = (
+            "Genomic region to be plotted (UCSC format). When not specified, a random 2.5Mb region is plotted."
+        )
+        region_help_msg2 = (
+            "Genomic region to be plotted (UCSC format). When not specified, data for the entire genome is plotted."
+        )
 
         sc.add_argument(
             "--region",
@@ -292,7 +296,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc = subparser.add_parser(
         "contact-map",
-        help="Plot the Hi-C matrix.",
+        help="Plot stripes and other features over the Hi-C matrix.",
         aliases=["cm"],
     )
     sc.add_argument(
@@ -323,7 +327,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "--highlight-stripes",
         action="store_true",
         default=False,
-        help="Highlight the called stripes.",
+        help="Highlight the architectural stripes.",
     )
     sc.add_argument(
         "--ignore-stripe-heights",
@@ -335,7 +339,9 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "--cmap",
         type=str,
         default="fruit_punch",
-        help="Color map used to plot Hi-C interactions. Can be any of the color maps supported by matplotlib as well as: fall, fruit_punch, blues, acidblues, and nmeth.",
+        help="Color map used to plot Hi-C interactions.\n"
+        "Can be any of the color maps supported by matplotlib as well as: fall, fruit_punch, "
+        "blues, acidblues, and nmeth.",
     )
 
     grp = sc.add_mutually_exclusive_group()
@@ -357,7 +363,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc = subparser.add_parser(
         "pseudodistribution",
-        help="Plot the pseudodistribution.",
+        help="Plot the pseudo-distribution over the given region of interest.",
         aliases=["pd"],
     )
     add_stripepy_hdf5_option(sc)
