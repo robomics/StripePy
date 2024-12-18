@@ -52,9 +52,18 @@ def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
         "__results_v1": {
             "url": "https://zenodo.org/records/14283922/files/results_4DNFI9GMP2J8_v1.hdf5?download=1",
             "md5": "632b2a7a6e5c1a24dc3635710ed68a80",
+            "filename": "results_4DNFI9GMP2J8_v1.hdf5",
             "assembly": "hg38",
             "format": "stripepy",
             "size_mb": 8.75,
+        },
+        "__stripepy_plot_images": {
+            "url": "https://zenodo.org/records/14510452/files/stripepy-plot-test-images.tar.xz?download=1",
+            "md5": "696c8b7e61a292667581d98846dfc684",
+            "filename": "stripepy-plot-test-images.tar.xz",
+            "assembly": "hg38",
+            "format": "tar",
+            "size_mb": 1.5,
         },
     }
 
@@ -182,7 +191,10 @@ def run(
         dset_name, config = _lookup_dataset(name, assembly, max_size)
 
     if output_path is None:
-        output_path = pathlib.Path(f"{dset_name}." + config["format"])
+        if "filename" in config:
+            output_path = pathlib.Path(config["filename"])
+        else:
+            output_path = pathlib.Path(f"{dset_name}.{config['format']}")
 
     if output_path.exists() and not force:
         raise RuntimeError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")
