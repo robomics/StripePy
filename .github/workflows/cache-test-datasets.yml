@@ -50,11 +50,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: ${{ steps.generate-cache-key.outputs.key }}
-          path: |
-            test/data/*.mcool
-            test/data/results*.hdf5
-            test/data/stripepy-plot-test-images.tar.xz
-
+          path: test/data/
           lookup-only: true
 
       - name: Download test datasets
@@ -80,7 +76,4 @@ jobs:
         if: steps.cache-dset.outputs.cache-hit != 'true'
         with:
           key: ${{ steps.generate-cache-key.outputs.key }}
-          path: |
-            test/data/${{env.TEST_MCOOL_NAME }}
-            test/data/${{env.TEST_RESULT_FILE_V1_NAME }}
-            test/data/${{env.TEST_PLOTS_NAME }}
+          path: test/data/
