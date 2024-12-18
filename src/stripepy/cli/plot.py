@@ -268,6 +268,7 @@ def _plot_hic_matrix_with_stripes(
     contact_map: pathlib.Path,
     stripepy_hdf5: pathlib.Path,
     resolution: int,
+    relative_change_threshold: Optional[float],
     region: Optional[str],
     cmap: str,
     normalization: str,
@@ -282,6 +283,18 @@ def _plot_hic_matrix_with_stripes(
         chrom_size = h5.chromosomes[chrom]
         geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
         geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
+        if relative_change_threshold is not None:
+            mask_lt = (
+                h5.get(chrom, "bio_descriptors", "LT")["rel_change"].iloc[geo_descriptors_lt.index]
+                >= relative_change_threshold
+            )
+            mask_ut = (
+                h5.get(chrom, "bio_descriptors", "UT")["rel_change"].iloc[geo_descriptors_ut.index]
+                >= relative_change_threshold
+            )
+
+            geo_descriptors_lt = geo_descriptors_lt[mask_lt]
+            geo_descriptors_ut = geo_descriptors_ut[mask_ut]
 
     fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.6), sharey=True)
 
