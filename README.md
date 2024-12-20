@@ -25,6 +25,24 @@ StripePy is developed on Linux and macOS and is also tested on Windows.
 
 ## Installing StripePy
 
+### Installing with pip
+
+```bash
+pip install stripepy-hic
+```
+
+<!--
+
+### Installing with conda
+
+```bash
+conda create -n stripepy -c conda-forge -c bioconda stripepy-hic
+```
+
+-->
+
+### Installing from source
+
 Instructions for Linux and macOS:
 
 ```bash
@@ -34,6 +52,9 @@ python3 -m venv venv
 
 # get StripePy source code
 git clone https://github.com/paulsengroup/StripePy.git
+
+# optional, checkout a specific version
+# git checkout v0.0.2
 
 # install StripePy
 cd StripePy
@@ -53,6 +74,9 @@ venv\Scripts\activate
 
 # get StripePy source code
 git clone https://github.com/paulsengroup/StripePy.git
+
+# optional, checkout a specific version
+# git checkout v0.0.2
 
 # install StripePy
 cd StripePy
