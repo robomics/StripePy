@@ -6,14 +6,15 @@ SPDX-License-Identifier: MIT
 
 # StripePy
 
-[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/paulsengroup/StripePy/blob/main/LICENCE)
 [![CI](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml)
 [![Build Dockerfile](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml)
+[![Zenodo DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14394042.svg)](https://doi.org/10.5281/zenodo.14394041)
 
 <!--
 [![Download from Bioconda](https://img.shields.io/conda/vn/bioconda/StripePy?label=bioconda&logo=Anaconda)](https://anaconda.org/bioconda/StripePy)
 [![docs](https://readthedocs.org/projects/stripepy/badge/?version=stable)](https://stripepy.readthedocs.io/en/latest/?badge=stable)
-[![Zenodo DOI](https://zenodo.org/badge/DOI/TODO/zenodo.TODO.svg)](https://doi.org/TODO/zenodo.TODO)
+
 -->
 
 ---
