@@ -6,14 +6,15 @@ SPDX-License-Identifier: MIT
 
 # StripePy
 
-[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/paulsengroup/StripePy/blob/main/LICENCE)
 [![CI](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml)
 [![Build Dockerfile](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml)
+[![Zenodo DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14394042.svg)](https://doi.org/10.5281/zenodo.14394041)
 
 <!--
 [![Download from Bioconda](https://img.shields.io/conda/vn/bioconda/StripePy?label=bioconda&logo=Anaconda)](https://anaconda.org/bioconda/StripePy)
 [![docs](https://readthedocs.org/projects/stripepy/badge/?version=stable)](https://stripepy.readthedocs.io/en/latest/?badge=stable)
-[![Zenodo DOI](https://zenodo.org/badge/DOI/TODO/zenodo.TODO.svg)](https://doi.org/TODO/zenodo.TODO)
+
 -->
 
 ---
@@ -25,6 +26,24 @@ StripePy is developed on Linux and macOS and is also tested on Windows.
 
 ## Installing StripePy
 
+### Installing with pip
+
+```bash
+pip install stripepy-hic
+```
+
+<!--
+
+### Installing with conda
+
+```bash
+conda create -n stripepy -c conda-forge -c bioconda stripepy-hic
+```
+
+-->
+
+### Installing from source
+
 Instructions for Linux and macOS:
 
 ```bash
@@ -34,6 +53,9 @@ python3 -m venv venv
 
 # get StripePy source code
 git clone https://github.com/paulsengroup/StripePy.git
+
+# optional, checkout a specific version
+# git checkout v0.0.2
 
 # install StripePy
 cd StripePy
@@ -53,6 +75,9 @@ venv\Scripts\activate
 
 # get StripePy source code
 git clone https://github.com/paulsengroup/StripePy.git
+
+# optional, checkout a specific version
+# git checkout v0.0.2
 
 # install StripePy
 cd StripePy
@@ -1107,7 +1132,7 @@ Now you are ready to run all cells.
 
 Running the last cell will display a HiGlass window embedded in the Jupyter notebook (note that the interface may take a while to load).
 
-![HiGlass window](docs/assets/4DNFI9GMP2J8_chr2_156mbp_higlass_view.png)
+![HiGlass window](https://github.com/paulsengroup/StripePy/blob/main/docs/assets/4DNFI9GMP2J8_chr2_156mbp_higlass_view.png?raw=true)
 
 ## Generating plots
 
