@@ -442,7 +442,7 @@ def _make_cli() -> argparse.ArgumentParser:
         "-v",
         "--version",
         action="version",
-        version="%(prog)s {version}".format(version=version("stripepy")),
+        version="%(prog)s {version}".format(version=version("stripepy-hic")),
     )
 
     return cli
