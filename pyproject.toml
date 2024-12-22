@@ -11,7 +11,7 @@ requires = [
 build-backend = "hatchling.build"
 
 [project]
-name = "stripepy"
+name = "stripepy-hic"
 description = "StripePy recognizes architectural stripes in 3C and Hi-C contact maps using geometric reasoning"
 dynamic = ["version"]
 authors = [
@@ -73,11 +73,11 @@ dependencies = [
 test = [
     "pytest",
     "pytest-cov",
-    "stripepy",
+    "stripepy-hic",
 ]
 
 dev = [
-    "stripepy[test]",
+    "stripepy-hic[test]",
     "black[jupyter]",
     "build",
     "isort",

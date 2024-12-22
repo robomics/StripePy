@@ -17,12 +17,18 @@ testdir = pathlib.Path(__file__).resolve().parent.parent
 @pytest.mark.end2end
 class TestStripePyView:
     @staticmethod
+    def setup_class():
+        test_files = [testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"]
+
+        for f in test_files:
+            if not f.exists():
+                raise RuntimeError(
+                    f'unable to find file "{f}". Did you download the test files prior to running pytest?'
+                )
+
+    @staticmethod
     def test_view():
         testfile = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
-        if not testfile.exists():
-            raise RuntimeError(
-                f'unable to find file "{testfile}". Did you download the test files prior to running pytest?'
-            )
 
         args = ["view", str(testfile)]
         buff = io.StringIO()

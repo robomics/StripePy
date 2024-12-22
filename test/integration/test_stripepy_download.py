@@ -46,9 +46,9 @@ class TestStripePyDownload:
     def test_download_random(tmpdir):
         dest = pathlib.Path(tmpdir) / "out"
 
-        args = ["download", "--max-size", "10", "--output", str(dest)]
+        args = ["download", "--max-size", "2", "--output", str(dest)]
         main(args)
 
         assert dest.is_file()
 
-        assert _hash_file(dest) == "632b2a7a6e5c1a24dc3635710ed68a80"
+        assert _hash_file(dest) == "d4ab74937dd9062efe4b2acc6ebc8780"

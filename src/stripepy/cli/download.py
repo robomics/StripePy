@@ -21,41 +21,52 @@ import structlog
 def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
     assert not math.isnan(max_size)
 
+    record_id = "14517632"
+
     datasets = {
         "4DNFI3RFZLZ5": {
-            "url": "https://zenodo.org/records/14283922/files/4DNFI3RFZLZ5.stripepy.mcool?download=1",
+            "url": f"https://zenodo.org/records/{record_id}/files/4DNFI3RFZLZ5.stripepy.mcool?download=1",
             "md5": "f6e060211c95dd5fbf6e708c637d1c1c",
             "assembly": "mm10",
             "format": "mcool",
             "size_mb": 83.85,
         },
         "4DNFIC1CLPK7": {
-            "url": "https://zenodo.org/records/14283922/files/4DNFI6HDY7WZ.stripepy.mcool?download=1",
+            "url": f"https://zenodo.org/records/{record_id}/files/4DNFI6HDY7WZ.stripepy.mcool?download=1",
             "md5": "745df902a842c17e535222fb7f9748ca",
             "assembly": "hg38",
             "format": "mcool",
             "size_mb": 104.73,
         },
         "4DNFI9GMP2J8": {
-            "url": "https://zenodo.org/records/14283922/files/4DNFI9GMP2J8.stripepy.mcool?download=1",
+            "url": f"https://zenodo.org/records/{record_id}/files/4DNFI9GMP2J8.stripepy.mcool?download=1",
             "md5": "a17d08460c03cf6c926e2ca5743e4888",
             "assembly": "hg38",
             "format": "mcool",
             "size_mb": 106.84,
         },
         "ENCFF993FGR": {
-            "url": "https://zenodo.org/records/14283922/files/ENCFF993FGR.stripepy.hic?download=1",
+            "url": f"https://zenodo.org/records/{record_id}/files/ENCFF993FGR.stripepy.hic?download=1",
             "md5": "3bcb8c8c5aac237f26f994e0f5e983d7",
             "assembly": "hg38",
             "format": "hic",
             "size_mb": 185.29,
         },
         "__results_v1": {
-            "url": "https://zenodo.org/records/14283922/files/results_4DNFI9GMP2J8_v1.hdf5?download=1",
+            "url": f"https://zenodo.org/records/{record_id}/files/results_4DNFI9GMP2J8_v1.hdf5?download=1",
             "md5": "632b2a7a6e5c1a24dc3635710ed68a80",
+            "filename": "results_4DNFI9GMP2J8_v1.hdf5",
             "assembly": "hg38",
             "format": "stripepy",
             "size_mb": 8.75,
+        },
+        "__stripepy_plot_images": {
+            "url": f"https://zenodo.org/records/{record_id}/files/stripepy-plot-test-images.tar.xz?download=1",
+            "md5": "d4ab74937dd9062efe4b2acc6ebc8780",
+            "filename": "stripepy-plot-test-images.tar.xz",
+            "assembly": "hg38",
+            "format": "tar",
+            "size_mb": 1.5,
         },
     }
 
@@ -187,7 +198,10 @@ def run(
         dset_name, config = _lookup_dataset(name, assembly, max_size)
 
     if output_path is None:
-        output_path = pathlib.Path(f"{dset_name}." + config["format"])
+        if "filename" in config:
+            output_path = pathlib.Path(config["filename"])
+        else:
+            output_path = pathlib.Path(f"{dset_name}.{config['format']}")
 
     if output_path.exists() and not force:
         raise RuntimeError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")

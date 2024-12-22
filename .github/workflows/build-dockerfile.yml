@@ -8,6 +8,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/cache-test-datasets.yml"
       - ".github/workflows/build-dockerfile.yml"
       - "src/**"
       - "test/**"
@@ -22,6 +23,7 @@ on:
 
   pull_request:
     paths:
+      - ".github/workflows/cache-test-datasets.yml"
       - ".github/workflows/build-dockerfile.yml"
       - "src/**"
       - "test/**"
@@ -41,14 +43,14 @@ defaults:
   run:
     shell: bash
 
-env:
-  TEST_DATASET_ID: 4DNFI9GMP2J8
-  TEST_DATASET_URL: "https://zenodo.org/records/14283922/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
-  TEST_DATASET_MD5: "a17d08460c03cf6c926e2ca5743e4888"
-
 jobs:
+  cache-test-datasets:
+    name: Cache test dataset
+    uses: paulsengroup/StripePy/.github/workflows/cache-test-datasets.yml@main
+
   build-dockerfile:
     name: Build Dockerfile
+    needs: [cache-test-datasets]
     runs-on: ubuntu-latest
     permissions:
       contents: "read"
@@ -72,26 +74,13 @@ jobs:
       - name: Install build requirements
         run: pip install -r requirements.txt
 
-      - name: Cache test dataset
-        id: cache-dset
+      - name: Restore test dataset
         uses: actions/cache/restore@v4
         with:
-          key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.mcool
-
-      - name: Download test dataset
-        if: steps.cache-dset.outputs.cache-hit != 'true'
-        run: |
-          curl -L '${{ env.TEST_DATASET_URL }}' -o '${{ env.TEST_DATASET_ID }}.mcool'
-          echo "${{ env.TEST_DATASET_MD5 }}  ${{ env.TEST_DATASET_ID }}.mcool" > checksum.md5
-          md5sum -c checksum.md5
-
-      - name: Save test dataset
-        if: steps.cache-dset.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.mcool
+          key: ${{ needs.cache-test-datasets.outputs.cache-key }}
+          path: test/data/
+          fail-on-cache-miss: true
+          enableCrossOsArchive: true
 
       - name: Generate build args
         id: build-args

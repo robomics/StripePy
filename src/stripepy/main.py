@@ -11,7 +11,7 @@ from typing import List, Optional, Union
 import colorama
 import structlog
 
-from .cli import call, download, setup, view
+from .cli import call, download, plot, setup, view
 
 
 def _setup_mpl_backend():
@@ -270,6 +270,10 @@ def main(args: Union[List[str], None] = None):
         if subcommand == "download":
             _setup_logger(verbosity.upper())
             return download.run(**args)
+        if subcommand == "plot":
+            _setup_mpl_backend()
+            _setup_logger(verbosity.upper())
+            return plot.run(**args)
         if subcommand == "view":
             return view.run(**args)
 
