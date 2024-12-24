@@ -9,13 +9,8 @@ SPDX-License-Identifier: MIT
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/paulsengroup/StripePy/blob/main/LICENCE)
 [![CI](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml)
 [![Build Dockerfile](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml)
+[![Download from Bioconda](https://img.shields.io/conda/vn/bioconda/stripepy-hic?label=bioconda&logo=Anaconda)](https://anaconda.org/bioconda/stripepy-hic)
 [![Zenodo DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14394042.svg)](https://doi.org/10.5281/zenodo.14394041)
-
-<!--
-[![Download from Bioconda](https://img.shields.io/conda/vn/bioconda/StripePy?label=bioconda&logo=Anaconda)](https://anaconda.org/bioconda/StripePy)
-[![docs](https://readthedocs.org/projects/stripepy/badge/?version=stable)](https://stripepy.readthedocs.io/en/latest/?badge=stable)
-
--->
 
 ---
 
@@ -32,15 +27,11 @@ StripePy is developed on Linux and macOS and is also tested on Windows.
 pip install stripepy-hic
 ```
 
-<!--
-
 ### Installing with conda
 
 ```bash
 conda create -n stripepy -c conda-forge -c bioconda stripepy-hic
 ```
-
--->
 
 ### Installing from source
 
