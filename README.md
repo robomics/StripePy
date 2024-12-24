@@ -1169,21 +1169,34 @@ For any issues regarding StripePy installation, walkthrough, and output interpre
 
 If you've found a bug or would like to suggest a new feature, please open a new [issue](https://github.com/paulsengroup/StripePy/issues) instead.
 
-<!--
 ## Citing
 
 If you use StripePy in your research, please cite the following publication:
 
-TODO
+Andrea Raffo, Roberto Rossini, Jonas Paulsen, StripePy: fast and robust characterization of architectural stripes
+_bioRxiv_ 2024.12.20.629789; doi: [https://doi.org/10.1101/2024.12.20.629789](https://doi.org/10.1101/2024.12.20.629789)
 
 <details>
 <summary>BibTex</summary>
 
 ```bibtex
-@article{stripepy,
-  TODO
+@article {stripepy,
+  author = {Raffo, Andrea and Rossini, Roberto and Paulsen, Jonas},
+  title = {StripePy: fast and robust characterization of architectural stripes},
+  elocation-id = {2024.12.20.629789},
+  year = {2024},
+  doi = {10.1101/2024.12.20.629789},
+  publisher = {Cold Spring Harbor Laboratory},
+  abstract = {
+    Architectural stripes in Hi-C and related data are crucial for gene regulation, development, and DNA repair.
+    Despite their importance, few tools exist for automatic stripe detection.
+    We introduce StripePy, which leverages computational geometry methods to identify and analyze architectural stripes in contact maps from Chromosome Conformation Capture experiments like Hi-C and Micro-C.
+    StripePy outperforms existing tools, as shown through tests on various datasets and a newly developed simulated benchmark, StripeBench, providing a valuable resource for the community.Competing Interest StatementThe authors have declared no competing interest.@
+  },
+  URL = {https://www.biorxiv.org/content/early/2024/12/22/2024.12.20.629789},
+  eprint = {https://www.biorxiv.org/content/early/2024/12/22/2024.12.20.629789.full.pdf},
+  journal = {bioRxiv}
 }
 ```
 
 </details>
--->
