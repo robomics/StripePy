@@ -301,6 +301,13 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
             default=False,
             help="Overwrite existing file(s).",
         )
+        sc.add_argument(
+            "--verbosity",
+            type=str,
+            choices=["debug", "info", "warning", "error", "critical"],
+            default="info",
+            help="Set verbosity of output to the console.",
+        )
 
     def add_stripepy_hdf5_option(sc):
         sc.add_argument(
@@ -488,7 +495,7 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     configs_output = {key: args[key] for key in ["output_folder", "force"]}
 
     configs_output["output_folder"] = (
-        configs_output["output_folder"] / configs_input["contact-map"].stem / str(configs_input["resolution"])
+        configs_output["output_folder"] / configs_input["contact_map"].stem / str(configs_input["resolution"])
     )
     configs_other = {"nproc": args["nproc"]}
 

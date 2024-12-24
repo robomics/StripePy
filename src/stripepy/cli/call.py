@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 import contextlib
+import json
 import multiprocessing as mp
+import pathlib
 import time
 from typing import Any, Dict
 
@@ -25,6 +27,22 @@ def _generate_metadata_attribute(configs_input: Dict[str, Any], configs_threshol
     }
 
 
+class _JSONEncoder(json.JSONEncoder):
+    def default(self, o: Any):
+        if isinstance(o, pathlib.Path):
+            return str(o)
+        return super().default(o)
+
+
+def _write_param_summary(*configs: Dict[str, Any]):
+    config = {}
+    for c in configs:
+        config.update(c)
+
+    config_str = json.dumps(config, indent=2, sort_keys=True, cls=_JSONEncoder)
+    structlog.get_logger().info(f"CONFIG:\n{config_str}")
+
+
 def run(
     configs_input: Dict[str, Any],
     configs_thresholds: Dict[str, Any],
@@ -34,7 +52,7 @@ def run(
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
 
-    write_param_summary(configs_input, configs_thresholds, configs_output, configs_other)
+    _write_param_summary(configs_input, configs_thresholds, configs_output, configs_other)
 
     # Data loading:
     f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact_map"], configs_input["resolution"])
@@ -43,9 +61,6 @@ def run(
     # configs_output["output_folder"] = (
     #     f"{configs_output['output_folder']}/{configs_input['contact_map'].stem}/{configs_input['resolution']}"
     # )
-    configs_output["output_folder"] = (
-        configs_output["output_folder"] / configs_input["contact_map"].stem / str(configs_input["resolution"])
-    )
     IO.remove_and_create_folder(configs_output["output_folder"], configs_output["force"])
 
     # Extract a list of tuples where each tuple is (index, chr), e.g. (2,'chr3'):
