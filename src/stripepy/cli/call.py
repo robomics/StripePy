@@ -83,18 +83,13 @@ def run(
 
             print(f"{IO.ANSI.YELLOW}Step 1: pre-processing step{IO.ANSI.ENDC}")
             start_time = time.time()
-            if all(param is not None for param in [RoI, configs_output["output_folder"]]):
-                output_folder_1 = f"{configs_output['output_folder']}/plots/{this_chr}/1_preprocessing/"
-                LT_Iproc, UT_Iproc, Iproc_RoI = stripepy.step_1(
-                    I,
-                    configs_input["genomic_belt"],
-                    configs_input["resolution"],
-                    RoI=RoI,
-                    output_folder=output_folder_1,
-                )
-            else:
-                LT_Iproc, UT_Iproc, _ = stripepy.step_1(I, configs_input["genomic_belt"], configs_input["resolution"])
-                Iproc_RoI = None
+            LT_Iproc, UT_Iproc, Iproc_RoI = stripepy.step_1(
+                I,
+                configs_input["genomic_belt"],
+                configs_input["resolution"],
+                RoI=RoI,
+                output_folder=configs_output["output_folder"] / "plots" / this_chr / "1_preprocessing",
+            )
             print(f"Execution time of step 1: {time.time() - start_time} seconds ---")
 
             # Find the indices where the sum is zero
@@ -107,82 +102,53 @@ def run(
 
             print(f"{IO.ANSI.YELLOW}Step 2: Topological Data Analysis{IO.ANSI.ENDC}")
             start_time = time.time()
-            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_2 = f"{configs_output['output_folder']}/plots/{this_chr}/2_TDA/"
-                result = stripepy.step_2(
-                    this_chr,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    configs_thresholds["glob_pers_min"],
-                    Iproc_RoI=Iproc_RoI,
-                    RoI=RoI,
-                    output_folder=output_folder_2,
-                )
-            else:
-                result = stripepy.step_2(
-                    this_chr,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    configs_thresholds["glob_pers_min"],
-                )
+
+            result = stripepy.step_2(
+                this_chr,
+                LT_Iproc,
+                UT_Iproc,
+                configs_input["resolution"],
+                configs_thresholds["glob_pers_min"],
+                Iproc_RoI=Iproc_RoI,
+                RoI=RoI,
+                output_folder=configs_output["output_folder"] / "plots" / this_chr / "2_TDA",
+            )
             print(f"Execution time of step 2: {time.time() - start_time} seconds ---")
 
             print(f"{IO.ANSI.YELLOW}Step 3: Shape analysis{IO.ANSI.ENDC}")
             start_time = time.time()
 
-            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_3 = f"{configs_output['output_folder']}/plots/{this_chr}/3_shape_analysis/"
-                result = stripepy.step_3(
-                    result,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    configs_input["genomic_belt"],
-                    configs_thresholds["max_width"],
-                    configs_thresholds["constrain_heights"],
-                    configs_thresholds["loc_pers_min"],
-                    configs_thresholds["loc_trend_min"],
-                    Iproc_RoI=Iproc_RoI,
-                    RoI=RoI,
-                    output_folder=output_folder_3,
-                    map=pool.map if pool is not None else map,
-                )
-            else:
-                result = stripepy.step_3(
-                    result,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    configs_input["genomic_belt"],
-                    configs_thresholds["max_width"],
-                    configs_thresholds["constrain_heights"],
-                    configs_thresholds["loc_pers_min"],
-                    configs_thresholds["loc_trend_min"],
-                    map=pool.map if pool is not None else map,
-                )
-
+            result = stripepy.step_3(
+                result,
+                LT_Iproc,
+                UT_Iproc,
+                configs_input["resolution"],
+                configs_input["genomic_belt"],
+                configs_thresholds["max_width"],
+                configs_thresholds["constrain_heights"],
+                configs_thresholds["loc_pers_min"],
+                configs_thresholds["loc_trend_min"],
+                Iproc_RoI=Iproc_RoI,
+                RoI=RoI,
+                output_folder=configs_output["output_folder"] / "plots" / this_chr / "3_shape_analysis",
+                map=pool.map if pool is not None else map,
+            )
             print(f"Execution time of step 3: {time.time() - start_time} seconds ---")
 
             print(f"{IO.ANSI.YELLOW}Step 4: Statistical analysis and post-processing{IO.ANSI.ENDC}")
             start_time = time.time()
 
-            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_4 = f"{configs_output['output_folder']}/plots/{this_chr}/4_biological_analysis/"
-                thresholds_relative_change = np.arange(0.0, 15.2, 0.2)
-                result = stripepy.step_4(
-                    result,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    thresholds_relative_change,
-                    Iproc_RoI=Iproc_RoI,
-                    RoI=RoI,
-                    output_folder=output_folder_4,
-                )
-            else:
-                result = stripepy.step_4(result, LT_Iproc, UT_Iproc)
+            thresholds_relative_change = np.arange(0.0, 15.2, 0.2)
+            result = stripepy.step_4(
+                result,
+                LT_Iproc,
+                UT_Iproc,
+                configs_input["resolution"],
+                thresholds_relative_change,
+                Iproc_RoI=Iproc_RoI,
+                RoI=RoI,
+                output_folder=configs_output["output_folder"] / "plots" / this_chr / "4_biological_analysis",
+            )
 
             print(f"Execution time of step 4: {time.time() - start_time} seconds ---")
 

@@ -17,8 +17,6 @@ from numpy.typing import NDArray
 from . import IO, plot
 from .utils import TDA, common, finders, regressions, stripe
 
-be_verbose = True  # TODO consider safe removal of be_verbose
-
 
 def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
     """
@@ -144,36 +142,34 @@ def _plot_RoIs(
     Union[NDArray, None]
         the dense matrix used for plotting or None when RoI is None
     """
+    if RoI is None:
+        return None
+    print("1.4) Extracting a Region of Interest (RoI) for plot purposes...")
+    I_RoI = _extract_RoIs(I, RoI)
+    Iproc_RoI = _extract_RoIs(Iproc, RoI)
 
-    # TODO rea1991 Once there is better test coverage, rewrite this as suggested in in #16
-    if RoI is not None:
-        print("1.4) Extracting a Region of Interest (RoI) for plot purposes...")
-        I_RoI = _extract_RoIs(I, RoI)
-        Iproc_RoI = _extract_RoIs(Iproc, RoI)
+    if output_folder is not None:
+        start_pos, end_pos, _, _ = RoI["genomic"]
+        # Plots:
+        dest = pathlib.Path(output_folder) / f"I_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
+        fig, _, _ = plot.hic_matrix(
+            I_RoI,
+            (start_pos, end_pos),
+            log_scale=False,
+        )
 
-        if output_folder is not None:
-            start_pos, end_pos, _, _ = RoI["genomic"]
-            # Plots:
-            dest = pathlib.Path(output_folder) / f"I_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
-            fig, _, _ = plot.hic_matrix(
-                I_RoI,
-                (start_pos, end_pos),
-                log_scale=False,
-            )
+        fig.savefig(dest, dpi=256)
+        plt.close(fig)
 
-            fig.savefig(dest, dpi=256)
-            plt.close(fig)
+        dest = pathlib.Path(output_folder) / f"Iproc_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
+        fig, _, _ = plot.hic_matrix(
+            Iproc_RoI,
+            (start_pos, end_pos),
+            log_scale=False,
+        )
+        fig.savefig(dest, dpi=256)
+        plt.close(fig)
 
-            dest = pathlib.Path(output_folder) / f"Iproc_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
-            fig, _, _ = plot.hic_matrix(
-                Iproc_RoI,
-                (start_pos, end_pos),
-                log_scale=False,
-            )
-            fig.savefig(dest, dpi=256)
-            plt.close(fig)
-    else:
-        Iproc_RoI = None  # TODO handle this case in _extract_RoIs
     return Iproc_RoI
 
 
@@ -562,8 +558,7 @@ def step_3(
     for num_cand_stripe, (UT_L_bound, UT_R_bound) in enumerate(zip(UT_L_bounds, UT_R_bounds)):
         stripes[num_cand_stripe].set_horizontal_bounds(UT_L_bound, UT_R_bound)
 
-    if all([param is not None for param in [RoI, output_folder]]):
-
+    if output_folder is not None and RoI is not None:
         print("3.1.3) Plots")
         # 3.1.3.1 "Finding HIoIs inside the region (RoI) selected above..."
 
@@ -682,56 +677,35 @@ def step_3(
     start_time = time.time()
 
     print("3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...")
-    if be_verbose and all([param is not None for param in [RoI, output_folder]]):
-        LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
-            L,
-            LT_MPs,
-            LT_HIoIs,
-            VIoIs2plot=ids_LT_MPs_in_RoI,
-            max_height=int(genomic_belt / resolution),
-            threshold_cut=loc_trend_min,
-            min_persistence=loc_pers_min,
-            where="lower",
-            output_folder=f"{output_folder}local_pseudodistributions/",
-            map=map,
-        )
-        UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
-            U,
-            UT_MPs,
-            UT_HIoIs,
-            VIoIs2plot=ids_UT_MPs_in_RoI,
-            max_height=int(genomic_belt / resolution),
-            threshold_cut=loc_trend_min,
-            min_persistence=loc_pers_min,
-            where="upper",
-            output_folder=f"{output_folder}local_pseudodistributions/",
-            map=map,
-        )
+    if output_folder is not None and RoI is not None:
+        local_pd_output_folder = output_folder / "local_pseudodistributions"
     else:
-        LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
-            L,
-            LT_MPs,
-            LT_HIoIs,
-            VIoIs2plot=None,
-            max_height=int(genomic_belt / resolution),
-            threshold_cut=loc_trend_min,
-            min_persistence=loc_pers_min,
-            where="lower",
-            output_folder=None,
-            map=map,
-        )
-        UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
-            U,
-            UT_MPs,
-            UT_HIoIs,
-            VIoIs2plot=None,
-            max_height=int(genomic_belt / resolution),
-            threshold_cut=loc_trend_min,
-            min_persistence=loc_pers_min,
-            where="upper",
-            output_folder=None,
-            map=map,
-        )
+        local_pd_output_folder = None
+
+    LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
+        L,
+        LT_MPs,
+        LT_HIoIs,
+        VIoIs2plot=None if len(ids_LT_MPs_in_RoI) == 0 else ids_LT_MPs_in_RoI,
+        max_height=int(genomic_belt / resolution),
+        threshold_cut=loc_trend_min,
+        min_persistence=loc_pers_min,
+        where="lower",
+        output_folder=local_pd_output_folder,
+        map=map,
+    )
+    UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
+        U,
+        UT_MPs,
+        UT_HIoIs,
+        VIoIs2plot=None if len(ids_UT_MPs_in_RoI) == 0 else ids_UT_MPs_in_RoI,
+        max_height=int(genomic_belt / resolution),
+        threshold_cut=loc_trend_min,
+        min_persistence=loc_pers_min,
+        where="upper",
+        output_folder=local_pd_output_folder,
+        map=map,
+    )
 
     # List of left or right boundaries:
     LT_U_bounds, LT_D_bounds = map(list, zip(*LT_VIoIs))
@@ -748,7 +722,6 @@ def step_3(
     print(f"Execution time: {time.time() - start_time} seconds ---")
 
     if RoI is not None:
-
         print("3.3) Finding HIoIs and VIoIs inside the region (RoI) selected above...")
 
         # Restricting to the RoI:
@@ -871,7 +844,7 @@ def step_3(
     LT_heights = [VIoI[1] - VIoI[0] for VIoI in LT_VIoIs]
     UT_widths = [HIoI[1] - HIoI[0] for HIoI in UT_HIoIs]
     UT_heights = [VIoI[1] - VIoI[0] for VIoI in UT_VIoIs]
-    if be_verbose and output_folder is not None:
+    if output_folder is not None:
         fig, ax = plt.subplots(1, 1)
         sns.histplot(
             data=pd.DataFrame(LT_widths),
@@ -1015,7 +988,7 @@ def step_4(
                     RoI["genomic"],
                     resolution,
                     plot_in_bp=True,
-                    output_folder=f"{output_folder}",
+                    output_folder=output_folder,
                     file_name=f"LT_{threshold:.2f}.jpg",
                     title=None,
                     display=False,
@@ -1044,7 +1017,7 @@ def step_4(
                     RoI["genomic"],
                     resolution,
                     plot_in_bp=True,
-                    output_folder=f"{output_folder}",
+                    output_folder=output_folder,
                     file_name=f"UT_{threshold:.2f}.jpg",
                     title=None,
                     display=False,

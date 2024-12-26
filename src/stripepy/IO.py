@@ -762,7 +762,7 @@ def pseudodistrib(
     # plt.axis('scaled')
 
     if output_folder is not None and file_name is not None:
-        plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
+        plt.savefig(output_folder / file_name, bbox_inches="tight")
 
     if display:
         plt.show()
@@ -808,7 +808,7 @@ def pseudodistrib_and_HIoIs(
     ax.grid(True)
     # plt.axis('scaled')
     if output_folder is not None and file_name is not None:
-        plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
+        plt.savefig(output_folder / file_name, bbox_inches="tight")
     if display:
         plt.show()
     plt.close()
@@ -876,7 +876,7 @@ def HiC_and_sites(
     fig.tight_layout()
 
     if output_folder is not None and file_name is not None:
-        plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
+        plt.savefig(output_folder / file_name, bbox_inches="tight")
 
     if display is True:
         plt.show()
@@ -976,7 +976,7 @@ def HiC_and_HIoIs(
     fig.tight_layout()
 
     if output_folder is not None and file_name is not None:
-        plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
+        plt.savefig(output_folder / file_name, bbox_inches="tight")
 
     if display:
         plt.show()
@@ -1102,7 +1102,7 @@ def plot_stripes(
     fig.tight_layout()
 
     if output_folder is not None and file_name is not None:
-        plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
+        plt.savefig(output_folder / file_name, bbox_inches="tight")
 
     if display:
         plt.show()
@@ -1237,7 +1237,7 @@ def plot_stripes_and_peaks(
     fig.tight_layout()
 
     if output_folder is not None and file_name is not None:
-        plt.savefig(f"{output_folder}/{file_name}", bbox_inches="tight")
+        plt.savefig(output_folder / file_name, bbox_inches="tight")
 
     if display:
         plt.show()

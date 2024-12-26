@@ -106,7 +106,7 @@ def find_lower_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
             plt.ylim((0, 1))
             fig.set_dpi(256)
             fig.tight_layout()
-            plt.savefig(f"{output_folder}/LT_local-pseudo-distrib_{seed_site}.jpg")
+            plt.savefig(output_folder / "LT_local-pseudo-distrib_{seed_site}.jpg")
             plt.close()
     return Vdomain_and_peaks
 
@@ -177,7 +177,7 @@ def find_upper_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
             plt.ylim((0, 1))
             fig.set_dpi(256)
             fig.tight_layout()
-            plt.savefig(f"{output_folder}/UT_local-pseudo-distrib_{seed_site}.jpg")
+            plt.savefig(output_folder / "UT_local-pseudo-distrib_{seed_site}.jpg")
             plt.close()
 
     return Vdomain_and_peaks
