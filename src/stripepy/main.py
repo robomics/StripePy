@@ -9,6 +9,7 @@ import sys
 from typing import List, Optional, Union
 
 import colorama
+import hictkpy
 import structlog
 
 from .cli import call, download, plot, setup, view
@@ -161,7 +162,19 @@ def _configure_logger_columns(
     ]
 
 
-def _setup_logger(level: str, file: Union[pathlib.Path, None] = None):
+def _get_longest_chrom_name(path: pathlib.Path) -> str:
+    try:
+        chroms = hictkpy.MultiResFile(path).chromosomes(include_ALL=False).keys()
+    except RuntimeError:
+        try:
+            chroms = hictkpy.File(path).chromosomes(include_ALL=False).keys()
+        except RuntimeError:
+            chroms = ("chrXX",)
+
+    return max(chroms, key=len)  # noqa
+
+
+def _setup_logger(level: str, file: Optional[pathlib.Path] = None, matrix_file: Optional[pathlib.Path] = None):
     # https://www.structlog.org/en/stable/standard-library.html#rendering-using-structlog-based-formatters-within-logging
     timestamper = structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S.%f")
     pre_chain = [
@@ -169,6 +182,11 @@ def _setup_logger(level: str, file: Union[pathlib.Path, None] = None):
         structlog.stdlib.ExtraAdder(),
         timestamper,
     ]
+
+    if matrix_file is not None:
+        chrom = _get_longest_chrom_name(matrix_file)
+    else:
+        chrom = ""
 
     config = {
         "version": 1,
@@ -179,7 +197,9 @@ def _setup_logger(level: str, file: Union[pathlib.Path, None] = None):
                 "processors": [
                     structlog.stdlib.ProcessorFormatter.remove_processors_meta,
                     structlog.processors.format_exc_info,
-                    structlog.dev.ConsoleRenderer(columns=_configure_logger_columns(colors=False)),
+                    structlog.dev.ConsoleRenderer(
+                        columns=_configure_logger_columns(colors=False, longest_chrom_name=chrom)
+                    ),
                 ],
                 "foreign_pre_chain": pre_chain,
             },
@@ -187,7 +207,9 @@ def _setup_logger(level: str, file: Union[pathlib.Path, None] = None):
                 "()": structlog.stdlib.ProcessorFormatter,
                 "processors": [
                     structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-                    structlog.dev.ConsoleRenderer(columns=_configure_logger_columns(colors=True)),
+                    structlog.dev.ConsoleRenderer(
+                        columns=_configure_logger_columns(colors=True, longest_chrom_name=chrom)
+                    ),
                 ],
                 "foreign_pre_chain": pre_chain,
             },
@@ -265,7 +287,7 @@ def main(args: Union[List[str], None] = None):
 
         if subcommand == "call":
             _setup_mpl_backend()
-            _setup_logger(verbosity.upper())
+            _setup_logger(verbosity.upper(), matrix_file=args["configs_input"]["contact_map"])
             return call.run(**args)
         if subcommand == "download":
             _setup_logger(verbosity.upper())
