@@ -4,7 +4,7 @@
 
 import pathlib
 import time
-from typing import Dict, List, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import h5py
 import matplotlib.pyplot as plt
@@ -95,7 +95,7 @@ def _scale_Iproc(
     return tuple(J / scaling_factor_Iproc for J in [I, LT_I, UT_I])  # noqa
 
 
-def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> NDArray:
+def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArray]:
     """
     Extract a region of interest (ROI) from the sparse matrix I
 
@@ -108,9 +108,12 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> NDArray:
 
     Returns
     -------
-    NDArray
-        dense matrix with the interactions for the regions of interest
+    Optional[NDArray]
+        dense matrix with the interactions for the regions of interest (or None in case RoI itself is None)
     """
+
+    if RoI is None:
+        return None
 
     rows = cols = slice(RoI["matrix"][0], RoI["matrix"][1])
     I_RoI = I[rows, cols].toarray()
@@ -118,8 +121,8 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> NDArray:
 
 
 def _plot_RoIs(
-    I: ss.csr_matrix, Iproc: ss.csr_matrix, RoI: Union[NDArray, None], output_folder: Union[pathlib.Path, None]
-) -> Union[NDArray, None]:
+    I: ss.csr_matrix, Iproc: ss.csr_matrix, RoI: Optional[Dict[str, List[int]]], output_folder: Optional[pathlib.Path]
+):
     """
     Helper function to plot a region of interest.
     This function does nothing when RoI is None.
@@ -136,41 +139,33 @@ def _plot_RoIs(
         the region of interest to be plotted in matrix ('matrix') and genomic ('genomic') coordinates
     output_folder: pathlib.Path
         folder where to save the plots
-
-    Returns
-    -------
-    Union[NDArray, None]
-        the dense matrix used for plotting or None when RoI is None
     """
-    if RoI is None:
-        return None
+    if RoI is None or output_folder is None:
+        return
     print("1.4) Extracting a Region of Interest (RoI) for plot purposes...")
     I_RoI = _extract_RoIs(I, RoI)
     Iproc_RoI = _extract_RoIs(Iproc, RoI)
 
-    if output_folder is not None:
-        start_pos, end_pos, _, _ = RoI["genomic"]
-        # Plots:
-        dest = pathlib.Path(output_folder) / f"I_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
-        fig, _, _ = plot.hic_matrix(
-            I_RoI,
-            (start_pos, end_pos),
-            log_scale=False,
-        )
+    start_pos, end_pos, _, _ = RoI["genomic"]
+    # Plots:
+    dest = pathlib.Path(output_folder) / f"I_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
+    fig, _, _ = plot.hic_matrix(
+        I_RoI,
+        (start_pos, end_pos),
+        log_scale=False,
+    )
 
-        fig.savefig(dest, dpi=256)
-        plt.close(fig)
+    fig.savefig(dest, dpi=256)
+    plt.close(fig)
 
-        dest = pathlib.Path(output_folder) / f"Iproc_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
-        fig, _, _ = plot.hic_matrix(
-            Iproc_RoI,
-            (start_pos, end_pos),
-            log_scale=False,
-        )
-        fig.savefig(dest, dpi=256)
-        plt.close(fig)
-
-    return Iproc_RoI
+    dest = pathlib.Path(output_folder) / f"Iproc_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
+    fig, _, _ = plot.hic_matrix(
+        Iproc_RoI,
+        (start_pos, end_pos),
+        log_scale=False,
+    )
+    fig.savefig(dest, dpi=256)
+    plt.close(fig)
 
 
 def _compute_global_pseudodistribution(T: ss.csr_matrix, smooth: bool = True) -> NDArray[float]:
@@ -314,9 +309,9 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
     print("1.3) Projection onto [0, 1]...")
     Iproc, LT_Iproc, UT_Iproc = _scale_Iproc(Iproc, LT_Iproc, UT_Iproc)
 
-    Iproc_RoI = _plot_RoIs(I, Iproc, RoI, output_folder)
+    _plot_RoIs(I, Iproc, RoI, output_folder)
 
-    return LT_Iproc, UT_Iproc, Iproc_RoI
+    return LT_Iproc, UT_Iproc, _extract_RoIs(Iproc, RoI)
 
 
 def step_2(chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=None, output_folder=None) -> IO.Result:
