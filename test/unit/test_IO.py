@@ -99,14 +99,15 @@ def test_create_folders_for_plots(tmpdir):
 @pytest.mark.unit
 class TestResult:
     def test_ctor(self):
-        res = Result("chr1")
+        res = Result("chr1", 123)
 
         assert res.empty
-        assert res.chrom == "chr1"
+        assert res.chrom[0] == "chr1"
+        assert res.chrom[1] == 123
         assert res.roi is None
 
     def test_setters(self):
-        res = Result("chr1")
+        res = Result("chr1", 123)
 
         res.set_min_persistence(1.0)
         with pytest.raises(RuntimeError, match="has already been set"):
@@ -136,7 +137,7 @@ class TestResult:
         assert (res.get("all_minimum_points", "UT") == [4, 5, 6]).all()
 
     def test_getters(self):
-        res = Result("chr1")
+        res = Result("chr1", 123)
 
         res.set("all_minimum_points", [1, 2, 3], "LT")
 
@@ -163,7 +164,7 @@ class TestResult:
         assert (res.get("all_minimum_points", "LT") == [1, 2, 3]).all()
 
     def test_stripe_getters(self):
-        res = Result("chr1")
+        res = Result("chr1", 123)
 
         stripes = [Stripe(10, 1.23)]
         stripes[0].set_vertical_bounds(5, 10)
@@ -293,7 +294,8 @@ class TestResultFile:
     def test_file_creation(self, tmpdir):
         tmpdir = pathlib.Path(tmpdir)
 
-        clr_file = generate_singleres_test_file(tmpdir / "test.cool", 10_000)
+        resolution = 10_000
+        clr_file = generate_singleres_test_file(tmpdir / "test.cool", resolution)
         chroms = htk.File(clr_file).chromosomes()
         chrom = tuple(chroms.keys())[0]
 
@@ -305,7 +307,7 @@ class TestResultFile:
         with ResultFile(tmpdir / "results.hdf5", "w") as f:
             f.init_file(htk.File(clr_file), "weight", {"key": "value"})
 
-            res = Result(chrom)
+            res = Result(chrom, resolution * len(points))
             res.set_min_persistence(1.23)
 
             for location in ["UT", "LT"]:
