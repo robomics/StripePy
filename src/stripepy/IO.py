@@ -558,12 +558,13 @@ class ResultFile(object):
         result: Result
             results to be added to the opened file
         """
-        grp = self._h5.create_group(f"/{result.chrom}/global-pseudo-distributions/")
+        chrom_name = result.chrom[0]
+        grp = self._h5.create_group(f"/{chrom_name}/global-pseudo-distributions/")
 
         grp.attrs.create("min_persistence_used", result.min_persistence)
 
         for location in ["UT", "LT"]:
-            grp = self._h5.create_group(f"/{result.chrom}/global-pseudo-distributions/{location}")
+            grp = self._h5.create_group(f"/{chrom_name}/global-pseudo-distributions/{location}")
             grp.create_dataset(
                 "pseudo-distribution",
                 data=result.get("pseudodistribution", location),
@@ -596,7 +597,7 @@ class ResultFile(object):
                 shuffle=True,
             )
 
-            grp = self._h5.create_group(f"/{result.chrom}/stripes/{location}")
+            grp = self._h5.create_group(f"/{chrom_name}/stripes/{location}")
             descriptors = result.get_stripe_geo_descriptors(location)
             dset = grp.create_dataset(
                 "geo-descriptors",
