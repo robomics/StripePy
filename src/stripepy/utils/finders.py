@@ -99,7 +99,7 @@ def find_upper_v_domain(I, threshold_cut, max_height, min_persistence, it) -> Tu
             candida_bound = [len(Y_hat) - 1]
 
         # Vertical domain + no peak:
-        return ([seed_site - candida_bound[0], seed_site], None)
+        return [seed_site - candida_bound[0], seed_site], None
 
     _, _, loc_Maxima, loc_pers_of_Maxima = TDA.TDA(Y, min_persistence=min_persistence)
     candida_bound = [max(loc_Maxima)]
