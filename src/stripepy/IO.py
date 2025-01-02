@@ -8,7 +8,7 @@ import json
 import pathlib
 import shutil
 from importlib.metadata import version
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import h5py
 import hictkpy
@@ -32,8 +32,8 @@ class Result(object):
 
     Attributes
     ----------
-    chrom: str
-        name of the chromosomes to which the Result instance belongs to
+    chrom: Tuple[str, int]
+        name and length of the chromosomes to which the Result instance belongs to
     empty: bool
         check whether any stripe has been registered with the Result instance
     roi: Optional[Dict[str, List[int]]]
@@ -42,7 +42,7 @@ class Result(object):
         the minimum persistence used during computation
     """
 
-    def __init__(self, chrom: str):
+    def __init__(self, chrom_name: str, chrom_size: int):
         """
         Parameters
         ----------
@@ -50,7 +50,9 @@ class Result(object):
         chrom: str
             chromosome name
         """
-        self._chrom = chrom
+        assert chrom_size > 0
+
+        self._chrom = (chrom_name, chrom_size)
         self._roi = None
         self._min_persistence = None
 
@@ -91,7 +93,7 @@ class Result(object):
         return self._lt_stripes is None and self._ut_stripes is None
 
     @property
-    def chrom(self) -> str:
+    def chrom(self) -> Tuple[str, int]:
         return self._chrom
 
     @property

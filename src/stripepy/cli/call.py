@@ -88,7 +88,6 @@ def run(
                 configs_input["genomic_belt"],
                 configs_input["resolution"],
                 RoI=RoI,
-                output_folder=configs_output["output_folder"] / "plots" / this_chr / "1_preprocessing",
             )
             print(f"Execution time of step 1: {time.time() - start_time} seconds ---")
 
@@ -105,15 +104,15 @@ def run(
 
             result = stripepy.step_2(
                 this_chr,
+                f.chromosomes().get(this_chr),
                 LT_Iproc,
                 UT_Iproc,
-                configs_input["resolution"],
                 configs_thresholds["glob_pers_min"],
-                Iproc_RoI=Iproc_RoI,
-                RoI=RoI,
-                output_folder=configs_output["output_folder"] / "plots" / this_chr / "2_TDA",
             )
             print(f"Execution time of step 2: {time.time() - start_time} seconds ---")
+
+            if RoI is not None:
+                result.set_roi(RoI)
 
             print(f"{IO.ANSI.YELLOW}Step 3: Shape analysis{IO.ANSI.ENDC}")
             start_time = time.time()
@@ -125,12 +124,8 @@ def run(
                 configs_input["resolution"],
                 configs_input["genomic_belt"],
                 configs_thresholds["max_width"],
-                configs_thresholds["constrain_heights"],
                 configs_thresholds["loc_pers_min"],
                 configs_thresholds["loc_trend_min"],
-                Iproc_RoI=Iproc_RoI,
-                RoI=RoI,
-                output_folder=configs_output["output_folder"] / "plots" / this_chr / "3_shape_analysis",
                 map=pool.map if pool is not None else map,
             )
             print(f"Execution time of step 3: {time.time() - start_time} seconds ---")
@@ -138,19 +133,35 @@ def run(
             print(f"{IO.ANSI.YELLOW}Step 4: Statistical analysis and post-processing{IO.ANSI.ENDC}")
             start_time = time.time()
 
-            thresholds_relative_change = np.arange(0.0, 15.2, 0.2)
             result = stripepy.step_4(
                 result,
                 LT_Iproc,
                 UT_Iproc,
-                configs_input["resolution"],
-                thresholds_relative_change,
-                Iproc_RoI=Iproc_RoI,
-                RoI=RoI,
-                output_folder=configs_output["output_folder"] / "plots" / this_chr / "4_biological_analysis",
             )
 
             print(f"Execution time of step 4: {time.time() - start_time} seconds ---")
+
+            if result.roi is not None:
+                start_time = time.time()
+                print(f"{IO.ANSI.YELLOW}Step 5: Generating plots{IO.ANSI.ENDC}")
+                stripepy.step_5(
+                    result,
+                    configs_input["resolution"],
+                    LT_Iproc,
+                    UT_Iproc,
+                    f.fetch(
+                        f"{this_chr}:{result.roi['genomic'][0]}-{result.roi['genomic'][1]}",
+                        normalization=configs_input["normalization"],
+                    ).to_numpy("full"),
+                    Iproc_RoI,
+                    configs_input["genomic_belt"],
+                    configs_thresholds["loc_pers_min"],
+                    configs_thresholds["loc_trend_min"],
+                    configs_output["output_folder"] / "plots",
+                    map=pool.map if pool is not None else map,
+                )
+
+                print(f"Execution time of step 5: {time.time() - start_time} seconds ---")
 
             print(f'Writing results for "{this_chr}" to file "{h5.path}"...')
             h5.write_descriptors(result)

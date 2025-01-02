@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import os
+from typing import Dict, Optional
 
 import h5py
 import hictkpy
@@ -75,26 +76,19 @@ def chromosomes_to_study(chromosomes, length_in_bp, min_size_allowed):
     return c_pairs
 
 
-def define_RoI(where_roi, chr_start, chr_end, resolution):
+def define_RoI(where_roi, chr_start, chr_end, resolution, RoI_length=2_000_000) -> Optional[Dict]:
     # Region of Interest (RoI) in genomic and matrix coordinates:
     if where_roi == "middle":
-        RoI_length = 2000000
-        e1 = ((chr_end - chr_start) * resolution - RoI_length) / 2
+        e1 = int((chr_end - chr_start - (RoI_length / resolution)) / 2) * resolution
         e2 = e1 + RoI_length
-        RoI = dict()
-        RoI["genomic"] = [int(e1), int(e2), int(e1), int(e2)]  # genomic coordinates
-        RoI["matrix"] = [int(roi / resolution) for roi in RoI["genomic"]]  # matrix coordinates
     elif where_roi == "start":
-        RoI_length = 2000000
         e1 = 0
-        e2 = e1 + RoI_length
-        RoI = dict()
-        RoI["genomic"] = [int(e1), int(e2), int(e1), int(e2)]  # genomic coordinates
-        RoI["matrix"] = [int(roi / resolution) for roi in RoI["genomic"]]  # matrix coordinates
+        e2 = RoI_length
     else:
-        RoI = None
+        return None
 
-    return RoI
+    bounds = [e1, e2, e1, e2]
+    return {"genomic": bounds, "matrix": [x // resolution for x in bounds]}
 
 
 # Define a function to visit groups and save terminal group names in a list
