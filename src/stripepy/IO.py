@@ -530,7 +530,7 @@ class ResultFile(object):
         self._h5.attrs["creation-date"] = datetime.datetime.now().isoformat()
         self._h5.attrs["format"] = "HDF5::StripePy"
         self._h5.attrs["format-url"] = "https://github.com/paulsengroup/StripePy"
-        self._h5.attrs["format-version"] = 1
+        self._h5.attrs["format-version"] = 2
         self._h5.attrs["generated-by"] = f"StripePy v{version('stripepy-hic')}"
         self._h5.attrs["metadata"] = json.dumps(metadata, indent=2)
         self._h5.attrs["normalization"] = normalization
