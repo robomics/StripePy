@@ -3,12 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 import os
-from typing import Dict
 
 import h5py
 import hictkpy
-
-from . import IO
 
 
 def _raise_invalid_bin_type_except(f: hictkpy.File):
