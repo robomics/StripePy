@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as ss
 import seaborn as sns
+import structlog
 from numpy.typing import NDArray
 
 from . import IO, plot
@@ -308,14 +309,21 @@ def _filter_extrema_by_sparseness(
     return np.array(ps_mPs_2), np.array(pers_of_ps_mPs_2), np.array(ps_MPs_2), np.array(pers_of_ps_MPs_2)
 
 
-def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
-    print("1.1) Log-transformation...")
+def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None, logger=None):
+    if logger is None:
+        logger = structlog.get_logger()
+
+    logger.bind(step=(1, 1)).info("applying log-transformation")
     Iproc = _log_transform(I)
 
-    print("1.2) Focusing on a neighborhood of the main diagonal...")
+    logger.bind(step=(1, 2)).info("focusing on a neighborhood of the main diagonal")
     LT_Iproc, UT_Iproc = _band_extraction(Iproc, resolution, genomic_belt)
+    nnz0 = I.count_nonzero()
+    nnz1 = LT_Iproc.count_nonzero()
+    delta = nnz0 - nnz1
+    logger.bind(step=(1, 2)).info("removed %.2f%% of the non-zero entries (%d/%d)", (delta / nnz0) * 100, delta, nnz0)
 
-    print("1.3) Projection onto [0, 1]...")
+    logger.bind(step=(1, 3)).info("projecting interactions onto [1, 0]")
     Iproc, LT_Iproc, UT_Iproc = _scale_Iproc(Iproc, LT_Iproc, UT_Iproc)
 
     Iproc_RoI = _plot_RoIs(I, Iproc, RoI, output_folder)
@@ -323,8 +331,13 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None):
     return LT_Iproc, UT_Iproc, Iproc_RoI
 
 
-def step_2(chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=None, output_folder=None) -> IO.Result:
-    print("2.1) Global 1D pseudo-distributions...")
+def step_2(
+    chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=None, output_folder=None, logger=None
+) -> IO.Result:
+    if logger is None:
+        logger = structlog.get_logger()
+
+    logger.bind(step=(2, 1, 0)).info("computing global 1D pseudo-distributions...")
     LT_pd = _compute_global_pseudodistribution(L, smooth=True)
     UT_pd = _compute_global_pseudodistribution(U, smooth=True)
 
@@ -336,9 +349,11 @@ def step_2(chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=No
     result.set("pseudodistribution", LT_pd, "LT")
     result.set("pseudodistribution", UT_pd, "UT")
 
-    print("2.2) Detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices...")
+    logger.bind(step=(2, 2, 0)).info(
+        "detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices..."
+    )
+    logger.bind(step=(2, 2, 0)).info("all maxima and their persistence")
 
-    print("2.2.0) All maxima and their persistence")
     # NOTATION: mPs = minimum points, MPs = maximum Points, ps = persistence-sorted
     # NB: MPs are the actual sites of interest, i.e., the sites hosting linear patterns
 
@@ -355,10 +370,10 @@ def step_2(chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=No
     result.set("persistence_of_all_minimum_points", all_pers_of_UT_ps_mPs, "UT")
     result.set("persistence_of_all_maximum_points", all_pers_of_UT_ps_MPs, "UT")
 
-    print("2.2.1) Lower triangular part")
+    logger.bind(step=(2, 2, 1)).info("lower triangular part")
     LT_ps_mPs, pers_of_LT_ps_mPs, LT_ps_MPs, pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=min_persistence)
 
-    print("2.2.2) Upper triangular part")
+    logger.bind(step=(2, 2, 2)).info("upper triangular part")
     # Here, LT_ps_mPs means that the lower-triangular minimum points are sorted w.r.t. persistence
     # (NOTATION: ps = persistence-sorted)
     UT_ps_mPs, pers_of_UT_ps_mPs, UT_ps_MPs, pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=min_persistence)
@@ -371,7 +386,7 @@ def step_2(chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=No
     UT_mPs, UT_pers_of_mPs = common.sort_based_on_arg0(UT_ps_mPs, pers_of_UT_ps_mPs)
     UT_MPs, UT_pers_of_MPs = common.sort_based_on_arg0(UT_ps_MPs, pers_of_UT_ps_MPs)
 
-    print("2.2.3) Filter out seeds in sparse regions")
+    logger.bind(step=(2, 2, 3)).info("removing seeds overlapping sparse regions")
     LT_mask = _check_neighborhood(_compute_global_pseudodistribution(L, smooth=False))
     UT_mask = _check_neighborhood(_compute_global_pseudodistribution(U, smooth=False))
     x = _filter_extrema_by_sparseness(LT_mPs, LT_pers_of_mPs, LT_MPs, LT_pers_of_MPs, LT_mask)
@@ -379,11 +394,15 @@ def step_2(chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=No
     x = _filter_extrema_by_sparseness(UT_mPs, UT_pers_of_mPs, UT_MPs, UT_pers_of_MPs, UT_mask)
     UT_mPs, UT_pers_of_mPs, UT_MPs, UT_pers_of_MPs = x
     if len(LT_MPs) < len(LT_ps_MPs):
-        print(f"Number of lower-triangular seed sites is reduced from {len(LT_ps_MPs)} to {len(LT_MPs)}")
+        logger.bind(step=(2, 2, 3)).info(
+            "lower triangular part: number of seed sites reduced from %d to %d", len(LT_ps_MPs), len(LT_MPs)
+        )
     if len(UT_MPs) < len(UT_ps_MPs):
-        print(f"Number of upper-triangular seed sites is reduced from {len(UT_ps_MPs)} to {len(UT_MPs)}")
+        logger.bind(step=(2, 2, 3)).info(
+            "upper triangular part: number of seed sites reduced from %d to %d", len(UT_ps_MPs), len(UT_MPs)
+        )
     if len(LT_MPs) == len(LT_ps_MPs) and len(UT_MPs) == len(UT_ps_MPs):
-        print("No change in number of seed sites")
+        logger.bind(step=(2, 2, 3)).info("no change in the number of seed sites")
 
     result.set("persistent_minimum_points", LT_mPs, "LT")
     result.set("persistent_maximum_points", LT_MPs, "LT")
@@ -399,25 +418,33 @@ def step_2(chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=No
     if len(LT_MPs) == 0 or len(UT_MPs) == 0:
         return result
 
-    print("2.3) Storing into a list of Stripe objects...")
+    logger.bind(step=(2, 3, 1)).info("lower-triangular part: generating list of candidate stripes...")
     stripes = [
         stripe.Stripe(seed=LT_MP, top_pers=LT_pers_of_MP, where="lower_triangular")
         for LT_MP, LT_pers_of_MP in zip(LT_MPs, LT_pers_of_MPs)
     ]
+    logger.bind(step=(2, 3, 1)).info("lower-triangular part: generated %d candidate stripes", len(stripes))
     result.set("stripes", stripes, "LT")
 
+    logger.bind(step=(2, 3, 2)).info("upper-triangular part: generating list of candidate stripes...")
     stripes = [
         stripe.Stripe(seed=UT_MP, top_pers=UT_pers_of_MP, where="upper_triangular")
         for UT_MP, UT_pers_of_MP in zip(UT_MPs, UT_pers_of_MPs)
     ]
+    logger.bind(step=(2, 3, 2)).info("upper-triangular part: generated %d candidate stripes", len(stripes))
     result.set("stripes", stripes, "UT")
 
     if result.roi is not None:
-        print("2.4) Finding sites inside the region selected above...")
+        logger.bind(step=(2, 4, 0)).info("finding seed sites inside the region of interest...")
         ids_LT_MPs_in_RoI, LT_MPs_in_RoI = _find_seeds_in_RoI(LT_MPs, result.roi["matrix"][0], result.roi["matrix"][1])
         ids_UT_MPs_in_RoI, UT_MPs_in_RoI = _find_seeds_in_RoI(UT_MPs, result.roi["matrix"][0], result.roi["matrix"][1])
+        logger.bind(step=(2, 4, 0)).info(
+            "found %d and %d seed sites for the lower- and upper-triangular part, respectively",
+            len(ids_LT_MPs_in_RoI),
+            len(ids_UT_MPs_in_RoI),
+        )
 
-        print("2.5) Plotting pseudo-distributions and sites for the region selected above...")
+        logger.bind(step=(2, 5, 0)).info("plotting pseudo-distributions and sites for the region of interest...")
         if output_folder is not None:
 
             # Plot pseudo-distributions:
@@ -496,9 +523,13 @@ def step_3(
     RoI=None,
     output_folder=None,
     map=map,
+    logger=None,
 ) -> IO.Result:
+    if logger is None:
+        logger = structlog.get_logger()
+
     if result.empty:
-        print("3) No candidates found by step 2. Returning immediately!")
+        logger.bind(step=(3,)).warning("no candidates found by step 2: returning immediately!")
         return result
 
     # Retrieve data:
@@ -511,8 +542,8 @@ def step_3(
 
     start_time = time.time()
 
-    print("3.1) Width estimation")
-    print("3.1.1) Estimating widths (equiv. HIoIs, where HIoI stands for Horizontal Interval of Interest)...")
+    logger.bind(step=(3, 1)).info("width estimation")
+    logger.bind(step=(3, 1, 1)).info("estimating candidate stripe widths")
 
     # Complement mPs with:
     # the global minimum (if any) that is to the left of the leftmost persistent maximum
@@ -553,7 +584,7 @@ def step_3(
     LT_L_bounds, LT_R_bounds = map(list, zip(*LT_HIoIs))
     UT_L_bounds, UT_R_bounds = map(list, zip(*UT_HIoIs))
 
-    print("3.1.2) Updating list of Stripe objects with HIoIs...")
+    logger.bind(step=(3, 1, 2)).info("updating candidate stripes with width information")
     stripes = result.get("stripes", "LT")
     for num_cand_stripe, (LT_L_bound, LT_R_bound) in enumerate(zip(LT_L_bounds, LT_R_bounds)):
         stripes[num_cand_stripe].set_horizontal_bounds(LT_L_bound, LT_R_bound)
@@ -564,7 +595,7 @@ def step_3(
 
     if all([param is not None for param in [RoI, output_folder]]):
 
-        print("3.1.3) Plots")
+        logger.bind(step=(3, 1, 3)).info("generating plots")
         # 3.1.3.1 "Finding HIoIs inside the region (RoI) selected above..."
 
         ids_LT_MPs_in_RoI, LT_MPs_in_RoI = _find_seeds_in_RoI(LT_MPs, result.roi["matrix"][0], result.roi["matrix"][1])
@@ -675,13 +706,12 @@ def step_3(
                 display=False,
             )
 
-    print(f"Execution time: {time.time() - start_time} seconds ---")
+    logger.bind(step=(3, 1)).info("width estimation took %s seconds", time.time() - start_time)
 
-    print("3.2) Height estimation")
-
+    logger.bind(step=(3, 2)).info("height estimation")
     start_time = time.time()
 
-    print("3.2.1) Estimating heights (equiv. VIoIs, where VIoI stands for Vertical Interval of Interest)...")
+    logger.bind(step=(3, 2, 1)).info("estimating candidate stripe heights")
     if be_verbose and all([param is not None for param in [RoI, output_folder]]):
         LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
             L,
@@ -737,7 +767,7 @@ def step_3(
     LT_U_bounds, LT_D_bounds = map(list, zip(*LT_VIoIs))
     UT_U_bounds, UT_D_bounds = map(list, zip(*UT_VIoIs))
 
-    print("3.2.2) Updating list of Stripe objects with VIoIs...")
+    logger.bind(step=(3, 1, 2)).info("updating candidate stripes with height information")
     lt_stripes = result.get("stripes", "LT")
     for num_cand_stripe, (LT_U_bound, LT_D_bound) in enumerate(zip(LT_U_bounds, LT_D_bounds)):
         lt_stripes[num_cand_stripe].set_vertical_bounds(LT_U_bound, LT_D_bound)
@@ -745,11 +775,10 @@ def step_3(
     for num_cand_stripe, (UT_U_bound, UT_D_bound) in enumerate(zip(UT_U_bounds, UT_D_bounds)):
         ut_stripes[num_cand_stripe].set_vertical_bounds(UT_U_bound, UT_D_bound)
 
-    print(f"Execution time: {time.time() - start_time} seconds ---")
+    logger.bind(step=(3, 2)).info("height estimation took %s seconds", time.time() - start_time)
 
     if RoI is not None:
-
-        print("3.3) Finding HIoIs and VIoIs inside the region (RoI) selected above...")
+        logger.bind(step=(3, 3)).info("selecting candidate stripes overlapping with the region of interest")
 
         # Restricting to the RoI:
         LT_HIoIs_in_RoI = np.array(LT_HIoIs)[ids_LT_MPs_in_RoI].tolist()
@@ -797,8 +826,7 @@ def step_3(
                 for UT_peaks_ids_in_candida_in_RoI in UT_peaks_ids_RoI
             ]
 
-        print("3.4) Plotting candidate stripes restricted to HIoIs...")
-
+        logger.bind(step=(3, 4)).info("generating plots highlighting stripe widths")
         # Plot of the candidate stripes within the RoI:
         IO.plot_stripes(
             Iproc_RoI,
@@ -866,7 +894,7 @@ def step_3(
                 display=False,
             )
 
-    print("3.6) Bar plots of widths and heights...")
+    logger.bind(step=(3, 5)).info("generating plots of stripe heights and widths distributions")
     LT_widths = [HIoI[1] - HIoI[0] for HIoI in LT_HIoIs]
     LT_heights = [VIoI[1] - VIoI[0] for VIoI in LT_VIoIs]
     UT_widths = [HIoI[1] - HIoI[0] for HIoI in UT_HIoIs]
@@ -945,20 +973,23 @@ def step_4(
     Iproc_RoI=None,
     RoI=None,
     output_folder=None,
+    logger=None,
 ):
+    if logger is None:
+        logger = structlog.get_logger()
+
     if result.empty:
-        print("4) No candidates found by step 2. Returning immediately!")
+        logger.bind(step=(4,)).warning("no candidates found by step 2: returning immediately!")
         return result
 
-    print("4.1) Computing and saving biological descriptors")
+    logger.bind(step=(4, 1)).info("computing stripe biologival descriptors")
     for LT_candidate_stripe in result.get("stripes", "LT"):
         LT_candidate_stripe.compute_biodescriptors(L)
     for UT_candidate_stripe in result.get("stripes", "UT"):
         UT_candidate_stripe.compute_biodescriptors(U)
 
     if all(param is not None for param in [resolution, thresholds_relative_change, Iproc_RoI, RoI, output_folder]):
-
-        print("4.2) Thresholding...")
+        logger.bind(step=(4, 2)).info("thresholding")
 
         # Retrieve data:
         LT_MPs = [c_s.seed for c_s in result.get("stripes", "LT")]

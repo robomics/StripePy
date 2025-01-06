@@ -6,6 +6,7 @@ import os
 
 import h5py
 import hictkpy
+import structlog
 
 
 def _raise_invalid_bin_type_except(f: hictkpy.File):
@@ -13,6 +14,9 @@ def _raise_invalid_bin_type_except(f: hictkpy.File):
 
 
 def open_matrix_file_checked(path: os.PathLike, resolution: int) -> hictkpy.File:
+    logger = structlog.get_logger()
+    logger.info('validating file "%s" (%dbp)...', path, resolution)
+
     try:
         if not isinstance(resolution, int):
             raise TypeError("resolution must be an integer.")
@@ -35,6 +39,7 @@ def open_matrix_file_checked(path: os.PathLike, resolution: int) -> hictkpy.File
 
     if f.attributes().get("bin-type", "fixed") != "fixed":
         _raise_invalid_bin_type_except(f)
+    logger.info('file "%s" successfully validated', path)
 
     return f
 
