@@ -765,7 +765,7 @@ class ResultFile(object):
         matrix_file: hictkpy.File,
         normalization: Optional[str],
         metadata: Dict[str, Any],
-        compression_lvl: int = 4,
+        compression_lvl: int = 9,
     ):
         """
         Initialize the current file.
