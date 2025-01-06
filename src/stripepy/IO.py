@@ -416,8 +416,9 @@ class ResultFile(object):
 
             known_versions = {1, 2}
             if format_version not in known_versions:
+                known_versions_ = ", ".join(str(v) for v in known_versions)
                 raise RuntimeError(
-                    f'unsupported file format version "{format_version}". At present only versions {', '.join(str(v) for v in known_versions)} are supported'
+                    f'unsupported file format version "{format_version}". At present only versions {known_versions_} are supported'
                 )
         except RuntimeError as e:
             raise RuntimeError(
