@@ -24,14 +24,16 @@ def _num_cpus(arg: str) -> int:
     except:  # noqa
         pass
 
-    raise ValueError(f"Not a valid number of CPU cores (allowed values are integers between 1 and {mp.cpu_count()})")
+    raise argparse.ArgumentTypeError(
+        f"Not a valid number of CPU cores (allowed values are integers between 1 and {mp.cpu_count()})"
+    )
 
 
 def _existing_file(arg: str) -> pathlib.Path:
     if (path := pathlib.Path(arg)).is_file():
         return path
 
-    raise FileNotFoundError(arg)
+    raise argparse.ArgumentTypeError(f'Not an existing file: "{arg}"')
 
 
 def _output_dir_checked(arg: str) -> pathlib.Path:
@@ -39,28 +41,28 @@ def _output_dir_checked(arg: str) -> pathlib.Path:
     if parent.exists() and parent.is_dir():
         return pathlib.Path(arg)
 
-    raise FileNotFoundError(f'Output folder "{arg}" is not reachable: parent folder does not exist')
+    raise argparse.ArgumentTypeError(f'Output folder "{arg}" is not reachable: parent folder does not exist')
 
 
 def _probability(arg) -> float:
     if 0 <= (n := float(arg)) <= 1:
         return n
 
-    raise ValueError("Not a valid probability")
+    raise argparse.ArgumentTypeError("Not a valid probability")
 
 
 def _positive_float(arg) -> float:
     if (n := float(arg)) > 0:
         return n
 
-    raise ValueError("Not a positive float")
+    raise argparse.ArgumentTypeError("Not a positive float")
 
 
 def _positive_int(arg) -> float:
     if (n := int(arg)) > 0:
         return n
 
-    raise ValueError("Not a positive int")
+    raise argparse.ArgumentTypeError("Not a positive int")
 
 
 def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
