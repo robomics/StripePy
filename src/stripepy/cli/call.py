@@ -49,7 +49,7 @@ def _plan(chromosomes: Dict[str, int], min_size: int, logger=None) -> List[Tuple
     return plan
 
 
-def generate_empty_result(chrom: str, chrom_size: int, resolution: int) -> IO.Result:
+def _generate_empty_result(chrom: str, chrom_size: int, resolution: int) -> IO.Result:
     result = IO.Result(chrom)
     result.set_min_persistence(0)
 
@@ -126,7 +126,7 @@ def run(
             f.chromosomes(include_ALL=False), configs_thresholds["min_chrom_size"]
         ):
             if skip:
-                result = generate_empty_result(chrom_name, chrom_size, configs_input["resolution"])
+                result = _generate_empty_result(chrom_name, chrom_size, configs_input["resolution"])
                 h5.write_descriptors(result)
                 continue
 
