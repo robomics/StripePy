@@ -17,6 +17,8 @@ from typing import Any, Dict, Optional, Tuple, Union
 import alive_progress as ap
 import structlog
 
+from stripepy.utils.common import pretty_format_elapsed_time
+
 
 @functools.cache
 def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
@@ -190,8 +192,7 @@ def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
             logger.info('downloading dataset "%s" (assembly=%s)...', name, assembly)
             t0 = time.time()
             urllib.request.urlretrieve(url, tmpfile, reporthook=_download_progress_reporter)
-            t1 = time.time()
-            logger.info('DONE! Downloading dataset "%s" took %.2fs.', name, t1 - t0)
+            logger.info('DONE! Downloading dataset "%s" took %s.', name, pretty_format_elapsed_time(t0))
 
         digest = _hash_file(tmpfile)
         if digest == md5sum:
@@ -234,8 +235,9 @@ def run(
     output_path.unlink(missing_ok=True)
 
     dest = _download_and_checksum(dset_name, config, output_path)
-    t1 = time.time()
 
     logger = structlog.get_logger()
     logger.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
-    logger.info(f"file size: %.2fMB. Elapsed time: %.2fs", dest.stat().st_size / (1024 << 10), t1 - t0)
+    logger.info(
+        f"file size: %.2fMB. Elapsed time: %s", dest.stat().st_size / (1024 << 10), pretty_format_elapsed_time(t0)
+    )

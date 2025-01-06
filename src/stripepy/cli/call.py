@@ -16,6 +16,7 @@ import pandas as pd
 import structlog
 
 from stripepy import IO, others, stripepy
+from stripepy.utils.common import pretty_format_elapsed_time
 
 
 def _generate_metadata_attribute(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any]) -> Dict[str, Any]:
@@ -175,7 +176,7 @@ def run(
                 )
                 Iproc_RoI = None
             progress_bar(pw1)
-            logger.info("preprocessing took %s seconds", time.time() - start_time)
+            logger.info("preprocessing took %s", pretty_format_elapsed_time(start_time))
 
             # Find the indices where the sum is zero
             # TODO: DO SOMETHING
@@ -211,7 +212,7 @@ def run(
                     logger=logger,
                 )
             progress_bar(pw2)
-            logger.info("topological data analysis took %s seconds", time.time() - start_time)
+            logger.info("topological data analysis took %s", pretty_format_elapsed_time(start_time))
 
             logger = logger.bind(step=(3,))
             logger.info("shape analysis")
@@ -251,7 +252,7 @@ def run(
                 )
 
             progress_bar(pw3)
-            logger.info("shape analysis took %s seconds", time.time() - start_time)
+            logger.info("shape analysis took %s", pretty_format_elapsed_time(start_time))
 
             logger = logger.bind(step=(4,))
             logger.info("statistical analysis and post-processing")
@@ -280,15 +281,15 @@ def run(
                 )
 
             progress_bar(pw4)
-            logger.info("statistical analysis and post-processing took %s seconds", time.time() - start_time)
+            logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))
 
             logger = main_logger.bind(chrom=this_chr)
             logger.info('writing results for "%s" to file "%s"', this_chr, h5.path)
             h5.write_descriptors(result)
             progress_bar(pw5)
-            logger.info("processing took %s seconds", time.time() - start_local_time)
+            logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
 
     main_logger.info("DONE!")
     main_logger.info(
-        "processed %d chromosomes in %s minutes", len(f.chromosomes()), (time.time() - start_global_time) / 60
+        "processed %d chromosomes in %s", len(f.chromosomes()), pretty_format_elapsed_time(start_global_time)
     )
