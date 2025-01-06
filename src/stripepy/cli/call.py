@@ -6,9 +6,11 @@ import contextlib
 import json
 import multiprocessing as mp
 import pathlib
+import sys
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
+import alive_progress as ap
 import numpy as np
 import structlog
 
@@ -41,6 +43,21 @@ def _write_param_summary(*configs: Dict[str, Any]):
 
     config_str = json.dumps(config, indent=2, sort_keys=True, cls=_JSONEncoder)
     structlog.get_logger().info(f"CONFIG:\n{config_str}")
+
+
+def _compute_progress_bar_weights(
+    chrom_sizes: List[int], step_weights: Tuple[float, float, float, float, float] = (0.2, 0.2, 0.2, 0.2, 0.2)
+) -> List[float]:
+    step_weights = np.array(step_weights, dtype=float)
+    assert np.isclose(step_weights.sum(), 1.0)
+
+    weights = []
+    for size in chrom_sizes:
+        weights.extend(step_weights * size)
+
+    weights = np.array(weights)
+    weights /= weights.sum()
+    return [min(1.0, float(w)) for w in np.cumsum(weights)]
 
 
 def run(
@@ -84,11 +101,31 @@ def run(
         else:
             pool = None
 
+        disable_bar = not sys.stderr.isatty()
+        progress_weights = _compute_progress_bar_weights([chr_ends[i] - chr_starts[i] for i, _ in c_pairs])
+        progress_bar = ctx.enter_context(
+            ap.alive_bar(
+                total=sum([(chr_ends[i] - chr_starts[i]) * f.resolution() for i, _ in c_pairs]),
+                manual=True,
+                disable=disable_bar,
+                enrich_print=False,
+                file=sys.stderr,
+                receipt=False,
+                refresh_secs=0.05,
+                monitor="{percent:.2%}",
+                unit="bp",
+                scale="SI",
+            )
+        )
+
         # Lopping over all chromosomes:
         for this_chr_idx, this_chr in c_pairs:
             logger = main_logger.bind(chrom=this_chr)
             logger.info("begin processing...")
             start_local_time = time.time()
+
+            pw1, pw2, pw3, pw4 = progress_weights[:4]
+            progress_weights = progress_weights[4:]
 
             # Removing and creating folders to store output files:
             # configs_input['roi'] = None
@@ -123,6 +160,7 @@ def run(
                     I, configs_input["genomic_belt"], configs_input["resolution"], logger=logger
                 )
                 Iproc_RoI = None
+            progress_bar(pw1)
             logger.info("preprocessing took %s seconds", time.time() - start_time)
 
             # Find the indices where the sum is zero
@@ -158,6 +196,7 @@ def run(
                     configs_thresholds["glob_pers_min"],
                     logger=logger,
                 )
+            progress_bar(pw2)
             logger.info("topological data analysis took %s seconds", time.time() - start_time)
 
             logger = logger.bind(step=(3,))
@@ -197,6 +236,7 @@ def run(
                     logger=logger,
                 )
 
+            progress_bar(pw3)
             logger.info("shape analysis took %s seconds", time.time() - start_time)
 
             logger = logger.bind(step=(4,))
@@ -225,6 +265,7 @@ def run(
                     logger=logger,
                 )
 
+            progress_bar(pw4)
             logger.info("statistical analysis and post-processing took %s seconds", time.time() - start_time)
 
             logger = main_logger.bind(chrom=this_chr)
