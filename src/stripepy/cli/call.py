@@ -8,10 +8,11 @@ import multiprocessing as mp
 import pathlib
 import sys
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
 import alive_progress as ap
 import numpy as np
+import pandas as pd
 import structlog
 
 from stripepy import IO, others, stripepy
@@ -45,19 +46,32 @@ def _write_param_summary(*configs: Dict[str, Any]):
     structlog.get_logger().info(f"CONFIG:\n{config_str}")
 
 
-def _compute_progress_bar_weights(
-    chrom_sizes: List[int], step_weights: Tuple[float, float, float, float, float] = (0.2, 0.2, 0.2, 0.2, 0.2)
-) -> List[float]:
-    step_weights = np.array(step_weights, dtype=float)
-    assert np.isclose(step_weights.sum(), 1.0)
+def _compute_progress_bar_weights(chrom_sizes: Dict[str, int]) -> pd.DataFrame:
+    # These weights have been computed on a Linux machine (Ryzen 9 5950X) using 1 core to process
+    # 4DNFI9GMP2J8.mcool at 10kbp
+    step_weights = {
+        "input": 0.067616,
+        "step_1": 0.039959,
+        "step_2": 0.033109,
+        "step_3": 0.721486,
+        "step_4": 0.135708,
+        "output": 0.002122,
+    }
+
+    assert np.isclose(sum(step_weights.values()), 1.0)
 
     weights = []
-    for size in chrom_sizes:
-        weights.extend(step_weights * size)
+    for size in chrom_sizes.values():
+        weights.extend((size * w for w in step_weights.values()))
 
     weights = np.array(weights)
     weights /= weights.sum()
-    return [min(1.0, float(w)) for w in np.cumsum(weights)]
+    weights = np.minimum(weights.cumsum(), 1.0)
+
+    shape = (len(chrom_sizes), len(step_weights))
+    df = pd.DataFrame(weights.reshape(shape), columns=list(step_weights.keys()))
+    df["chrom"] = list(chrom_sizes.keys())
+    return df.set_index(["chrom"])
 
 
 def run(
@@ -102,7 +116,7 @@ def run(
             pool = None
 
         disable_bar = not sys.stderr.isatty()
-        progress_weights = _compute_progress_bar_weights([chr_ends[i] - chr_starts[i] for i, _ in c_pairs])
+        progress_weights = _compute_progress_bar_weights(f.chromosomes())
         progress_bar = ctx.enter_context(
             ap.alive_bar(
                 total=sum([(chr_ends[i] - chr_starts[i]) * f.resolution() for i, _ in c_pairs]),
@@ -124,8 +138,7 @@ def run(
             logger.info("begin processing...")
             start_local_time = time.time()
 
-            pw1, pw2, pw3, pw4 = progress_weights[:4]
-            progress_weights = progress_weights[4:]
+            pw0, pw1, pw2, pw3, pw4, pw5 = progress_weights.loc[this_chr, :]
 
             # Removing and creating folders to store output files:
             # configs_input['roi'] = None
@@ -134,6 +147,7 @@ def run(
 
             logger.debug("fetching interactions using normalization=%s", configs_input["normalization"])
             I = f.fetch(this_chr, normalization=configs_input["normalization"]).to_csr("full")
+            progress_bar(pw0)
 
             # RoI:
             RoI = others.define_RoI(
@@ -271,6 +285,7 @@ def run(
             logger = main_logger.bind(chrom=this_chr)
             logger.info('writing results for "%s" to file "%s"', this_chr, h5.path)
             h5.write_descriptors(result)
+            progress_bar(pw5)
             logger.info("processing took %s seconds", time.time() - start_local_time)
 
     main_logger.info("DONE!")
