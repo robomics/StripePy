@@ -3,11 +3,14 @@
 # SPDX-License-Identifier: MIT
 
 import contextlib
+import json
 import multiprocessing as mp
+import pathlib
 import time
 from typing import Any, Dict
 
 import numpy as np
+import structlog
 
 from stripepy import IO, others, stripepy
 
@@ -24,6 +27,22 @@ def _generate_metadata_attribute(configs_input: Dict[str, Any], configs_threshol
     }
 
 
+class _JSONEncoder(json.JSONEncoder):
+    def default(self, o: Any):
+        if isinstance(o, pathlib.Path):
+            return str(o)
+        return super().default(o)
+
+
+def _write_param_summary(*configs: Dict[str, Any]):
+    config = {}
+    for c in configs:
+        config.update(c)
+
+    config_str = json.dumps(config, indent=2, sort_keys=True, cls=_JSONEncoder)
+    structlog.get_logger().info(f"CONFIG:\n{config_str}")
+
+
 def run(
     configs_input: Dict[str, Any],
     configs_thresholds: Dict[str, Any],
@@ -33,6 +52,8 @@ def run(
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
 
+    _write_param_summary(configs_input, configs_thresholds, configs_output, configs_other)
+
     # Data loading:
     f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact_map"], configs_input["resolution"])
 
@@ -40,9 +61,6 @@ def run(
     # configs_output["output_folder"] = (
     #     f"{configs_output['output_folder']}/{configs_input['contact_map'].stem}/{configs_input['resolution']}"
     # )
-    configs_output["output_folder"] = (
-        configs_output["output_folder"] / configs_input["contact_map"].stem / str(configs_input["resolution"])
-    )
     IO.remove_and_create_folder(configs_output["output_folder"], configs_output["force"])
 
     # Extract a list of tuples where each tuple is (index, chr), e.g. (2,'chr3'):
@@ -51,21 +69,25 @@ def run(
     )
 
     with contextlib.ExitStack() as ctx:
+        main_logger = structlog.get_logger()
+
         # Create HDF5 file to store candidate stripes:
+        main_logger.info('initializing result file "%s"...', configs_output["output_folder"] / "results.hdf5")
         h5 = ctx.enter_context(IO.ResultFile(configs_output["output_folder"] / "results.hdf5", "w"))
 
         h5.init_file(f, configs_input["normalization"], _generate_metadata_attribute(configs_input, configs_thresholds))
 
         # Set up the process pool when appropriate
         if configs_other["nproc"] > 1:
+            main_logger.debug("initializing a pool of %d processes...", configs_other["nproc"])
             pool = ctx.enter_context(mp.Pool(configs_other["nproc"]))
         else:
             pool = None
 
         # Lopping over all chromosomes:
         for this_chr_idx, this_chr in c_pairs:
-
-            print(f"\n{IO.ANSI.RED}CHROMOSOME {this_chr}{IO.ANSI.ENDC}")
+            logger = main_logger.bind(chrom=this_chr)
+            logger.info("begin processing...")
             start_local_time = time.time()
 
             # Removing and creating folders to store output files:
@@ -73,15 +95,18 @@ def run(
             if configs_input["roi"] is not None:
                 IO.create_folders_for_plots(configs_output["output_folder"] / "plots" / this_chr)
 
+            logger.debug("fetching interactions using normalization=%s", configs_input["normalization"])
             I = f.fetch(this_chr, normalization=configs_input["normalization"]).to_csr("full")
 
             # RoI:
             RoI = others.define_RoI(
                 configs_input["roi"], chr_starts[this_chr_idx], chr_ends[this_chr_idx], configs_input["resolution"]
             )
-            print(f"RoI is: {RoI}")
+            if RoI is not None:
+                logger.info("region of interest to be used for plotting: %s", RoI)
 
-            print(f"{IO.ANSI.YELLOW}Step 1: pre-processing step{IO.ANSI.ENDC}")
+            logger = logger.bind(step=(1,))
+            logger.info("data pre-processing")
             start_time = time.time()
             if all(param is not None for param in [RoI, configs_output["output_folder"]]):
                 output_folder_1 = f"{configs_output['output_folder']}/plots/{this_chr}/1_preprocessing/"
@@ -91,11 +116,14 @@ def run(
                     configs_input["resolution"],
                     RoI=RoI,
                     output_folder=output_folder_1,
+                    logger=logger,
                 )
             else:
-                LT_Iproc, UT_Iproc, _ = stripepy.step_1(I, configs_input["genomic_belt"], configs_input["resolution"])
+                LT_Iproc, UT_Iproc, _ = stripepy.step_1(
+                    I, configs_input["genomic_belt"], configs_input["resolution"], logger=logger
+                )
                 Iproc_RoI = None
-            print(f"Execution time of step 1: {time.time() - start_time} seconds ---")
+            logger.info("preprocessing took %s seconds", time.time() - start_time)
 
             # Find the indices where the sum is zero
             # TODO: DO SOMETHING
@@ -105,7 +133,8 @@ def run(
             # np.savetxt("trend.txt", np.sum(LT_Iproc + UT_Iproc, axis=0))
             # exit()
 
-            print(f"{IO.ANSI.YELLOW}Step 2: Topological Data Analysis{IO.ANSI.ENDC}")
+            logger = logger.bind(step=(2,))
+            logger.info("topological data analysis")
             start_time = time.time()
             if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
                 output_folder_2 = f"{configs_output['output_folder']}/plots/{this_chr}/2_TDA/"
@@ -118,6 +147,7 @@ def run(
                     Iproc_RoI=Iproc_RoI,
                     RoI=RoI,
                     output_folder=output_folder_2,
+                    logger=logger,
                 )
             else:
                 result = stripepy.step_2(
@@ -126,10 +156,12 @@ def run(
                     UT_Iproc,
                     configs_input["resolution"],
                     configs_thresholds["glob_pers_min"],
+                    logger=logger,
                 )
-            print(f"Execution time of step 2: {time.time() - start_time} seconds ---")
+            logger.info("topological data analysis took %s seconds", time.time() - start_time)
 
-            print(f"{IO.ANSI.YELLOW}Step 3: Shape analysis{IO.ANSI.ENDC}")
+            logger = logger.bind(step=(3,))
+            logger.info("shape analysis")
             start_time = time.time()
 
             if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
@@ -148,6 +180,7 @@ def run(
                     RoI=RoI,
                     output_folder=output_folder_3,
                     map=pool.map if pool is not None else map,
+                    logger=logger,
                 )
             else:
                 result = stripepy.step_3(
@@ -161,11 +194,13 @@ def run(
                     configs_thresholds["loc_pers_min"],
                     configs_thresholds["loc_trend_min"],
                     map=pool.map if pool is not None else map,
+                    logger=logger,
                 )
 
-            print(f"Execution time of step 3: {time.time() - start_time} seconds ---")
+            logger.info("shape analysis took %s seconds", time.time() - start_time)
 
-            print(f"{IO.ANSI.YELLOW}Step 4: Statistical analysis and post-processing{IO.ANSI.ENDC}")
+            logger = logger.bind(step=(4,))
+            logger.info("statistical analysis and post-processing")
             start_time = time.time()
 
             if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
@@ -180,15 +215,24 @@ def run(
                     Iproc_RoI=Iproc_RoI,
                     RoI=RoI,
                     output_folder=output_folder_4,
+                    logger=logger,
                 )
             else:
-                result = stripepy.step_4(result, LT_Iproc, UT_Iproc)
+                result = stripepy.step_4(
+                    result,
+                    LT_Iproc,
+                    UT_Iproc,
+                    logger=logger,
+                )
 
-            print(f"Execution time of step 4: {time.time() - start_time} seconds ---")
+            logger.info("statistical analysis and post-processing took %s seconds", time.time() - start_time)
 
-            print(f'Writing results for "{this_chr}" to file "{h5.path}"...')
+            logger = main_logger.bind(chrom=this_chr)
+            logger.info('writing results for "%s" to file "%s"', this_chr, h5.path)
             h5.write_descriptors(result)
+            logger.info("processing took %s seconds", time.time() - start_local_time)
 
-            print(f"{IO.ANSI.CYAN}This chromosome has taken {(time.time() - start_local_time)} seconds{IO.ANSI.ENDC}")
-
-    print(f"\n\n{IO.ANSI.RED}The code has run for {(time.time() - start_global_time) / 60} minutes{IO.ANSI.ENDC}")
+    main_logger.info("DONE!")
+    main_logger.info(
+        "processed %d chromosomes in %s minutes", len(f.chromosomes()), (time.time() - start_global_time) / 60
+    )

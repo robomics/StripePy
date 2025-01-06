@@ -7,6 +7,7 @@ import os
 import h5py
 import hictkpy
 import numpy as np
+import structlog
 
 from . import IO
 
@@ -16,6 +17,9 @@ def _raise_invalid_bin_type_except(f: hictkpy.File):
 
 
 def cmap_loading(path: os.PathLike, resolution: int):
+    logger = structlog.get_logger()
+    logger.info('validating file "%s" (%dbp)...', path, resolution)
+
     try:
         if not isinstance(resolution, int):
             raise TypeError("resolution must be an integer.")
@@ -38,22 +42,26 @@ def cmap_loading(path: os.PathLike, resolution: int):
 
     if f.attributes().get("bin-type", "fixed") != "fixed":
         _raise_invalid_bin_type_except(f)
+    logger.info('file "%s" successfully validated', path)
 
     # Retrieve metadata:
     chr_starts = [0]  # left ends of each chromosome  (in matrix coordinates)
     chr_ends = []  # right ends of each chromosome (in matrix coordinates)
     chr_sizes = []  # integer bp lengths, one per chromosome
+    logger.info('reading chromosomes from file "%s"...', path)
     for bp_length in f.chromosomes().values():
         chr_sizes.append(bp_length)
         chr_ends.append(chr_starts[-1] + int(np.ceil(bp_length / resolution)))
         chr_starts.append(chr_ends[-1])
-        # print(f"{chr_starts[-2]}-{chr_ends[-1]}-{chr_sizes[-1]}")
     chr_starts.pop(-1)
 
+    logger.info("successfully read %d chromosomes!", len(chr_starts))
     return f, chr_starts, chr_ends, chr_sizes
 
 
 def chromosomes_to_study(chromosomes, length_in_bp, min_size_allowed):
+    logger = structlog.get_logger()
+    logger.debug("removing short chromosomes from the list of chromosomes to study...")
     # Extract the list of chromosomes:
     chr_ids = list(range(len(chromosomes)))
     c_pairs = list(zip(chr_ids, chromosomes))
@@ -62,15 +70,21 @@ def chromosomes_to_study(chromosomes, length_in_bp, min_size_allowed):
     surviving_indices = [i for i, e in enumerate(length_in_bp) if e > min_size_allowed]
     deleted_indices = [i for i, e in enumerate(length_in_bp) if e <= min_size_allowed]
     if len(deleted_indices) > 0:
-        print(
-            f"{IO.ANSI.RED}ATT: The following chromosomes are discarded because shorter than --min-chrom-size = "
-            f"{min_size_allowed} bp: {[chromosomes[i] for i in deleted_indices]}{IO.ANSI.ENDC}"
+
+        logger.warning(
+            "the following chromosome are discarded because they are shorter than --min-chrom-size=%d bp: %s",
+            min_size_allowed,
+            ", ".join(chromosomes[i] for i in deleted_indices),
         )
         c_pairs = [c_pairs[i] for i in surviving_indices]
 
         # If there is no chromosome left, exit:
         if len(c_pairs) == 0:
-            raise ValueError(f"\nNo chromosome is long enough... decrease the parameter --min-chrom-size")
+            raise ValueError("All chromosomes have been discarded! Please decrease the parameter --min-chrom-size")
+
+    logger.debug(
+        "keeping %d/%d chromosomes (--min-chrom-size=%d)", len(surviving_indices), len(chromosomes), min_size_allowed
+    )
 
     return c_pairs
 

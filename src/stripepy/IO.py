@@ -17,6 +17,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import seaborn as sns
+import structlog
 from matplotlib.ticker import EngFormatter, ScalarFormatter
 
 from stripepy.utils.stripe import Stripe
@@ -635,8 +636,11 @@ class ANSI:
     ENDC = "\033[0m"
 
 
-def remove_and_create_folder(path: pathlib.Path, force: bool):
+def remove_and_create_folder(path: pathlib.Path, force: bool, logger=None):
     path = pathlib.Path(path)
+    if logger is None:
+        logger = structlog.get_logger()
+    logger.debug('about to create folder "%s"...', path)
 
     # Deleting folders:
     if path.exists():
@@ -647,10 +651,16 @@ def remove_and_create_folder(path: pathlib.Path, force: bool):
 
     # Create the folder:
     path.mkdir(parents=True)
+    logger.debug('successfully created folder "%s"!', path)
 
 
-def create_folders_for_plots(path: pathlib.Path):
+def create_folders_for_plots(path: pathlib.Path, logger=None):
     path = pathlib.Path(path)
+
+    if logger is None:
+        logger = structlog.get_logger()
+
+    logger.debug('about to create plot folders under prefix "%s"...', path)
 
     folders4plots = [
         path,
@@ -664,6 +674,8 @@ def create_folders_for_plots(path: pathlib.Path):
     # Creating folders:
     for folder2create in folders4plots:
         folder2create.mkdir(parents=True)
+
+    logger.debug('successfully created folder "%s"!', path)
 
     return folders4plots
 
