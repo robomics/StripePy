@@ -183,6 +183,7 @@ def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
             enrich_print=False,
             file=sys.stderr,
             receipt=False,
+            refresh_secs=0.05,
             monitor="{percent:.2%}",
             scale="SI2",
         ) as bar:
