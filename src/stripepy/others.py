@@ -45,21 +45,30 @@ def open_matrix_file_checked(path: os.PathLike, resolution: int) -> hictkpy.File
     return f
 
 
-def define_RoI(where_roi: str, chr_end: int, resolution: int, RoI_length=2_000_000):
-    assert chr_end > 0
-    assert resolution > 0
-
-    # Region of Interest (RoI) in genomic and matrix coordinates:
-    if where_roi == "middle":
-        e1 = (chr_end - RoI_length) // 2
-        e2 = e1 + RoI_length
-    elif where_roi == "start":
-        e1 = 0
-        e2 = RoI_length
-    else:
+def define_RoI(location: Optional[str], chrom_size: int, resolution: int, window_size: int = 2_000_000):
+    if location is None or window_size <= 0:
         return None
 
-    bounds = [e1, e2, e1, e2]
+    assert chrom_size > 0
+    assert resolution > 0
+
+    if chrom_size > window_size:
+        window_size = ((window_size + resolution - 1) // resolution) * resolution
+
+    if location == "middle":
+        e1 = max(0, ((chrom_size - window_size) // (2 * resolution)) * resolution)
+        e2 = e1 + window_size
+    elif location == "start":
+        e1 = 0
+        e2 = window_size
+    else:
+        raise NotImplementedError
+
+    if e2 - e1 < window_size:
+        e1 = 0
+        e2 = window_size
+
+    bounds = [e1, min(chrom_size, e2)]
     return {"genomic": bounds, "matrix": [x // resolution for x in bounds]}
 
 
