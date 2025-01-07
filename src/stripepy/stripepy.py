@@ -689,7 +689,7 @@ def _plot_local_pseudodistributions(
             map(
                 _plot_local_pseudodistributions_helper,
                 zip(
-                    itertools.count(0, 1),
+                    itertools.count(1, 1),
                     df["seed"],
                     df["left_bound"],
                     df["right_bound"],
@@ -705,7 +705,7 @@ def _plot_local_pseudodistributions(
         )
     )
 
-    offset = len(df)
+    offset = len(df) + 1
     df = result.get_stripe_geo_descriptors("UT")
     df = df[(df["left_bound"] * resolution >= start) & (df["right_bound"] * resolution <= end)]
 
