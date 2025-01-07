@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-import hashlib
 import itertools
 import pathlib
 import time
@@ -11,6 +10,7 @@ from typing import Dict, List, Optional, Tuple
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import scipy.sparse as ss
 import structlog
 from numpy.typing import NDArray
@@ -732,7 +732,7 @@ def _plot_local_pseudodistributions(
     )
 
 
-def _plot_stripes_helper(args) -> Tuple[float, pathlib.Path, str]:
+def _plot_stripes_helper(args):
     matrix, result, resolution, start, end, cutoff, output_folder, logger = args
     logger.debug("plotting stripes with cutoff=%.2f", cutoff)
 
@@ -743,8 +743,22 @@ def _plot_stripes_helper(args) -> Tuple[float, pathlib.Path, str]:
     fig.savefig(dest, dpi=256)
     plt.close(fig)
 
-    with dest.open("rb") as f:
-        return cutoff, dest, hashlib.file_digest(f, hashlib.sha256).hexdigest()
+
+def _get_stripes(result: IO.Result, resolution: int) -> pd.DataFrame:
+    start, end = result.roi["genomic"]
+
+    descriptors_lt = result.get_stripe_geo_descriptors("LT")
+    descriptors_ut = result.get_stripe_geo_descriptors("UT")
+
+    for col in ("seed", "left_bound", "right_bound", "top_bound", "bottom_bound"):
+        descriptors_lt[col] *= resolution
+        descriptors_ut[col] *= resolution
+
+    descriptors_lt["rel_change"] = result.get_stripe_bio_descriptors("LT")["rel_change"].iloc[descriptors_lt.index]
+    descriptors_ut["rel_change"] = result.get_stripe_bio_descriptors("UT")["rel_change"].iloc[descriptors_ut.index]
+
+    df = pd.concat([descriptors_lt, descriptors_ut])
+    return df[df["left_bound"].between(start, end, inclusive="both")]
 
 
 def _plot_stripes(
@@ -760,31 +774,34 @@ def _plot_stripes(
     if matrix is None:
         return
 
-    start, end = result.roi["genomic"]
-    cutoffs = np.linspace(0, 15, 76)
+    df = _get_stripes(result, resolution)
 
-    tasks = map(
-        _plot_stripes_helper,
-        zip(
-            itertools.repeat(matrix),
-            itertools.repeat(result),
-            itertools.repeat(resolution),
-            itertools.repeat(start),
-            itertools.repeat(end),
-            cutoffs,
-            itertools.repeat(output_folder),
-            itertools.repeat(logger),
+    cutoffs = {}
+    for cutoff in np.linspace(0, 15, 76):
+        num_stripes = (df["rel_change"] >= cutoff).sum()
+        if num_stripes not in cutoffs:
+            cutoffs[num_stripes] = cutoff
+
+    start, end = result.roi["genomic"]
+
+    list(
+        itertools.filterfalse(
+            None,
+            map(
+                _plot_stripes_helper,
+                zip(
+                    itertools.repeat(matrix),
+                    itertools.repeat(result),
+                    itertools.repeat(resolution),
+                    itertools.repeat(start),
+                    itertools.repeat(end),
+                    cutoffs.values(),
+                    itertools.repeat(output_folder),
+                    itertools.repeat(logger),
+                ),
+            ),
         ),
     )
-
-    plots = set()
-
-    for _, path, digest in tasks:
-        if digest not in plots:
-            plots.add(digest)
-        else:
-            logger.debug('deleting plot "%s"', path)
-            path.unlink()
 
 
 def step_5(
