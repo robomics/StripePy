@@ -89,19 +89,24 @@ def _write_param_summary(*configs: Dict[str, Any]):
     structlog.get_logger().info(f"CONFIG:\n{config_str}")
 
 
-def _compute_progress_bar_weights(chrom_sizes: Dict[str, int]) -> pd.DataFrame:
-    # These weights have been computed on a Linux machine (Ryzen 9 5950X) using 1 core to process
+def _compute_progress_bar_weights(chrom_sizes: Dict[str, int], include_plotting: bool, nproc: int) -> pd.DataFrame:
+    # These weights have been computed on a Linux machine (Ryzen 9 7950X3D) using 1 core to process
     # 4DNFI9GMP2J8.mcool at 10kbp
     step_weights = {
-        "input": 0.067616,
-        "step_1": 0.039959,
-        "step_2": 0.033109,
-        "step_3": 0.721486,
-        "step_4": 0.135708,
-        "output": 0.002122,
+        "input": 0.035557,
+        "step_1": 0.018159,
+        "step_2": 0.015722,
+        "step_3": 0.301879,
+        "step_4": 0.051055,
+        "output": 0.054285,
+        "step_5": 0.523344 / nproc,
     }
 
-    assert np.isclose(sum(step_weights.values()), 1.0)
+    if not include_plotting:
+        step_weights["step_5"] = 0.0
+
+    tot = sum(step_weights.values())
+    step_weights = {k: v / tot for k, v in step_weights.items()}
 
     weights = []
     for size in chrom_sizes.values():
@@ -163,7 +168,9 @@ def run(
             pool = None
 
         disable_bar = not sys.stderr.isatty()
-        progress_weights = _compute_progress_bar_weights(f.chromosomes())
+        progress_weights_df = _compute_progress_bar_weights(
+            f.chromosomes(), include_plotting=configs_input["roi"] is not None, nproc=configs_other["nproc"]
+        )
         progress_bar = ctx.enter_context(
             ap.alive_bar(
                 total=sum(f.chromosomes().values()),
@@ -183,13 +190,13 @@ def run(
         for chrom_name, chrom_size, skip in _plan(
             f.chromosomes(include_ALL=False), configs_thresholds["min_chrom_size"]
         ):
-            pw0, pw1, pw2, pw3, pw4, pw5 = progress_weights.loc[chrom_name, :]
+            progress_weights = progress_weights_df.loc[chrom_name, :].to_dict()
 
             if skip:
                 logger.warning("writing an empty entry for chromosome %s...", chrom_name)
                 result = _generate_empty_result(chrom_name, chrom_size, configs_input["resolution"])
                 h5.write_descriptors(result)
-                progress_bar(pw5)
+                progress_bar(max(progress_weights.values()))
                 continue
 
             logger = main_logger.bind(chrom=chrom_name)
@@ -203,7 +210,7 @@ def run(
 
             logger.debug("fetching interactions using normalization=%s", configs_input["normalization"])
             I = f.fetch(chrom_name, normalization=configs_input["normalization"]).to_csr("full")
-            progress_bar(pw0)
+            progress_bar(progress_weights["input"])
 
             # RoI:
             RoI = others.define_RoI(configs_input["roi"], chrom_size, configs_input["resolution"])
@@ -220,6 +227,7 @@ def run(
                 RoI=RoI,
                 logger=logger,
             )
+            progress_bar(progress_weights["step_1"])
             logger.info("preprocessing took %s", pretty_format_elapsed_time(start_time))
 
             # Find the indices where the sum is zero
@@ -241,7 +249,7 @@ def run(
                 configs_thresholds["glob_pers_min"],
                 logger=logger,
             )
-            progress_bar(pw2)
+            progress_bar(progress_weights["step_2"])
             logger.info("topological data analysis took %s", pretty_format_elapsed_time(start_time))
 
             if RoI is not None:
@@ -263,7 +271,7 @@ def run(
                 logger=logger,
             )
 
-            progress_bar(pw3)
+            progress_bar(progress_weights["step_3"])
             logger.info("shape analysis took %s", pretty_format_elapsed_time(start_time))
 
             logger = logger.bind(step=(4,))
@@ -287,7 +295,7 @@ def run(
             logger = main_logger.bind(chrom=chrom_name)
             logger.info('writing results to file "%s"', h5.path)
             h5.write_descriptors(result)
-            progress_bar(pw5)
+            progress_bar(progress_weights["output"])
             logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
 
             if result.roi is not None:
@@ -312,6 +320,7 @@ def run(
                     logger=logger,
                 )
 
+                progress_bar(progress_weights["step_5"])
                 logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
 
     main_logger.info("DONE!")
