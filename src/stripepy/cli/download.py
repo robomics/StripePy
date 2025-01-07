@@ -24,7 +24,7 @@ from stripepy.utils.common import pretty_format_elapsed_time
 def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
     assert not math.isnan(max_size)
 
-    record_id = "14517632"
+    record_id = "14609227"
 
     datasets = {
         "4DNFI3RFZLZ5": {
@@ -57,15 +57,23 @@ def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
         },
         "__results_v1": {
             "url": f"https://zenodo.org/records/{record_id}/files/results_4DNFI9GMP2J8_v1.hdf5?download=1",
-            "md5": "632b2a7a6e5c1a24dc3635710ed68a80",
+            "md5": "172872e8de9f35909f87ff33c185a07b",
             "filename": "results_4DNFI9GMP2J8_v1.hdf5",
             "assembly": "hg38",
             "format": "stripepy",
-            "size_mb": 8.75,
+            "size_mb": 8.76,
+        },
+        "__results_v2": {
+            "url": f"https://zenodo.org/records/{record_id}/files/results_4DNFI9GMP2J8_v2.hdf5?download=1",
+            "md5": "b40e5f929e79cb4a4d3453a59c5a0947",
+            "filename": "results_4DNFI9GMP2J8_v2.hdf5",
+            "assembly": "hg38",
+            "format": "stripepy",
+            "size_mb": 9.26,
         },
         "__stripepy_plot_images": {
             "url": f"https://zenodo.org/records/{record_id}/files/stripepy-plot-test-images.tar.xz?download=1",
-            "md5": "d4ab74937dd9062efe4b2acc6ebc8780",
+            "md5": "5c08f95b235b9adcebf4bf09df904b42",
             "filename": "stripepy-plot-test-images.tar.xz",
             "assembly": "hg38",
             "format": "tar",
@@ -237,6 +245,7 @@ def _download_data_for_unit_tests():
     names = {
         "4DNFI9GMP2J8": pathlib.Path("test/data/4DNFI9GMP2J8.mcool"),
         "__results_v1": pathlib.Path("test/data/results_4DNFI9GMP2J8_v1.hdf5"),
+        "__results_v2": pathlib.Path("test/data/results_4DNFI9GMP2J8_v2.hdf5"),
         "__stripepy_plot_images": pathlib.Path("test/data/stripepy-plot-test-images.tar.xz"),
     }
 
