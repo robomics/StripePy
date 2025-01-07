@@ -220,6 +220,25 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Print the list of available datasets and return.",
     )
 
+    grp_ = sc.add_mutually_exclusive_group(required=False)
+    grp_.add_argument(
+        "--unit-test",
+        action="store_true",
+        default=False,
+        help="Download the test datasets required by the unit tests.\n"
+        "Files will be stored under folder test/data/\n"
+        "When specified, all other options are ignored.\n"
+        "Existing files will be overwritten.",
+    )
+    grp_.add_argument(
+        "--end2end-test",
+        action="store_true",
+        default=False,
+        help="Download the test datasets required by the end2end tests.\n"
+        "Files will be stored under folder test/data/\n"
+        "When specified, all other options are ignored.\n"
+        "Existing files will be overwritten.",
+    )
     sc.add_argument(
         "--max-size",
         type=_positive_float,
