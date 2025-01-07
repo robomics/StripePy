@@ -836,6 +836,9 @@ def step_5(
         log_scale=False,
         with_colorbar=True,
     )
+
+    fig.suptitle(f"{result.chrom[0]}:{start}-{end}")
+    fig.tight_layout()
     fig.savefig(output_folder / chrom_name / "1_preprocessing" / f"raw_matrix_{start}_{end}.jpg", dpi=256)
     plt.close(fig)
 
@@ -848,6 +851,9 @@ def step_5(
         log_scale=False,
         with_colorbar=True,
     )
+
+    fig.suptitle(f"{result.chrom[0]}:{start}-{end}")
+    fig.tight_layout()
     fig.savefig(output_folder / chrom_name / "1_preprocessing" / f"proc_matrix_{start}_{end}.jpg", dpi=256)
     plt.close(fig)
 

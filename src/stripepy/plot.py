@@ -176,10 +176,11 @@ def hic_matrix(
     """
     _register_cmaps()
 
+    multiplier = 1.15 if with_colorbar else 1.0
     if fig is None:
         if ax is not None:
             raise RuntimeError("ax should be None when fig is None")
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots(1, 1, figsize=(6.4 * multiplier, 6.4))
     elif ax is None:
         raise RuntimeError("ax cannot be None when fig is not None")
 
@@ -196,7 +197,8 @@ def hic_matrix(
     _format_ticks(ax)
 
     if with_colorbar:
-        fig.colorbar(img, ax=ax)
+        assert multiplier > 1
+        fig.colorbar(img, ax=ax, fraction=multiplier - 1)
 
     return fig, ax, img
 
@@ -575,7 +577,7 @@ def _plot_hic_matrix_with_seeds(
 ) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:
     data = _fetch_persistence_maximum_points(result, resolution, start, end)
 
-    fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.6), sharey=True)
+    fig, axs = plt.subplots(1, 2, figsize=(13.5, 6.4), sharey=True)
 
     for ax in axs:
         _, _, img = hic_matrix(
@@ -609,7 +611,7 @@ def _plot_hic_matrix_with_seeds(
     fig.tight_layout()
 
     fig.subplots_adjust(right=0.94)
-    cbar_ax = fig.add_axes((0.95, 0.15, 0.015, 0.7))
+    cbar_ax = fig.add_axes((0.95, 0.05, 0.015, 0.9))
     fig.colorbar(img, cax=cbar_ax)  # noqa
 
     return fig, axs
@@ -693,7 +695,7 @@ def _plot_hic_matrix_with_stripes(
         m1 = matrix
         m2 = matrix
 
-    fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.6), sharey=True)
+    fig, axs = plt.subplots(1, 2, figsize=(13.5, 6.4), sharey=True)
 
     _, _, img = hic_matrix(
         m1,
@@ -744,7 +746,7 @@ def _plot_hic_matrix_with_stripes(
     fig.tight_layout()
 
     fig.subplots_adjust(right=0.94)
-    cbar_ax = fig.add_axes((0.95, 0.15, 0.015, 0.7))
+    cbar_ax = fig.add_axes((0.95, 0.05, 0.015, 0.9))
     fig.colorbar(img, cax=cbar_ax)
 
     return fig, axs
