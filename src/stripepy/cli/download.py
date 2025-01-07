@@ -12,9 +12,12 @@ import sys
 import tempfile
 import time
 import urllib.request
-from typing import Any, Dict, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
+import alive_progress as ap
 import structlog
+
+from stripepy.utils.common import pretty_format_elapsed_time
 
 
 @functools.cache
@@ -116,39 +119,49 @@ def _lookup_dataset(name: Union[str, None], assembly: Union[str, None], max_size
 
 
 def _hash_file(path: pathlib.Path, chunk_size=16 << 20) -> str:
-    logger = structlog.get_logger()
-    logger.info('computing MD5 digest for file "%s"...', path)
-    with path.open("rb") as f:
-        hasher = hashlib.md5()
-        while True:
-            chunk = f.read(chunk_size)
-            if not chunk:
-                return hasher.hexdigest()
-            hasher.update(chunk)
+    file_size = path.stat().st_size
+    disable_bar = not sys.stderr.isatty() or file_size < (256 << 20)
+
+    with ap.alive_bar(
+        total=file_size,
+        disable=disable_bar,
+        enrich_print=False,
+        file=sys.stderr,
+        receipt=False,
+        monitor="{percent:.2%}",
+        unit="B",
+        scale="SI2",
+    ) as bar:
+        logger = structlog.get_logger()
+        logger.info('computing MD5 digest for file "%s"...', path)
+        with path.open("rb") as f:
+            hasher = hashlib.md5()
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    return hasher.hexdigest()
+                hasher.update(chunk)
+                bar(len(chunk))
+
+
+def _fetch_remote_file_size(url: str) -> Optional[int]:
+    try:
+        req = urllib.request.Request(url)
+        return int(urllib.request.urlopen(req).headers.get("Content-Length"))
+    except Exception:  # noqa
+        return None
 
 
 def _download_progress_reporter(chunk_no, max_chunk_size, download_size):
-    if download_size == -1:
-        if not _download_progress_reporter.skip_progress_report:
-            _download_progress_reporter.skip_progress_report = True
-            logger = structlog.get_logger()
-            logger.warning("unable to report download progress: remote file size is not known!")
-        return
-
-    timepoint = _download_progress_reporter.timepoint
-
-    if time.time() - timepoint >= 15:
-        mb_downloaded = (chunk_no * max_chunk_size) / (1024 << 10)
-        download_size_mb = download_size / (1024 << 10)
-        progress_pct = (mb_downloaded / download_size_mb) * 100
-        logger = structlog.get_logger()
-        logger.info("downloaded %.2f/%.2f MB (%.2f%%)", mb_downloaded, download_size_mb, progress_pct)
-        _download_progress_reporter.timepoint = time.time()
+    if _download_progress_reporter.bar is not None:
+        _download_progress_reporter.bar(
+            min(chunk_no * max_chunk_size, download_size) / _download_progress_reporter.total
+        )
 
 
 # this is Python's way of defining static variables inside functions
-_download_progress_reporter.skip_progress_report = False
-_download_progress_reporter.timepoint = 0.0
+_download_progress_reporter.bar = None
+_download_progress_reporter.total = None
 
 
 def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
@@ -160,12 +173,29 @@ def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
         url = dset["url"]
         md5sum = dset["md5"]
         assembly = dset.get("assembly", "unknown")
+        size = _fetch_remote_file_size(url)
 
-        logger.info('downloading dataset "%s" (assembly=%s)...', name, assembly)
-        t0 = time.time()
-        urllib.request.urlretrieve(url, tmpfile, reporthook=_download_progress_reporter)
-        t1 = time.time()
-        logger.info('DONE! Downloading dataset "%s" took %.2fs.', name, t1 - t0)
+        disable_bar = not sys.stderr.isatty() or size is None
+
+        with ap.alive_bar(
+            total=size,
+            manual=True,
+            disable=disable_bar,
+            enrich_print=False,
+            file=sys.stderr,
+            receipt=False,
+            refresh_secs=0.05,
+            monitor="{percent:.2%}",
+            unit="B",
+            scale="SI2",
+        ) as bar:
+            _download_progress_reporter.bar = bar
+            _download_progress_reporter.total = size
+
+            logger.info('downloading dataset "%s" (assembly=%s)...', name, assembly)
+            t0 = time.time()
+            urllib.request.urlretrieve(url, tmpfile, reporthook=_download_progress_reporter)
+            logger.info('DONE! Downloading dataset "%s" took %s.', name, pretty_format_elapsed_time(t0))
 
         digest = _hash_file(tmpfile)
         if digest == md5sum:
@@ -258,8 +288,9 @@ def run(
     output_path.unlink(missing_ok=True)
 
     dest = _download_and_checksum(dset_name, config, output_path)
-    t1 = time.time()
 
     logger = structlog.get_logger()
     logger.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
-    logger.info(f"file size: %.2fMB. Elapsed time: %.2fs", dest.stat().st_size / (1024 << 10), t1 - t0)
+    logger.info(
+        f"file size: %.2fMB. Elapsed time: %s", dest.stat().st_size / (1024 << 10), pretty_format_elapsed_time(t0)
+    )

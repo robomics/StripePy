@@ -18,6 +18,7 @@ from numpy.typing import NDArray
 
 import stripepy.plot
 from stripepy.IO import ResultFile
+from stripepy.utils.common import pretty_format_elapsed_time
 from stripepy.utils.TDA import TDA
 
 
@@ -584,4 +585,4 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
     fig.savefig(output_name, dpi=dpi)
 
     logger.info("DONE!")
-    logger.info("plotting took %.2f seconds", time.time() - t0)
+    logger.info("plotting took %s seconds", pretty_format_elapsed_time(t0))

@@ -6,13 +6,17 @@ import contextlib
 import json
 import multiprocessing as mp
 import pathlib
+import sys
 import time
 from typing import Any, Dict, List, Tuple
 
+import alive_progress as ap
 import numpy as np
+import pandas as pd
 import structlog
 
 from stripepy import IO, others, stripepy
+from stripepy.utils.common import pretty_format_elapsed_time
 
 
 def _generate_metadata_attribute(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any]) -> Dict[str, Any]:
@@ -85,6 +89,34 @@ def _write_param_summary(*configs: Dict[str, Any]):
     structlog.get_logger().info(f"CONFIG:\n{config_str}")
 
 
+def _compute_progress_bar_weights(chrom_sizes: Dict[str, int]) -> pd.DataFrame:
+    # These weights have been computed on a Linux machine (Ryzen 9 5950X) using 1 core to process
+    # 4DNFI9GMP2J8.mcool at 10kbp
+    step_weights = {
+        "input": 0.067616,
+        "step_1": 0.039959,
+        "step_2": 0.033109,
+        "step_3": 0.721486,
+        "step_4": 0.135708,
+        "output": 0.002122,
+    }
+
+    assert np.isclose(sum(step_weights.values()), 1.0)
+
+    weights = []
+    for size in chrom_sizes.values():
+        weights.extend((size * w for w in step_weights.values()))
+
+    weights = np.array(weights)
+    weights /= weights.sum()
+    weights = np.minimum(weights.cumsum(), 1.0)
+
+    shape = (len(chrom_sizes), len(step_weights))
+    df = pd.DataFrame(weights.reshape(shape), columns=list(step_weights.keys()))
+    df["chrom"] = list(chrom_sizes.keys())
+    return df.set_index(["chrom"])
+
+
 def run(
     configs_input: Dict[str, Any],
     configs_thresholds: Dict[str, Any],
@@ -121,13 +153,34 @@ def run(
         else:
             pool = None
 
+        disable_bar = not sys.stderr.isatty()
+        progress_weights = _compute_progress_bar_weights(f.chromosomes())
+        progress_bar = ctx.enter_context(
+            ap.alive_bar(
+                total=sum(f.chromosomes().values()),
+                manual=True,
+                disable=disable_bar,
+                enrich_print=False,
+                file=sys.stderr,
+                receipt=False,
+                refresh_secs=0.05,
+                monitor="{percent:.2%}",
+                unit="bp",
+                scale="SI",
+            )
+        )
+
         # Lopping over all chromosomes:
         for chrom_name, chrom_size, skip in _plan(
             f.chromosomes(include_ALL=False), configs_thresholds["min_chrom_size"]
         ):
+            pw0, pw1, pw2, pw3, pw4, pw5 = progress_weights.loc[chrom_name, :]
+
             if skip:
+                logger.warning("writing an empty entry for chromosome %s...", chrom_name)
                 result = _generate_empty_result(chrom_name, chrom_size, configs_input["resolution"])
                 h5.write_descriptors(result)
+                progress_bar(pw5)
                 continue
 
             logger = main_logger.bind(chrom=chrom_name)
@@ -141,6 +194,7 @@ def run(
 
             logger.debug("fetching interactions using normalization=%s", configs_input["normalization"])
             I = f.fetch(chrom_name, normalization=configs_input["normalization"]).to_csr("full")
+            progress_bar(pw0)
 
             # RoI:
             RoI = others.define_RoI(configs_input["roi"], chrom_size, configs_input["resolution"])
@@ -165,7 +219,8 @@ def run(
                     I, configs_input["genomic_belt"], configs_input["resolution"], logger=logger
                 )
                 Iproc_RoI = None
-            logger.info("preprocessing took %s seconds", time.time() - start_time)
+            progress_bar(pw1)
+            logger.info("preprocessing took %s", pretty_format_elapsed_time(start_time))
 
             # Find the indices where the sum is zero
             # TODO: DO SOMETHING
@@ -200,7 +255,8 @@ def run(
                     configs_thresholds["glob_pers_min"],
                     logger=logger,
                 )
-            logger.info("topological data analysis took %s seconds", time.time() - start_time)
+            progress_bar(pw2)
+            logger.info("topological data analysis took %s", pretty_format_elapsed_time(start_time))
 
             logger = logger.bind(step=(3,))
             logger.info("shape analysis")
@@ -239,7 +295,8 @@ def run(
                     logger=logger,
                 )
 
-            logger.info("shape analysis took %s seconds", time.time() - start_time)
+            progress_bar(pw3)
+            logger.info("shape analysis took %s", pretty_format_elapsed_time(start_time))
 
             logger = logger.bind(step=(4,))
             logger.info("statistical analysis and post-processing")
@@ -267,14 +324,16 @@ def run(
                     logger=logger,
                 )
 
-            logger.info("statistical analysis and post-processing took %s seconds", time.time() - start_time)
+            progress_bar(pw4)
+            logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))
 
             logger = main_logger.bind(chrom=chrom_name)
             logger.info('writing results to file "%s"', h5.path)
             h5.write_descriptors(result)
-            logger.info("processing took %s seconds", time.time() - start_local_time)
+            progress_bar(pw5)
+            logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
 
     main_logger.info("DONE!")
     main_logger.info(
-        "processed %d chromosomes in %s minutes", len(f.chromosomes()), (time.time() - start_global_time) / 60
+        "processed %d chromosomes in %s", len(f.chromosomes()), pretty_format_elapsed_time(start_global_time)
     )
