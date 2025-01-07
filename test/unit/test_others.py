@@ -4,18 +4,12 @@
 
 import pathlib
 import tempfile
-from typing import List
 
 import pytest
 
 from stripepy.others import define_RoI, open_matrix_file_checked
 
 from .common.cool import generate_singleres_test_file
-
-
-def _discretize(v: List[int], factor: int) -> List[int]:
-    assert factor > 0
-    return [(x + factor - 1) // factor for x in v]
 
 
 @pytest.mark.unit
