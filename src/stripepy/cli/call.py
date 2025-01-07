@@ -285,11 +285,7 @@ def run(
                 logger=logger,
             )
 
-            logger = logger.bind(step=(4,))
-            logger.info("statistical analysis and post-processing")
-            start_time = time.time()
-
-            progress_bar(pw4)
+            progress_bar(progress_weights["step_4"])
             logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))
 
             logger = main_logger.bind(chrom=chrom_name)
