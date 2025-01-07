@@ -117,6 +117,15 @@ def _compute_progress_bar_weights(chrom_sizes: Dict[str, int]) -> pd.DataFrame:
     return df.set_index(["chrom"])
 
 
+def _init_mpl_backend():
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+    except ImportError:
+        pass
+
+
 def run(
     configs_input: Dict[str, Any],
     configs_thresholds: Dict[str, Any],
@@ -149,7 +158,7 @@ def run(
         # Set up the process pool when appropriate
         if configs_other["nproc"] > 1:
             main_logger.debug("initializing a pool of %d processes...", configs_other["nproc"])
-            pool = ctx.enter_context(mp.Pool(configs_other["nproc"]))
+            pool = ctx.enter_context(mp.Pool(processes=configs_other["nproc"], initializer=_init_mpl_backend))
         else:
             pool = None
 
