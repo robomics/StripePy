@@ -266,6 +266,8 @@ def _setup_logger(level: str, file: Optional[pathlib.Path] = None, matrix_file: 
     import logging.config
 
     logging.config.dictConfig(config)
+    logging.captureWarnings(True)
+
     structlog.configure(
         cache_logger_on_first_use=True,
         wrapper_class=structlog.make_filtering_bound_logger(0),
