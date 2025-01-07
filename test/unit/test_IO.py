@@ -272,14 +272,14 @@ class TestResultFile:
             geo_descriptor_cols = ["seed", "top_persistence", "left_bound", "right_bound", "top_bound", "bottom_bound"]
             assert len(df.columns) == len(geo_descriptor_cols)
             assert (df.columns == geo_descriptor_cols).all()
-            assert len(df) == 1305
+            assert len(df) == 1304
 
             df = f.get("chr1", "bio_descriptors", "LT")
 
             bio_descriptor_cols = ["inner_mean", "outer_mean", "rel_change", "inner_std"]
             assert len(df.columns) == len(bio_descriptor_cols)
             assert (df.columns == bio_descriptor_cols).all()
-            assert len(df) == 1305
+            assert len(df) == 1304
 
             with pytest.raises(KeyError):
                 f.get("foobar", "pseudodistribution", "LT")

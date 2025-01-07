@@ -8,7 +8,7 @@ import multiprocessing as mp
 import pathlib
 import sys
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
 import alive_progress as ap
 import numpy as np
@@ -29,6 +29,48 @@ def _generate_metadata_attribute(configs_input: Dict[str, Any], configs_threshol
         "max-width": configs_thresholds["max_width"],
         "min-chromosome-size": configs_thresholds["min_chrom_size"],
     }
+
+
+def _plan(chromosomes: Dict[str, int], min_size: int, logger=None) -> List[Tuple[str, int, bool]]:
+    plan = []
+    small_chromosomes = []
+    for chrom, length in chromosomes.items():
+        skip = length <= min_size
+        plan.append((chrom, length, skip))
+        if skip:
+            small_chromosomes.append(chrom)
+
+    if len(small_chromosomes) != 0:
+        if logger is None:
+            logger = structlog.get_logger()
+
+        logger.warning(
+            "the following chromosomes are discarded because shorter than --min-chrom-size=%d bp: %s",
+            min_size,
+            ", ".join(small_chromosomes),
+        )
+
+    return plan
+
+
+def _generate_empty_result(chrom: str, chrom_size: int, resolution: int) -> IO.Result:
+    result = IO.Result(chrom)
+    result.set_min_persistence(0)
+
+    num_bins = (chrom_size + resolution - 1) // resolution
+    for location in ("LT", "UT"):
+        result.set("all_minimum_points", [], location)
+        result.set("all_maximum_points", [], location)
+        result.set("persistence_of_all_minimum_points", [], location)
+        result.set("persistence_of_all_maximum_points", [], location)
+        result.set("persistent_minimum_points", [], location)
+        result.set("persistent_maximum_points", [], location)
+        result.set("persistence_of_minimum_points", [], location)
+        result.set("persistence_of_maximum_points", [], location)
+        result.set("pseudodistribution", np.full(num_bins, np.nan, dtype=float), location)
+        result.set("stripes", [], location)
+
+    return result
 
 
 class _JSONEncoder(json.JSONEncoder):
@@ -87,18 +129,13 @@ def run(
     _write_param_summary(configs_input, configs_thresholds, configs_output, configs_other)
 
     # Data loading:
-    f, chr_starts, chr_ends, bp_lengths = others.cmap_loading(configs_input["contact_map"], configs_input["resolution"])
+    f = others.open_matrix_file_checked(configs_input["contact_map"], configs_input["resolution"])
 
     # Remove existing folders:
     # configs_output["output_folder"] = (
     #     f"{configs_output['output_folder']}/{configs_input['contact_map'].stem}/{configs_input['resolution']}"
     # )
     IO.remove_and_create_folder(configs_output["output_folder"], configs_output["force"])
-
-    # Extract a list of tuples where each tuple is (index, chr), e.g. (2,'chr3'):
-    c_pairs = others.chromosomes_to_study(
-        list(f.chromosomes().keys()), bp_lengths, configs_thresholds["min_chrom_size"]
-    )
 
     with contextlib.ExitStack() as ctx:
         main_logger = structlog.get_logger()
@@ -120,7 +157,7 @@ def run(
         progress_weights = _compute_progress_bar_weights(f.chromosomes())
         progress_bar = ctx.enter_context(
             ap.alive_bar(
-                total=sum([(chr_ends[i] - chr_starts[i]) * f.resolution() for i, _ in c_pairs]),
+                total=sum(f.chromosomes().values()),
                 manual=True,
                 disable=disable_bar,
                 enrich_print=False,
@@ -134,26 +171,33 @@ def run(
         )
 
         # Lopping over all chromosomes:
-        for this_chr_idx, this_chr in c_pairs:
-            logger = main_logger.bind(chrom=this_chr)
+        for chrom_name, chrom_size, skip in _plan(
+            f.chromosomes(include_ALL=False), configs_thresholds["min_chrom_size"]
+        ):
+            pw0, pw1, pw2, pw3, pw4, pw5 = progress_weights.loc[chrom_name, :]
+
+            if skip:
+                logger.warning("writing an empty entry for chromosome %s...", chrom_name)
+                result = _generate_empty_result(chrom_name, chrom_size, configs_input["resolution"])
+                h5.write_descriptors(result)
+                progress_bar(pw5)
+                continue
+
+            logger = main_logger.bind(chrom=chrom_name)
             logger.info("begin processing...")
             start_local_time = time.time()
-
-            pw0, pw1, pw2, pw3, pw4, pw5 = progress_weights.loc[this_chr, :]
 
             # Removing and creating folders to store output files:
             # configs_input['roi'] = None
             if configs_input["roi"] is not None:
-                IO.create_folders_for_plots(configs_output["output_folder"] / "plots" / this_chr)
+                IO.create_folders_for_plots(configs_output["output_folder"] / "plots" / chrom_name)
 
             logger.debug("fetching interactions using normalization=%s", configs_input["normalization"])
-            I = f.fetch(this_chr, normalization=configs_input["normalization"]).to_csr("full")
+            I = f.fetch(chrom_name, normalization=configs_input["normalization"]).to_csr("full")
             progress_bar(pw0)
 
             # RoI:
-            RoI = others.define_RoI(
-                configs_input["roi"], chr_starts[this_chr_idx], chr_ends[this_chr_idx], configs_input["resolution"]
-            )
+            RoI = others.define_RoI(configs_input["roi"], chrom_size, configs_input["resolution"])
             if RoI is not None:
                 logger.info("region of interest to be used for plotting: %s", RoI)
 
@@ -161,7 +205,7 @@ def run(
             logger.info("data pre-processing")
             start_time = time.time()
             if all(param is not None for param in [RoI, configs_output["output_folder"]]):
-                output_folder_1 = f"{configs_output['output_folder']}/plots/{this_chr}/1_preprocessing/"
+                output_folder_1 = f"{configs_output['output_folder']}/plots/{chrom_name}/1_preprocessing/"
                 LT_Iproc, UT_Iproc, Iproc_RoI = stripepy.step_1(
                     I,
                     configs_input["genomic_belt"],
@@ -190,9 +234,9 @@ def run(
             logger.info("topological data analysis")
             start_time = time.time()
             if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_2 = f"{configs_output['output_folder']}/plots/{this_chr}/2_TDA/"
+                output_folder_2 = f"{configs_output['output_folder']}/plots/{chrom_name}/2_TDA/"
                 result = stripepy.step_2(
-                    this_chr,
+                    chrom_name,
                     LT_Iproc,
                     UT_Iproc,
                     configs_input["resolution"],
@@ -204,7 +248,7 @@ def run(
                 )
             else:
                 result = stripepy.step_2(
-                    this_chr,
+                    chrom_name,
                     LT_Iproc,
                     UT_Iproc,
                     configs_input["resolution"],
@@ -219,7 +263,7 @@ def run(
             start_time = time.time()
 
             if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_3 = f"{configs_output['output_folder']}/plots/{this_chr}/3_shape_analysis/"
+                output_folder_3 = f"{configs_output['output_folder']}/plots/{chrom_name}/3_shape_analysis/"
                 result = stripepy.step_3(
                     result,
                     LT_Iproc,
@@ -259,7 +303,7 @@ def run(
             start_time = time.time()
 
             if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_4 = f"{configs_output['output_folder']}/plots/{this_chr}/4_biological_analysis/"
+                output_folder_4 = f"{configs_output['output_folder']}/plots/{chrom_name}/4_biological_analysis/"
                 thresholds_relative_change = np.arange(0.0, 15.2, 0.2)
                 result = stripepy.step_4(
                     result,
@@ -283,8 +327,8 @@ def run(
             progress_bar(pw4)
             logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))
 
-            logger = main_logger.bind(chrom=this_chr)
-            logger.info('writing results for "%s" to file "%s"', this_chr, h5.path)
+            logger = main_logger.bind(chrom=chrom_name)
+            logger.info('writing results to file "%s"', h5.path)
             h5.write_descriptors(result)
             progress_bar(pw5)
             logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
