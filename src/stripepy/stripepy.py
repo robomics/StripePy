@@ -4,7 +4,7 @@
 
 import pathlib
 import time
-from typing import Dict, List, Sequence, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import h5py
 import matplotlib.pyplot as plt
@@ -706,7 +706,7 @@ def step_3(
                 display=False,
             )
 
-    logger.bind(step=(3, 1)).info("width estimation took %s seconds", time.time() - start_time)
+    logger.bind(step=(3, 1)).info("width estimation took %s", common.pretty_format_elapsed_time(start_time))
 
     logger.bind(step=(3, 2)).info("height estimation")
     start_time = time.time()
@@ -775,7 +775,7 @@ def step_3(
     for num_cand_stripe, (UT_U_bound, UT_D_bound) in enumerate(zip(UT_U_bounds, UT_D_bounds)):
         ut_stripes[num_cand_stripe].set_vertical_bounds(UT_U_bound, UT_D_bound)
 
-    logger.bind(step=(3, 2)).info("height estimation took %s seconds", time.time() - start_time)
+    logger.bind(step=(3, 2)).info("height estimation took %s", common.pretty_format_elapsed_time(start_time))
 
     if RoI is not None:
         logger.bind(step=(3, 3)).info("selecting candidate stripes overlapping with the region of interest")
