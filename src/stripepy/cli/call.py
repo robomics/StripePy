@@ -199,7 +199,7 @@ def run(
             # RoI:
             RoI = others.define_RoI(configs_input["roi"], chrom_size, configs_input["resolution"])
             if RoI is not None:
-                logger.info("region of interest to be used for plotting: %s", RoI)
+                logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *RoI["genomic"])
 
             logger = logger.bind(step=(1,))
             logger.info("data pre-processing")
@@ -300,6 +300,7 @@ def run(
                     configs_thresholds["loc_trend_min"],
                     configs_output["output_folder"] / "plots",
                     map=pool.map if pool is not None else map,
+                    logger=logger,
                 )
 
                 logger.info("plotting took %s", pretty_format_elapsed_time(start_time))

@@ -483,7 +483,7 @@ def step_4(
         logger.bind(step=(4,)).warning("no candidates found by step 2: returning immediately!")
         return result
 
-    logger.bind(step=(4, 1)).info("computing stripe biologival descriptors")
+    logger.bind(step=(4, 1)).info("computing stripe biological descriptors")
     for LT_candidate_stripe in result.get("stripes", "LT"):
         LT_candidate_stripe.compute_biodescriptors(L)
     for UT_candidate_stripe in result.get("stripes", "UT"):
@@ -497,11 +497,12 @@ def _plot_pseudodistribution(
     resolution: int,
     matrix: Optional[NDArray],
     output_folder: pathlib.Path,
+    logger,
 ):
     assert result.roi is not None
 
-    print("2.5) Plotting pseudo-distributions and sites for the region selected above...")
-    start, end = result.roi["genomic"][:2]
+    logger.bind(step=(5, 1, 1)).info("plotting pseudo-distributions")
+    start, end = result.roi["genomic"]
     fig, _ = plot.plot(
         result,
         resolution,
@@ -515,6 +516,7 @@ def _plot_pseudodistribution(
     if matrix is None:
         return
 
+    logger.bind(step=(5, 1, 2)).info("plotting processed matrix with highlighted seed(s)")
     # Plot the region of interest of Iproc with over-imposed vertical lines for seeds:
     fig, _ = plot.plot(
         result,
@@ -534,14 +536,15 @@ def _plot_hic_and_hois(
     resolution: int,
     matrix: Optional[NDArray],
     output_folder: pathlib.Path,
+    logger,
 ):
     assert result.roi is not None
 
     if matrix is None:
         return
 
-    print("3.1.3) Plots")
-    start, end = result.roi["genomic"][:2]
+    logger.bind(step=(5, 2, 1)).info("plotting regions overlapping with candidate stripe(s)")
+    start, end = result.roi["genomic"]
     fig, _ = plot.plot(
         result,
         resolution,
@@ -553,7 +556,7 @@ def _plot_hic_and_hois(
     fig.savefig(output_folder / "all_domains.jpg", dpi=256)
     plt.close(fig)
 
-    print("3.4) Plotting candidate stripes restricted to HIoIs...")
+    logger.bind(step=(5, 2, 1)).info("plotting processed matrix with candidate stripe(s) highlighted")
     fig, _ = plot.plot(
         result,
         resolution,
@@ -570,8 +573,9 @@ def _plot_geo_descriptors(
     result: IO.Result,
     resolution: int,
     output_folder: pathlib.Path,
+    logger,
 ):
-    print("3.6) Bar plots of widths and heights...")
+    logger.bind(step=(5, 3, 1)).info("generating histograms for geo-descriptors")
     fig, _ = plot.plot(result, resolution, plot_type="geo_descriptors", start=0, end=result.chrom[1])
     fig.savefig(output_folder / "geo_descriptors.jpg", dpi=256)
     plt.close(fig)
@@ -601,7 +605,21 @@ def _marginalize_matrix_ut(
 
 def _plot_local_pseudodistributions_helper(args):
     # TODO matrix should be passed around using shared mem?
-    seed, left_bound, right_bound, matrix, min_persistence, max_height, loc_trend_min, output_folder, location = args
+    (
+        i,
+        seed,
+        left_bound,
+        right_bound,
+        matrix,
+        min_persistence,
+        max_height,
+        loc_trend_min,
+        output_folder,
+        location,
+        logger,
+    ) = args
+
+    logger.bind(step=(5, 4, i)).debug("plotting local profile for seed %d (%s)", seed, location)
 
     if location == "LT":
         y = _marginalize_matrix_lt(matrix, seed, left_bound, right_bound, max_height)
@@ -655,19 +673,22 @@ def _plot_local_pseudodistributions(
     loc_trend_min: float,
     output_folder: pathlib.Path,
     map,
+    logger,
 ):
-    start, end = result.roi["genomic"][:2]
+    start, end = result.roi["genomic"]
     max_height = int(np.ceil(genomic_belt / resolution))
 
     df = result.get_stripe_geo_descriptors("LT")
     df = df[(df["left_bound"] * resolution >= start) & (df["right_bound"] * resolution <= end)]
 
+    logger.bind(step=(5, 4, 0)).info("plotting local profiles for %d LT seed(s)", len(df))
     list(
         itertools.filterfalse(
             None,
             map(
                 _plot_local_pseudodistributions_helper,
                 zip(
+                    itertools.count(0, 1),
                     df["seed"],
                     df["left_bound"],
                     df["right_bound"],
@@ -677,11 +698,13 @@ def _plot_local_pseudodistributions(
                     itertools.repeat(loc_trend_min),
                     itertools.repeat(output_folder),
                     itertools.repeat("LT"),
+                    itertools.repeat(logger),
                 ),
             ),
         )
     )
 
+    offset = len(df)
     df = result.get_stripe_geo_descriptors("UT")
     df = df[(df["left_bound"] * resolution >= start) & (df["right_bound"] * resolution <= end)]
 
@@ -691,6 +714,7 @@ def _plot_local_pseudodistributions(
             map(
                 _plot_local_pseudodistributions_helper,
                 zip(
+                    itertools.count(offset, 1),
                     df["seed"],
                     df["left_bound"],
                     df["right_bound"],
@@ -700,6 +724,7 @@ def _plot_local_pseudodistributions(
                     itertools.repeat(loc_trend_min),
                     itertools.repeat(output_folder),
                     itertools.repeat("UT"),
+                    itertools.repeat(logger),
                 ),
             ),
         )
@@ -707,7 +732,9 @@ def _plot_local_pseudodistributions(
 
 
 def _plot_stripes_helper(args):
-    matrix, result, resolution, start, end, cutoff, output_folder = args
+    matrix, result, resolution, start, end, cutoff, output_folder, logger = args
+    logger.debug("plotting stripes with cutoff=%.2f", cutoff)
+
     fig, _ = plot.plot(
         result, resolution, "matrix_with_stripes", start=start, end=end, matrix=matrix, relative_change_threshold=cutoff
     )
@@ -721,13 +748,14 @@ def _plot_stripes(
     matrix: Optional[NDArray],
     output_folder: pathlib.Path,
     map,
+    logger,
 ):
     assert result.roi is not None
 
     if matrix is None:
         return
 
-    start, end = result.roi["genomic"][:2]
+    start, end = result.roi["genomic"]
     cutoffs = np.linspace(0, 15, 76)
 
     map(
@@ -740,6 +768,7 @@ def _plot_stripes(
             itertools.repeat(end),
             cutoffs,
             itertools.repeat(output_folder),
+            itertools.repeat(logger),
         ),
     )
 
@@ -756,12 +785,16 @@ def step_5(
     loc_trend_min: float,
     output_folder: Optional[pathlib.Path],
     map=map,
+    logger=None,
 ):
     if result.roi is None:
         return
 
+    if logger is None:
+        logger = structlog.get_logger()
+
     chrom_name = result.chrom[0]
-    start, end = result.roi["genomic"][:2]
+    start, end = result.roi["genomic"]
 
     fig, _, _ = plot.hic_matrix(
         raw_matrix,
@@ -787,9 +820,26 @@ def step_5(
     fig.savefig(output_folder / chrom_name / "1_preprocessing" / f"proc_matrix_{start}_{end}.jpg", dpi=256)
     plt.close(fig)
 
-    _plot_pseudodistribution(result, resolution, proc_matrix, output_folder / chrom_name / "2_TDA")
-    _plot_hic_and_hois(result, resolution, proc_matrix, output_folder / chrom_name / "3_shape_analysis")
-    _plot_geo_descriptors(result, resolution, output_folder / chrom_name / "3_shape_analysis")
+    _plot_pseudodistribution(
+        result,
+        resolution,
+        proc_matrix,
+        output_folder / chrom_name / "2_TDA",
+        logger,
+    )
+    _plot_hic_and_hois(
+        result,
+        resolution,
+        proc_matrix,
+        output_folder / chrom_name / "3_shape_analysis",
+        logger,
+    )
+    _plot_geo_descriptors(
+        result,
+        resolution,
+        output_folder / chrom_name / "3_shape_analysis",
+        logger,
+    )
     _plot_local_pseudodistributions(
         result,
         gw_matrix_proc_lt,
@@ -800,5 +850,13 @@ def step_5(
         loc_trend_min,
         output_folder / chrom_name / "3_shape_analysis" / "local_pseudodistributions",
         map,
+        logger,
     )
-    _plot_stripes(result, resolution, proc_matrix, output_folder / chrom_name / "4_biological_analysis", map)
+    _plot_stripes(
+        result,
+        resolution,
+        proc_matrix,
+        output_folder / chrom_name / "4_biological_analysis",
+        map,
+        logger,
+    )
