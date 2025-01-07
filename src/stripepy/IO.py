@@ -607,6 +607,9 @@ class ResultFile(object):
 
             df.loc[outer_lmean == -1, "outer_mean"] = -1
 
+            df["rel_change"] = np.abs(df["inner_mean"] - df["outer_mean"]) / df["outer_mean"] * 100
+            df.loc[df["outer_mean"] <= 0, "rel_change"] = -1.0
+
             return df
 
     def get(self, chrom: str, field: str, location: str) -> pd.DataFrame:
