@@ -17,14 +17,17 @@ defaults:
 
 env:
   TEST_MCOOL_NAME: 4DNFI9GMP2J8.mcool
-  TEST_MCOOL_URL: "https://zenodo.org/records/14517632/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
+  TEST_MCOOL_URL: "https://zenodo.org/records/14609227/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
   TEST_MCOOL_MD5: "a17d08460c03cf6c926e2ca5743e4888"
   TEST_RESULT_FILE_V1_NAME: results_4DNFI9GMP2J8_v1.hdf5
-  TEST_RESULT_FILE_V1_URL: "https://zenodo.org/records/14517632/files/results_4DNFI9GMP2J8_v1.hdf5?download=1"
-  TEST_RESULT_FILE_V1_MD5: "632b2a7a6e5c1a24dc3635710ed68a80"
+  TEST_RESULT_FILE_V1_URL: "https://zenodo.org/records/14609227/files/results_4DNFI9GMP2J8_v1.hdf5?download=1"
+  TEST_RESULT_FILE_V1_MD5: "172872e8de9f35909f87ff33c185a07b"
+  TEST_RESULT_FILE_V2_NAME: results_4DNFI9GMP2J8_v2.hdf5
+  TEST_RESULT_FILE_V2_URL: "https://zenodo.org/records/14609227/files/results_4DNFI9GMP2J8_v2.hdf5?download=1"
+  TEST_RESULT_FILE_V2_MD5: "b40e5f929e79cb4a4d3453a59c5a0947"
   TEST_PLOTS_NAME: stripepy-plot-test-images.tar.xz
-  TEST_PLOTS_URL: "https://zenodo.org/records/14517632/files/stripepy-plot-test-images.tar.xz?download=1"
-  TEST_PLOTS_MD5: "d4ab74937dd9062efe4b2acc6ebc8780"
+  TEST_PLOTS_URL: "https://zenodo.org/records/14609227/files/stripepy-plot-test-images.tar.xz?download=1"
+  TEST_PLOTS_MD5: "5c08f95b235b9adcebf4bf09df904b42"
 
 jobs:
   cache-test-datasets:
@@ -60,6 +63,7 @@ jobs:
 
           curl -L "${{env.TEST_MCOOL_URL }}" -o "test/data/${{env.TEST_MCOOL_NAME }}"
           curl -L "${{env.TEST_RESULT_FILE_V1_URL }}" -o "test/data/${{env.TEST_RESULT_FILE_V1_NAME }}"
+          curl -L "${{env.TEST_RESULT_FILE_V2_URL }}" -o "test/data/${{env.TEST_RESULT_FILE_V2_NAME }}"
           curl -L "${{env.TEST_PLOTS_URL }}" -o "test/data/${{env.TEST_PLOTS_NAME }}"
 
       - name: Checksum test datasets
@@ -67,6 +71,7 @@ jobs:
         run: |
           echo "${{env.TEST_MCOOL_MD5 }}  test/data/${{env.TEST_MCOOL_NAME }}" | tee checksums.md5
           echo "${{env.TEST_RESULT_FILE_V1_MD5 }}  test/data/${{env.TEST_RESULT_FILE_V1_NAME }}" | tee -a checksums.md5
+          echo "${{env.TEST_RESULT_FILE_V2_MD5 }}  test/data/${{env.TEST_RESULT_FILE_V2_NAME }}" | tee -a checksums.md5
           echo "${{env.TEST_PLOTS_MD5 }}  test/data/${{env.TEST_PLOTS_NAME }}" | tee -a checksums.md5
 
           md5sum -c checksums.md5

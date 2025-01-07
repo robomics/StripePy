@@ -5,7 +5,6 @@
 import functools
 import hashlib
 import json
-import logging
 import math
 import pathlib
 import random
@@ -13,14 +12,19 @@ import sys
 import tempfile
 import time
 import urllib.request
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
+
+import alive_progress as ap
+import structlog
+
+from stripepy.utils.common import pretty_format_elapsed_time
 
 
 @functools.cache
 def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
     assert not math.isnan(max_size)
 
-    record_id = "14517632"
+    record_id = "14609227"
 
     datasets = {
         "4DNFI3RFZLZ5": {
@@ -53,15 +57,23 @@ def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
         },
         "__results_v1": {
             "url": f"https://zenodo.org/records/{record_id}/files/results_4DNFI9GMP2J8_v1.hdf5?download=1",
-            "md5": "632b2a7a6e5c1a24dc3635710ed68a80",
+            "md5": "172872e8de9f35909f87ff33c185a07b",
             "filename": "results_4DNFI9GMP2J8_v1.hdf5",
             "assembly": "hg38",
             "format": "stripepy",
-            "size_mb": 8.75,
+            "size_mb": 8.76,
+        },
+        "__results_v2": {
+            "url": f"https://zenodo.org/records/{record_id}/files/results_4DNFI9GMP2J8_v2.hdf5?download=1",
+            "md5": "b40e5f929e79cb4a4d3453a59c5a0947",
+            "filename": "results_4DNFI9GMP2J8_v2.hdf5",
+            "assembly": "hg38",
+            "format": "stripepy",
+            "size_mb": 9.26,
         },
         "__stripepy_plot_images": {
             "url": f"https://zenodo.org/records/{record_id}/files/stripepy-plot-test-images.tar.xz?download=1",
-            "md5": "d4ab74937dd9062efe4b2acc6ebc8780",
+            "md5": "5c08f95b235b9adcebf4bf09df904b42",
             "filename": "stripepy-plot-test-images.tar.xz",
             "assembly": "hg38",
             "format": "tar",
@@ -115,61 +127,133 @@ def _lookup_dataset(name: Union[str, None], assembly: Union[str, None], max_size
 
 
 def _hash_file(path: pathlib.Path, chunk_size=16 << 20) -> str:
-    logging.info('computing MD5 digest for file "%s"...', path)
-    with path.open("rb") as f:
-        hasher = hashlib.md5()
-        while True:
-            chunk = f.read(chunk_size)
-            if not chunk:
-                return hasher.hexdigest()
-            hasher.update(chunk)
+    file_size = path.stat().st_size
+    disable_bar = not sys.stderr.isatty() or file_size < (256 << 20)
+
+    with ap.alive_bar(
+        total=file_size,
+        disable=disable_bar,
+        enrich_print=False,
+        file=sys.stderr,
+        receipt=False,
+        monitor="{percent:.2%}",
+        unit="B",
+        scale="SI2",
+    ) as bar:
+        logger = structlog.get_logger()
+        logger.info('computing MD5 digest for file "%s"...', path)
+        with path.open("rb") as f:
+            hasher = hashlib.md5()
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    return hasher.hexdigest()
+                hasher.update(chunk)
+                bar(len(chunk))
+
+
+def _fetch_remote_file_size(url: str) -> Optional[int]:
+    try:
+        req = urllib.request.Request(url)
+        return int(urllib.request.urlopen(req).headers.get("Content-Length"))
+    except Exception:  # noqa
+        return None
 
 
 def _download_progress_reporter(chunk_no, max_chunk_size, download_size):
-    if download_size == -1:
-        if not _download_progress_reporter.skip_progress_report:
-            _download_progress_reporter.skip_progress_report = True
-            logging.warning("unable to report download progress: remote file size is not known!")
-        return
-
-    timepoint = _download_progress_reporter.timepoint
-
-    if time.time() - timepoint >= 15:
-        mb_downloaded = (chunk_no * max_chunk_size) / (1024 << 10)
-        download_size_mb = download_size / (1024 << 10)
-        progress_pct = (mb_downloaded / download_size_mb) * 100
-        logging.info("downloaded %.2f/%.2f MB (%.2f%%)", mb_downloaded, download_size_mb, progress_pct)
-        _download_progress_reporter.timepoint = time.time()
+    if _download_progress_reporter.bar is not None:
+        _download_progress_reporter.bar(
+            min(chunk_no * max_chunk_size, download_size) / _download_progress_reporter.total
+        )
 
 
 # this is Python's way of defining static variables inside functions
-_download_progress_reporter.skip_progress_report = False
-_download_progress_reporter.timepoint = 0.0
+_download_progress_reporter.bar = None
+_download_progress_reporter.total = None
 
 
 def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
     with tempfile.NamedTemporaryFile(dir=dest.parent, prefix=f"{dest.stem}.") as tmpfile:
+        logger = structlog.get_logger()
         tmpfile.close()
         tmpfile = pathlib.Path(tmpfile.name)
 
         url = dset["url"]
         md5sum = dset["md5"]
         assembly = dset.get("assembly", "unknown")
+        size = _fetch_remote_file_size(url)
 
-        logging.info('downloading dataset "%s" (assembly=%s)...', name, assembly)
-        t0 = time.time()
-        urllib.request.urlretrieve(url, tmpfile, reporthook=_download_progress_reporter)
-        t1 = time.time()
-        logging.info('DONE! Downloading dataset "%s" took %.2fs.', name, t1 - t0)
+        disable_bar = not sys.stderr.isatty() or size is None
+
+        with ap.alive_bar(
+            total=size,
+            manual=True,
+            disable=disable_bar,
+            enrich_print=False,
+            file=sys.stderr,
+            receipt=False,
+            refresh_secs=0.05,
+            monitor="{percent:.2%}",
+            unit="B",
+            scale="SI2",
+        ) as bar:
+            _download_progress_reporter.bar = bar
+            _download_progress_reporter.total = size
+
+            logger.info('downloading dataset "%s" (assembly=%s)...', name, assembly)
+            t0 = time.time()
+            urllib.request.urlretrieve(url, tmpfile, reporthook=_download_progress_reporter)
+            logger.info('DONE! Downloading dataset "%s" took %s.', name, pretty_format_elapsed_time(t0))
 
         digest = _hash_file(tmpfile)
         if digest == md5sum:
-            logging.info("MD5 checksum match!")
+            logger.info("MD5 checksum match!")
             return tmpfile.rename(dest)
 
         raise RuntimeError(
             f'MD5 checksum for file downloaded from "{url}" does not match: expected {md5sum}, found {digest}.'
         )
+
+
+def _download_multiple(names: Sequence[str], output_paths: Sequence[pathlib.Path]):
+    assert len(names) == len(output_paths)
+
+    logger = structlog.get_logger()
+
+    for name, output_path in zip(names, output_paths):
+        t0 = time.time()
+        dset_name, config = _lookup_dataset(name, None, math.inf)
+
+        if output_path.exists():
+            logger.info('found existing file "%s"', output_path)
+            digest = _hash_file(output_path)
+            if digest == config["md5"]:
+                logger.info('dataset "%s" has already been downloaded: SKIPPING!', name)
+                continue
+        output_path.unlink(missing_ok=True)
+
+        dest = _download_and_checksum(dset_name, config, output_path)
+        t1 = time.time()
+        logger.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
+        logger.info(f"file size: %.2fMB. Elapsed time: %.2fs", dest.stat().st_size / (1024 << 10), t1 - t0)
+
+
+def _download_data_for_unit_tests():
+    output_dir = pathlib.Path("test/data")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    names = {
+        "4DNFI9GMP2J8": pathlib.Path("test/data/4DNFI9GMP2J8.mcool"),
+        "__results_v1": pathlib.Path("test/data/results_4DNFI9GMP2J8_v1.hdf5"),
+        "__results_v2": pathlib.Path("test/data/results_4DNFI9GMP2J8_v2.hdf5"),
+        "__stripepy_plot_images": pathlib.Path("test/data/stripepy-plot-test-images.tar.xz"),
+    }
+
+    _download_multiple(list(names.keys()), list(names.values()))
+
+
+def _download_data_for_end2end_tests():
+    _download_data_for_unit_tests()
 
 
 def run(
@@ -178,11 +262,21 @@ def run(
     assembly: Union[str, None],
     max_size: float,
     list_only: bool,
+    unit_test: bool,
+    end2end_test: bool,
     force: bool,
 ):
     t0 = time.time()
     if list_only:
         _list_datasets()
+        return
+
+    if unit_test:
+        _download_data_for_unit_tests()
+        return
+
+    if end2end_test:
+        _download_data_for_end2end_tests()
         return
 
     do_random_sample = name is None and assembly is None
@@ -203,7 +297,9 @@ def run(
     output_path.unlink(missing_ok=True)
 
     dest = _download_and_checksum(dset_name, config, output_path)
-    t1 = time.time()
 
-    logging.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
-    logging.info(f"file size: %.2fMB. Elapsed time: %.2fs", dest.stat().st_size / (1024 << 10), t1 - t0)
+    logger = structlog.get_logger()
+    logger.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
+    logger.info(
+        f"file size: %.2fMB. Elapsed time: %s", dest.stat().st_size / (1024 << 10), pretty_format_elapsed_time(t0)
+    )

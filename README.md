@@ -9,13 +9,8 @@ SPDX-License-Identifier: MIT
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/paulsengroup/StripePy/blob/main/LICENCE)
 [![CI](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml)
 [![Build Dockerfile](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml)
+[![Download from Bioconda](https://img.shields.io/conda/vn/bioconda/stripepy-hic?label=bioconda&logo=Anaconda)](https://anaconda.org/bioconda/stripepy-hic)
 [![Zenodo DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14394042.svg)](https://doi.org/10.5281/zenodo.14394041)
-
-<!--
-[![Download from Bioconda](https://img.shields.io/conda/vn/bioconda/StripePy?label=bioconda&logo=Anaconda)](https://anaconda.org/bioconda/StripePy)
-[![docs](https://readthedocs.org/projects/stripepy/badge/?version=stable)](https://stripepy.readthedocs.io/en/latest/?badge=stable)
-
--->
 
 ---
 
@@ -32,15 +27,11 @@ StripePy is developed on Linux and macOS and is also tested on Windows.
 pip install stripepy-hic
 ```
 
-<!--
-
 ### Installing with conda
 
 ```bash
 conda create -n stripepy -c conda-forge -c bioconda stripepy-hic
 ```
-
--->
 
 ### Installing from source
 
@@ -1178,21 +1169,34 @@ For any issues regarding StripePy installation, walkthrough, and output interpre
 
 If you've found a bug or would like to suggest a new feature, please open a new [issue](https://github.com/paulsengroup/StripePy/issues) instead.
 
-<!--
 ## Citing
 
 If you use StripePy in your research, please cite the following publication:
 
-TODO
+Andrea Raffo, Roberto Rossini, Jonas Paulsen, StripePy: fast and robust characterization of architectural stripes
+_bioRxiv_ 2024.12.20.629789; doi: [https://doi.org/10.1101/2024.12.20.629789](https://doi.org/10.1101/2024.12.20.629789)
 
 <details>
 <summary>BibTex</summary>
 
 ```bibtex
-@article{stripepy,
-  TODO
+@article {stripepy,
+  author = {Raffo, Andrea and Rossini, Roberto and Paulsen, Jonas},
+  title = {StripePy: fast and robust characterization of architectural stripes},
+  elocation-id = {2024.12.20.629789},
+  year = {2024},
+  doi = {10.1101/2024.12.20.629789},
+  publisher = {Cold Spring Harbor Laboratory},
+  abstract = {
+    Architectural stripes in Hi-C and related data are crucial for gene regulation, development, and DNA repair.
+    Despite their importance, few tools exist for automatic stripe detection.
+    We introduce StripePy, which leverages computational geometry methods to identify and analyze architectural stripes in contact maps from Chromosome Conformation Capture experiments like Hi-C and Micro-C.
+    StripePy outperforms existing tools, as shown through tests on various datasets and a newly developed simulated benchmark, StripeBench, providing a valuable resource for the community.Competing Interest StatementThe authors have declared no competing interest.@
+  },
+  URL = {https://www.biorxiv.org/content/early/2024/12/22/2024.12.20.629789},
+  eprint = {https://www.biorxiv.org/content/early/2024/12/22/2024.12.20.629789.full.pdf},
+  journal = {bioRxiv}
 }
 ```
 
 </details>
--->

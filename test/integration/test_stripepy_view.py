@@ -18,7 +18,10 @@ testdir = pathlib.Path(__file__).resolve().parent.parent
 class TestStripePyView:
     @staticmethod
     def setup_class():
-        test_files = [testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"]
+        test_files = [
+            testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5",
+            testdir / "data" / "results_4DNFI9GMP2J8_v2.hdf5",
+        ]
 
         for f in test_files:
             if not f.exists():
@@ -28,17 +31,19 @@ class TestStripePyView:
 
     @staticmethod
     def test_view():
-        testfile = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        versions = ["1", "2"]
+        for version in versions:
+            testfile = testdir / "data" / f"results_4DNFI9GMP2J8_v{version}.hdf5"
 
-        args = ["view", str(testfile)]
-        buff = io.StringIO()
-        with contextlib.redirect_stdout(buff):
-            main(args)
+            args = ["view", str(testfile)]
+            buff = io.StringIO()
+            with contextlib.redirect_stdout(buff):
+                main(args)
 
-        buff.seek(0)
-        cols = ["chrom1", "start1", "end1", "chrom2", "start2", "end2"]
-        df = pd.read_table(buff, names=cols)
+            buff.seek(0)
+            cols = ["chrom1", "start1", "end1", "chrom2", "start2", "end2"]
+            df = pd.read_table(buff, names=cols)
 
-        assert len(df.columns) == len(cols)
-        assert len(df) == len(df[~df.isnull().values])
-        assert len(df) == 19750
+            assert len(df.columns) == len(cols)
+            assert len(df) == len(df[~df.isnull().values])
+            assert len(df) == 19761

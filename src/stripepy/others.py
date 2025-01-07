@@ -7,16 +7,17 @@ from typing import Dict, Optional
 
 import h5py
 import hictkpy
-import numpy as np
-
-from . import IO
+import structlog
 
 
 def _raise_invalid_bin_type_except(f: hictkpy.File):
     raise RuntimeError(f"Only files with a uniform bin size are supported, found \"{f.attributes()['bin-type']}\".")
 
 
-def cmap_loading(path: os.PathLike, resolution: int):
+def open_matrix_file_checked(path: os.PathLike, resolution: int) -> hictkpy.File:
+    logger = structlog.get_logger()
+    logger.info('validating file "%s" (%dbp)...', path, resolution)
+
     try:
         if not isinstance(resolution, int):
             raise TypeError("resolution must be an integer.")
@@ -39,47 +40,18 @@ def cmap_loading(path: os.PathLike, resolution: int):
 
     if f.attributes().get("bin-type", "fixed") != "fixed":
         _raise_invalid_bin_type_except(f)
+    logger.info('file "%s" successfully validated', path)
 
-    # Retrieve metadata:
-    chr_starts = [0]  # left ends of each chromosome  (in matrix coordinates)
-    chr_ends = []  # right ends of each chromosome (in matrix coordinates)
-    chr_sizes = []  # integer bp lengths, one per chromosome
-    for bp_length in f.chromosomes().values():
-        chr_sizes.append(bp_length)
-        chr_ends.append(chr_starts[-1] + int(np.ceil(bp_length / resolution)))
-        chr_starts.append(chr_ends[-1])
-        # print(f"{chr_starts[-2]}-{chr_ends[-1]}-{chr_sizes[-1]}")
-    chr_starts.pop(-1)
-
-    return f, chr_starts, chr_ends, chr_sizes
+    return f
 
 
-def chromosomes_to_study(chromosomes, length_in_bp, min_size_allowed):
-    # Extract the list of chromosomes:
-    chr_ids = list(range(len(chromosomes)))
-    c_pairs = list(zip(chr_ids, chromosomes))
+def define_RoI(where_roi: str, chr_end: int, resolution: int, RoI_length=2_000_000):
+    assert chr_end > 0
+    assert resolution > 0
 
-    # Remove overly-short chromosomes:
-    surviving_indices = [i for i, e in enumerate(length_in_bp) if e > min_size_allowed]
-    deleted_indices = [i for i, e in enumerate(length_in_bp) if e <= min_size_allowed]
-    if len(deleted_indices) > 0:
-        print(
-            f"{IO.ANSI.RED}ATT: The following chromosomes are discarded because shorter than --min-chrom-size = "
-            f"{min_size_allowed} bp: {[chromosomes[i] for i in deleted_indices]}{IO.ANSI.ENDC}"
-        )
-        c_pairs = [c_pairs[i] for i in surviving_indices]
-
-        # If there is no chromosome left, exit:
-        if len(c_pairs) == 0:
-            raise ValueError(f"\nNo chromosome is long enough... decrease the parameter --min-chrom-size")
-
-    return c_pairs
-
-
-def define_RoI(where_roi, chr_start, chr_end, resolution, RoI_length=2_000_000) -> Optional[Dict]:
     # Region of Interest (RoI) in genomic and matrix coordinates:
     if where_roi == "middle":
-        e1 = int((chr_end - chr_start - (RoI_length / resolution)) / 2) * resolution
+        e1 = (chr_end - RoI_length) // 2
         e2 = e1 + RoI_length
     elif where_roi == "start":
         e1 = 0

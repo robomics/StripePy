@@ -24,14 +24,16 @@ def _num_cpus(arg: str) -> int:
     except:  # noqa
         pass
 
-    raise ValueError(f"Not a valid number of CPU cores (allowed values are integers between 1 and {mp.cpu_count()})")
+    raise argparse.ArgumentTypeError(
+        f"Not a valid number of CPU cores (allowed values are integers between 1 and {mp.cpu_count()})"
+    )
 
 
 def _existing_file(arg: str) -> pathlib.Path:
     if (path := pathlib.Path(arg)).is_file():
         return path
 
-    raise FileNotFoundError(arg)
+    raise argparse.ArgumentTypeError(f'Not an existing file: "{arg}"')
 
 
 def _output_dir_checked(arg: str) -> pathlib.Path:
@@ -39,28 +41,28 @@ def _output_dir_checked(arg: str) -> pathlib.Path:
     if parent.exists() and parent.is_dir():
         return pathlib.Path(arg)
 
-    raise FileNotFoundError(f'Output folder "{arg}" is not reachable: parent folder does not exist')
+    raise argparse.ArgumentTypeError(f'Output folder "{arg}" is not reachable: parent folder does not exist')
 
 
 def _probability(arg) -> float:
     if 0 <= (n := float(arg)) <= 1:
         return n
 
-    raise ValueError("Not a valid probability")
+    raise argparse.ArgumentTypeError("Not a valid probability")
 
 
 def _positive_float(arg) -> float:
     if (n := float(arg)) > 0:
         return n
 
-    raise ValueError("Not a positive float")
+    raise argparse.ArgumentTypeError("Not a positive float")
 
 
 def _positive_int(arg) -> float:
     if (n := int(arg)) > 0:
         return n
 
-    raise ValueError("Not a positive int")
+    raise argparse.ArgumentTypeError("Not a positive int")
 
 
 def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
@@ -164,6 +166,14 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     )
 
     sc.add_argument(
+        "--verbosity",
+        type=str,
+        choices=["debug", "info", "warning", "error", "critical"],
+        default="info",
+        help="Set verbosity of output to the console.",
+    )
+
+    sc.add_argument(
         "-p",
         "--nproc",
         type=_num_cpus,
@@ -212,6 +222,25 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Print the list of available datasets and return.",
     )
 
+    grp_ = sc.add_mutually_exclusive_group(required=False)
+    grp_.add_argument(
+        "--unit-test",
+        action="store_true",
+        default=False,
+        help="Download the test datasets required by the unit tests.\n"
+        "Files will be stored under folder test/data/\n"
+        "When specified, all other options are ignored.\n"
+        "Existing files will be overwritten.",
+    )
+    grp_.add_argument(
+        "--end2end-test",
+        action="store_true",
+        default=False,
+        help="Download the test datasets required by the end2end tests.\n"
+        "Files will be stored under folder test/data/\n"
+        "When specified, all other options are ignored.\n"
+        "Existing files will be overwritten.",
+    )
     sc.add_argument(
         "--max-size",
         type=_positive_float,
@@ -231,6 +260,13 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         action="store_true",
         default=False,
         help="Overwrite existing file(s).",
+    )
+    sc.add_argument(
+        "--verbosity",
+        type=str,
+        choices=["debug", "info", "warning", "error", "critical"],
+        default="info",
+        help="Set verbosity of output to the console.",
     )
 
     return sc
@@ -285,6 +321,13 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
             action="store_true",
             default=False,
             help="Overwrite existing file(s).",
+        )
+        sc.add_argument(
+            "--verbosity",
+            type=str,
+            choices=["debug", "info", "warning", "error", "critical"],
+            default="info",
+            help="Set verbosity of output to the console.",
         )
 
     def add_stripepy_hdf5_option(sc):
@@ -418,6 +461,13 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
         default=None,
         help="Control if and how stripe coordinates should be transformed.",
     )
+    sc.add_argument(
+        "--verbosity",
+        type=str,
+        choices=["debug", "info", "warning", "error", "critical"],
+        default="info",
+        help="Set verbosity of output to the console.",
+    )
 
     return sc
 
@@ -465,24 +515,10 @@ def _process_stripepy_call_args(args: Dict[str, Any]) -> Dict[str, Any]:
     }
     configs_output = {key: args[key] for key in ["output_folder", "force"]}
 
+    configs_output["output_folder"] = (
+        configs_output["output_folder"] / configs_input["contact_map"].stem / str(configs_input["resolution"])
+    )
     configs_other = {"nproc": args["nproc"]}
-
-    # Print the used parameters (chosen or default-ones):
-    print("\nArguments:")
-    print(f"--contact-map: {configs_input['contact_map']}")
-    print(f"--resolution: {configs_input['resolution']}")
-    print(f"--normalization: {configs_input['normalization']}")
-    print(f"--genomic-belt: {configs_input['genomic_belt']}")
-    print(f"--roi: {configs_input['roi']}")
-    print(f"--max-width: {configs_thresholds['max_width']}")
-    print(f"--glob-pers-min: {configs_thresholds['glob_pers_min']}")
-    print(f"--constrain-heights: {configs_thresholds['constrain_heights']}")
-    print(f"--loc-pers-min: {configs_thresholds['loc_pers_min']}")
-    print(f"--loc-trend-min: {configs_thresholds['loc_trend_min']}")
-    print(f"--min-chrom-size: {configs_thresholds['min_chrom_size']}")
-    print(f"--output-folder: {configs_output['output_folder']}")
-    print(f"--nproc: {configs_other['nproc']}")
-    print(f"--force: {configs_output['force']}")
 
     return {
         "configs_input": configs_input,
@@ -496,18 +532,13 @@ def _normalize_args(args: Dict[str, Any]) -> Dict[str, Any]:
     return {k.replace("-", "_"): v for k, v in args.items()}
 
 
-def parse_args(cli_args: List[str]) -> Tuple[str, Any]:
+def parse_args(cli_args: List[str]) -> Tuple[str, Any, str]:
     # Parse the input parameters:
     args = _normalize_args(vars(_make_cli().parse_args(cli_args)))
 
     subcommand = args.pop("subcommand")
+    verbosity = args.pop("verbosity")
     if subcommand == "call":
-        return subcommand, _process_stripepy_call_args(args)
-    if subcommand == "download":
-        return subcommand, args
-    if subcommand == "plot":
-        return subcommand, args
-    if subcommand == "view":
-        return subcommand, args
+        return subcommand, _process_stripepy_call_args(args), verbosity
 
-    raise NotImplementedError
+    return subcommand, args, verbosity

@@ -3,33 +3,41 @@
 # SPDX-License-Identifier: MIT
 
 import itertools
-import logging
 import pathlib
 import random
-import warnings
+import time
 from typing import Dict, Optional, Tuple
 
 import hictkpy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import structlog
 from matplotlib.ticker import EngFormatter
 from numpy.typing import NDArray
 
 import stripepy.plot
 from stripepy.IO import ResultFile
+from stripepy.utils.common import pretty_format_elapsed_time
 from stripepy.utils.TDA import TDA
 
 
 def _generate_random_region(
-    chroms: Dict[str, int], resolution: int, region_size: int = 2_500_000
+    chroms: Dict[str, int],
+    resolution: int,
+    region_size: int = 2_500_000,
+    logger=None,
 ) -> Tuple[str, int, int]:
+    if logger is None:
+        logger = structlog.get_logger()
+
     chrom_names = list(chroms.keys())
     random.shuffle(chrom_names)
 
     for chrom in chrom_names:
         size = chroms[chrom]
         if size < region_size:
+            logger.debug("%s is too small (%dbp): skipping!", chrom, size)
             continue
 
         if size == region_size:
@@ -58,18 +66,25 @@ def _fetch_random_region(
     f: hictkpy.File,
     normalization: Optional[str],
     region_size: int = 2_500_000,
+    logger=None,
 ) -> Tuple[str, int, int, NDArray]:
+    if logger is None:
+        logger = structlog.get_logger()
+
     for attempt in range(10):
         chrom, start_pos, end_pos = _generate_random_region(
             f.chromosomes(include_ALL=False), f.resolution(), region_size
         )
+        logger.debug("fetching interactions for %s:%d-%d", chrom, start_pos, end_pos)
         m = f.fetch(f"{chrom}:{start_pos}-{end_pos}", normalization=normalization).to_numpy()
         nnz = (np.isfinite(m) & (m != 0)).sum()
 
         if nnz / m.size >= 0.75:
+            logger.debug("found suitable region: %s:%d-%d", chrom, start_pos, end_pos)
             return chrom, start_pos, end_pos, m
+        logger.debug("region is too sparse: discarding region")
 
-    warnings.warn(
+    logger.warning(
         "Failed to randomly select a genomic region with appropriate density for plotting.\n"
         "Continuing anyway.\n"
         "For best results, please manually provide the coordinates for a region to be plotted using parameter --region."
@@ -79,20 +94,31 @@ def _fetch_random_region(
 
 
 def _fetch_matrix(
-    path: pathlib.Path, resolution: int, normalization: str, region: Optional[str]
+    path: pathlib.Path,
+    resolution: int,
+    normalization: str,
+    region: Optional[str],
+    logger=None,
 ) -> Tuple[str, int, int, NDArray]:
+    if logger is None:
+        logger = structlog.get_logger()
+
     f = hictkpy.MultiResFile(path)[resolution]
 
     if region is None:
         return _fetch_random_region(f, normalization)
 
+    logger.debug("fetching interactions for %s", region)
     matrix = f.fetch(region, normalization=normalization).to_numpy()
     chrom, start, end = _parse_ucsc_region(region, f.chromosomes(include_ALL=False))
 
     return chrom, start, end, matrix
 
 
-def _parse_ucsc_region(region: str, chromosomes: Dict[str, int]) -> Tuple[str, int, int]:
+def _parse_ucsc_region(
+    region: str,
+    chromosomes: Dict[str, int],
+) -> Tuple[str, int, int]:
     try:
         chrom, sep, pos = region.partition(":")
         if len(sep) == 0 and len(pos) == 0:
@@ -104,7 +130,10 @@ def _parse_ucsc_region(region: str, chromosomes: Dict[str, int]) -> Tuple[str, i
         raise RuntimeError(f'Unable to parse region "{region}". Is the given region in UCSC format?') from e
 
 
-def _validate_hdf5_result(hf: hictkpy.File, rf: ResultFile):
+def _validate_hdf5_result(
+    hf: hictkpy.File,
+    rf: ResultFile,
+):
     if hf.resolution() != rf.resolution:
         raise RuntimeError(f'File "{hf.uri()}" and "{rf.path}" have different resolutions')
 
@@ -155,7 +184,12 @@ def _fetch_geo_descriptors_gw(
     return pd.concat(dfs).reset_index(drop=True)
 
 
-def _fetch_persistence_maximum_points(h5: ResultFile, chrom: str, start: int, end: int) -> Dict[str, NDArray]:
+def _fetch_persistence_maximum_points(
+    h5: ResultFile,
+    chrom: str,
+    start: int,
+    end: int,
+) -> Dict[str, NDArray]:
     def fetch(v: NDArray[int], left_bound: int, right_bound: int) -> Tuple[NDArray[int], NDArray[int]]:
         assert left_bound >= 0
         assert right_bound >= left_bound
@@ -191,10 +225,15 @@ def _plot_hic_matrix(
     cmap: str,
     normalization: str,
     log_scale: bool,
+    logger=None,
     **kwargs,
 ) -> plt.Figure:
+    if logger is None:
+        logger = structlog.get_logger()
+
     chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
 
+    logger.info("plotting interactions for %s:%d-%d as a heatmap", chrom, start, end)
     fig, _, _ = stripepy.plot.hic_matrix(
         matrix,
         (start, end),
@@ -217,16 +256,22 @@ def _plot_hic_matrix_with_seeds(
     cmap: str,
     normalization: str,
     log_scale: bool,
+    logger=None,
     **kwargs,
 ) -> plt.Figure:
+    if logger is None:
+        logger = structlog.get_logger()
+
     chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
 
     with ResultFile(stripepy_hdf5) as h5:
+        logger.info("fetching seeds overlapping %s:%d-%d...", chrom, start, end)
         data = _fetch_persistence_maximum_points(h5, chrom, start, end)
         resolution = h5.resolution
 
     fig, axs = plt.subplots(1, 2, figsize=(12.8, 6.6), sharey=True)
 
+    logger.info("plotting interactions for %s:%d-%d as a heatmap", chrom, start, end)
     for ax in axs:
         _, _, img = stripepy.plot.hic_matrix(
             matrix,
@@ -238,6 +283,7 @@ def _plot_hic_matrix_with_seeds(
             ax=ax,
         )
 
+    logger.info("plotting lower-triangular seeds...")
     stripepy.plot.plot_sites(
         data["seeds_lt"] * resolution,
         (start, end),
@@ -246,6 +292,7 @@ def _plot_hic_matrix_with_seeds(
         ax=axs[0],
     )
 
+    logger.info("plotting upper-triangular seeds...")
     stripepy.plot.plot_sites(
         data["seeds_ut"] * resolution,
         (start, end),
@@ -275,11 +322,16 @@ def _plot_hic_matrix_with_stripes(
     override_height: Optional[int],
     mask_regions: bool,
     log_scale: bool,
+    logger=None,
     **kwargs,
 ) -> plt.Figure:
+    if logger is None:
+        logger = structlog.get_logger()
+
     chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
 
     with ResultFile(stripepy_hdf5) as h5:
+        logger.info("fetching geometric descriptors for %s:%d-%d...", chrom, start, end)
         chrom_size = h5.chromosomes[chrom]
         geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
         geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
@@ -313,6 +365,7 @@ def _plot_hic_matrix_with_stripes(
     ]
 
     if mask_regions:
+        logger.info("marking regions lying outside of stripes")
         whitelist = [(x, y) for x, y, _ in outlines_lt]
         m1 = np.triu(matrix) + np.tril(
             stripepy.plot.mask_regions_1d(
@@ -338,6 +391,7 @@ def _plot_hic_matrix_with_stripes(
         m1 = matrix
         m2 = matrix
 
+    logger.info("plotting interactions for %s:%d-%d as a heatmap", chrom, start, end)
     _, _, img = stripepy.plot.hic_matrix(
         m1,
         (start, end),
@@ -366,6 +420,7 @@ def _plot_hic_matrix_with_stripes(
             height = min(end - x, override_height)
         rectangles.append((x, y, width, height))
 
+    logger.info("highlighting lower-triangular stripes...")
     stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[0])
 
     rectangles = []
@@ -377,6 +432,7 @@ def _plot_hic_matrix_with_stripes(
             height = min(start - x, override_height)
         rectangles.append((x, y, width, height))
 
+    logger.info("highlighting upper-triangular stripes...")
     stripepy.plot.draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[1])
 
     axs[0].set(title="Lower Triangular")
@@ -392,15 +448,25 @@ def _plot_hic_matrix_with_stripes(
     return fig
 
 
-def _plot_pseudodistribution(stripepy_hdf5: pathlib.Path, region: Optional[str], **kwargs) -> plt.Figure:
+def _plot_pseudodistribution(
+    stripepy_hdf5: pathlib.Path,
+    region: Optional[str],
+    logger=None,
+    **kwargs,
+) -> plt.Figure:
+    if logger is None:
+        logger = structlog.get_logger()
+
     with ResultFile(stripepy_hdf5) as h5:
         if region is None:
             chrom, start, end = _generate_random_region(h5.chromosomes, h5.resolution)
         else:
             chrom, start, end = _parse_ucsc_region(region, h5.chromosomes)
+        logger.info("fetching persistence maxima overlapping %s:%d-%d...", chrom, start, end)
         data = _fetch_persistence_maximum_points(h5, chrom, start, end)
         resolution = h5.resolution
 
+    logger.info("plotting the pseudo-distribution..")
     fig, _ = stripepy.plot.pseudodistribution(
         data["pseudodistribution_lt"],
         data["pseudodistribution_ut"],
@@ -417,14 +483,20 @@ def _plot_pseudodistribution(stripepy_hdf5: pathlib.Path, region: Optional[str],
 def _plot_stripe_dimension_distribution(
     stripepy_hdf5: pathlib.Path,
     region: Optional[str],
+    logger=None,
     **kwargs,
 ) -> plt.Figure:
+    if logger is None:
+        logger = structlog.get_logger()
+
     with ResultFile(stripepy_hdf5) as h5:
         if region is None:
+            logger.info("fetching geometric descriptors for the entire genome...")
             geo_descriptors_lt = _fetch_geo_descriptors_gw(h5, "LT")
             geo_descriptors_ut = _fetch_geo_descriptors_gw(h5, "UT")
         else:
             chrom, start, end = _parse_ucsc_region(region, h5.chromosomes)
+            logger.info("fetching geometric descriptors for %s:%d-%d...", chrom, start, end)
             geo_descriptors_lt = _fetch_geo_descriptors(h5, chrom, start, end, "LT")
             geo_descriptors_ut = _fetch_geo_descriptors(h5, chrom, start, end, "UT")
 
@@ -442,8 +514,11 @@ def _plot_stripe_dimension_distribution(
         ax.xaxis.set_major_formatter(EngFormatter("b"))
         ax.xaxis.tick_bottom()
 
+    logger.info("generating histograms for lower-triangular stripes...")
     axs[0][0].hist(stripe_widths_lt, bins=max(1, (stripe_widths_lt.max() - stripe_widths_lt.min()) // resolution))
     axs[0][1].hist(stripe_heights_lt, bins="auto")
+
+    logger.info("generating histograms for lower-triangular stripes...")
     axs[1][0].hist(stripe_widths_ut, bins=max(1, (stripe_widths_ut.max() - stripe_widths_ut.min()) // resolution))
     axs[1][1].hist(stripe_heights_ut, bins="auto")
 
@@ -460,16 +535,22 @@ def _plot_stripe_dimension_distribution(
 
 
 def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwargs):
+    logger = structlog.get_logger()
+    t0 = time.time()
+
     if output_name.exists():
         if force:
-            logging.debug('removing existing output file "%s"', output_name)
+            logger.debug('removing existing output file "%s"', output_name)
             output_name.unlink()
         else:
             raise RuntimeError(
                 f'Refusing to overwrite file "{output_name}". Pass --force to overwrite existing file(s).'
             )
 
+    logger.info('generating "%s" plot', plot_type)
+
     if "seed" in kwargs:
+        logger.info("setting seed to %d", kwargs["seed"])
         random.seed(kwargs["seed"])
 
     if plot_type in {"contact-map", "cm"}:
@@ -479,6 +560,8 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
 
         if (plot_seeds or plot_stripes) and kwargs["stripepy_hdf5"] is None:
             raise RuntimeError("--stripepy-hdf5 is required when highlighting stripes or seeds.")
+
+        kwargs["logger"] = logger
 
         if not plot_seeds and not plot_stripes:
             fig = _plot_hic_matrix(**kwargs)
@@ -500,3 +583,6 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
         raise NotImplementedError
 
     fig.savefig(output_name, dpi=dpi)
+
+    logger.info("DONE!")
+    logger.info("plotting took %s seconds", pretty_format_elapsed_time(t0))
