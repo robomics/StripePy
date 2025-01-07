@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import hashlib
 import itertools
 import pathlib
 import time
@@ -731,15 +732,19 @@ def _plot_local_pseudodistributions(
     )
 
 
-def _plot_stripes_helper(args):
+def _plot_stripes_helper(args) -> Tuple[float, pathlib.Path, str]:
     matrix, result, resolution, start, end, cutoff, output_folder, logger = args
     logger.debug("plotting stripes with cutoff=%.2f", cutoff)
 
     fig, _ = plot.plot(
         result, resolution, "matrix_with_stripes", start=start, end=end, matrix=matrix, relative_change_threshold=cutoff
     )
-    fig.savefig(output_folder / f"stripes_{cutoff:.2g}.jpg", dpi=256)
+    dest = output_folder / f"stripes_{cutoff:.2g}.jpg"
+    fig.savefig(dest, dpi=256)
     plt.close(fig)
+
+    with dest.open("rb") as f:
+        return cutoff, dest, hashlib.file_digest(f, hashlib.sha256).hexdigest()
 
 
 def _plot_stripes(
@@ -758,7 +763,7 @@ def _plot_stripes(
     start, end = result.roi["genomic"]
     cutoffs = np.linspace(0, 15, 76)
 
-    map(
+    tasks = map(
         _plot_stripes_helper,
         zip(
             itertools.repeat(matrix),
@@ -771,6 +776,15 @@ def _plot_stripes(
             itertools.repeat(logger),
         ),
     )
+
+    plots = set()
+
+    for _, path, digest in tasks:
+        if digest not in plots:
+            plots.add(digest)
+        else:
+            logger.debug('deleting plot "%s"', path)
+            path.unlink()
 
 
 def step_5(
