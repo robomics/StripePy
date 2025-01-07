@@ -129,6 +129,7 @@ def _hash_file(path: pathlib.Path, chunk_size=16 << 20) -> str:
         file=sys.stderr,
         receipt=False,
         monitor="{percent:.2%}",
+        unit="B",
         scale="SI2",
     ) as bar:
         logger = structlog.get_logger()
@@ -185,6 +186,7 @@ def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
             receipt=False,
             refresh_secs=0.05,
             monitor="{percent:.2%}",
+            unit="B",
             scale="SI2",
         ) as bar:
             _download_progress_reporter.bar = bar
