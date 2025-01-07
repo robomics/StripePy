@@ -15,13 +15,21 @@ import structlog
 from .cli import call, download, plot, setup, view
 
 
-def _setup_mpl_backend():
+def _setup_matplotlib(subcommand: str, **kwargs):
+    if subcommand not in {"call", "plot"}:
+        return
+
+    if subcommand == "call" and kwargs["configs_input"]["roi"] is None:
+        return
+
+    import matplotlib
+    import matplotlib.pyplot as plt
+
     # This is very important, as some plotting operations are performed concurrently
     # using multiprocessing.
     # If the wrong backend is selected (e.g. tkinter) this can lead to the whole OS freezing
-    import matplotlib
-
     matplotlib.use("Agg")
+    plt.set_loglevel(level="warning")
 
 
 class _StructLogColorfulStyles:
@@ -284,16 +292,15 @@ def main(args: Union[List[str], None] = None):
     _setup_logger("INFO")
     try:
         subcommand, args, verbosity = setup.parse_args(args)
+        _setup_matplotlib(subcommand, **args)
 
         if subcommand == "call":
-            _setup_mpl_backend()
             _setup_logger(verbosity.upper(), matrix_file=args["configs_input"]["contact_map"])
             return call.run(**args)
         if subcommand == "download":
             _setup_logger(verbosity.upper())
             return download.run(**args)
         if subcommand == "plot":
-            _setup_mpl_backend()
             _setup_logger(verbosity.upper())
             return plot.run(**args)
         if subcommand == "view":
