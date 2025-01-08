@@ -54,7 +54,7 @@ def _plan(chromosomes: Dict[str, int], min_size: int, logger=None) -> List[Tuple
 
 
 def _generate_empty_result(chrom: str, chrom_size: int, resolution: int) -> IO.Result:
-    result = IO.Result(chrom)
+    result = IO.Result(chrom, chrom_size)
     result.set_min_persistence(0)
 
     num_bins = (chrom_size + resolution - 1) // resolution
