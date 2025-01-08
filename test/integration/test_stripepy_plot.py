@@ -10,6 +10,8 @@ import pytest
 
 from stripepy import main
 
+from .common import matplotlib_avail
+
 testdir = pathlib.Path(__file__).resolve().parent.parent
 
 
@@ -30,6 +32,17 @@ def extract_image(
             shutil.copyfileobj(fin, fout)  # noqa
 
     return dest_dir / name
+
+
+def run_main(args):
+    if matplotlib_avail():
+        main(args)
+        return
+
+    with pytest.raises(ImportError):
+        main(args)
+
+    pytest.skip("matplotlib not available")
 
 
 @pytest.mark.end2end
@@ -60,7 +73,7 @@ class TestStripePyPlot:
 
         outfile = tmpdir / "img.png"
         args = ["plot", "contact-map", str(matrix_file), str(resolution), str(outfile), "--region", region]
-        main(args)
+        run_main(args)
 
         assert outfile.is_file()
         compare_images(expected, outfile)
@@ -89,7 +102,7 @@ class TestStripePyPlot:
             "--region",
             region,
         ]
-        main(args)
+        run_main(args)
 
         assert outfile.is_file()
         compare_images(expected, outfile)
@@ -118,7 +131,7 @@ class TestStripePyPlot:
             "--region",
             region,
         ]
-        main(args)
+        run_main(args)
 
         assert outfile.is_file()
         compare_images(expected, outfile)
@@ -148,7 +161,7 @@ class TestStripePyPlot:
             "--region",
             region,
         ]
-        main(args)
+        run_main(args)
 
         assert outfile.is_file()
         compare_images(expected, outfile)
@@ -164,7 +177,7 @@ class TestStripePyPlot:
 
         outfile = tmpdir / "img.png"
         args = ["plot", "pseudodistribution", str(stripe_file), str(outfile), "--region", region]
-        main(args)
+        run_main(args)
 
         assert outfile.is_file()
         compare_images(expected, outfile)
@@ -180,7 +193,7 @@ class TestStripePyPlot:
 
         outfile = tmpdir / "img.png"
         args = ["plot", "stripe-hist", str(stripe_file), str(outfile), "--region", region]
-        main(args)
+        run_main(args)
 
         assert outfile.is_file()
         compare_images(expected, outfile)
@@ -194,7 +207,7 @@ class TestStripePyPlot:
 
         outfile = tmpdir / "img.png"
         args = ["plot", "stripe-hist", str(stripe_file), str(outfile)]
-        main(args)
+        run_main(args)
 
         assert outfile.is_file()
         compare_images(expected, outfile)
