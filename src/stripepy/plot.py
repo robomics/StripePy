@@ -7,16 +7,17 @@ import itertools
 import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from matplotlib.image import AxesImage
-from matplotlib.ticker import EngFormatter, ScalarFormatter
 
 from stripepy.IO import Result
+from stripepy.utils.common import _DummyPyplot, _import_matplotlib, _import_pyplot
 from stripepy.utils.TDA import TDA
+
+# Dummy values to not break type annotations when matplotlib is not available
+plt = _DummyPyplot()
+AxesImage = None
 
 
 @functools.cache
@@ -94,7 +95,8 @@ def _get_custom_palettes() -> Dict[str, npt.NDArray]:
     }
 
 
-def _list_to_colormap(color_list, name=None) -> mpl.colors.LinearSegmentedColormap:
+def _list_to_colormap(color_list, name=None):
+    mpl = _import_matplotlib()
     color_list = np.array(color_list)
     if color_list.min() < 0:
         raise ValueError("Colors should be 0 to 1, or 0 to 255")
@@ -107,6 +109,7 @@ def _list_to_colormap(color_list, name=None) -> mpl.colors.LinearSegmentedColorm
 
 
 def _register_cmaps():
+    mpl = _import_matplotlib()
     # make sure we are not trying to register color maps multiple times
     if hasattr(_register_cmaps, "called"):
         return
@@ -121,6 +124,9 @@ def _format_ticks(ax: plt.Axes, xaxis: bool = True, yaxis: bool = True, rotation
     """
     Function taken from https://cooltools.readthedocs.io/en/latest/notebooks/viz.html
     """
+    _import_matplotlib()
+    from matplotlib.ticker import EngFormatter, ScalarFormatter
+
     if xaxis:
         ax.xaxis.set_major_formatter(EngFormatter("b"))
     else:
@@ -174,6 +180,8 @@ def hic_matrix(
     img:
         image returned by ax.imshow()
     """
+    mpl = _import_matplotlib()
+    plt = _import_pyplot()
     _register_cmaps()
 
     multiplier = 1.15 if with_colorbar else 1.0
@@ -254,6 +262,7 @@ def pseudodistribution(
     ax2: plt.Axes
         axis with the plot for lower-triangular pseudo-distribution
     """
+    plt = _import_pyplot()
     if fig is None:
         if axs is not None:
             raise RuntimeError("axs should be None when fig is None")
@@ -344,6 +353,8 @@ def plot_sites(
     ax: plt.Axes
         axis used for plotting
     """
+    plt = _import_pyplot()
+
     if location is not None and location not in {"lower", "upper"}:
         raise ValueError('location should be "lower" or "upper"')
 
@@ -476,6 +487,8 @@ def draw_boxes(
     figure, axes:
         the plt.Figure and plt.Axes used for plotting
     """
+    plt = _import_pyplot()
+
     if fig is None:
         if ax is not None:
             raise RuntimeError("ax should be None when fig is None")
@@ -598,6 +611,8 @@ def _plot_hic_matrix_with_seeds(
     log_scale: bool = True,
     title: Optional[str] = None,
 ) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:
+    plt = _import_pyplot()
+
     data = _fetch_persistence_maximum_points(result, resolution, start, end)
 
     fig, axs = plt.subplots(1, 2, figsize=(13.5, 6.4), sharey=True)
@@ -656,6 +671,8 @@ def _plot_hic_matrix_with_stripes(
     log_scale: bool = False,
     title: Optional[str] = None,
 ) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:
+    plt = _import_pyplot()
+
     geo_descriptors_lt = result.get_stripe_geo_descriptors("LT")
     geo_descriptors_ut = result.get_stripe_geo_descriptors("UT")
 
@@ -783,6 +800,9 @@ def _plot_stripe_dimension_distribution(
     geo_descriptors_ut: pd.DataFrame,
     resolution: int,
 ) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:
+    plt = _import_pyplot()
+    from matplotlib.ticker import EngFormatter
+
     fig, axs = plt.subplots(2, 2, figsize=(12.8, 8), sharex="col", sharey="col")
 
     stripe_widths_lt = (geo_descriptors_lt["right_bound"] - geo_descriptors_lt["left_bound"]) * resolution

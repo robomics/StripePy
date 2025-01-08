@@ -15,7 +15,7 @@ import pandas as pd
 import structlog
 
 from stripepy import IO, others, stripepy
-from stripepy.utils.common import pretty_format_elapsed_time
+from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
 from stripepy.utils.progress_bar import initialize_progress_bar
 
 
@@ -122,12 +122,16 @@ def _compute_progress_bar_weights(chrom_sizes: Dict[str, int], include_plotting:
     return df.set_index(["chrom"])
 
 
-def _init_mpl_backend():
+def _init_mpl_backend(skip: bool):
+    if skip:
+        return
+
     try:
         import matplotlib
 
         matplotlib.use("Agg")
     except ImportError:
+        structlog.get_logger().warning("failed to initialize matplotlib backend")
         pass
 
 
@@ -141,6 +145,14 @@ def run(
     start_global_time = time.time()
 
     _write_param_summary(configs_input, configs_thresholds, configs_output, configs_other)
+
+    if configs_input["roi"] is not None:
+        # Raise an error immediately if --roi was passed and matplotlib is not available
+        try:
+            _import_matplotlib()
+        except ImportError as e:
+            structlog.get_logger().error(e)
+            raise
 
     # Data loading:
     f = others.open_matrix_file_checked(configs_input["contact_map"], configs_input["resolution"])
@@ -163,7 +175,13 @@ def run(
         # Set up the process pool when appropriate
         if configs_other["nproc"] > 1:
             main_logger.debug("initializing a pool of %d processes...", configs_other["nproc"])
-            pool = ctx.enter_context(mp.Pool(processes=configs_other["nproc"], initializer=_init_mpl_backend))
+            pool = ctx.enter_context(
+                mp.Pool(
+                    processes=configs_other["nproc"],
+                    initializer=_init_mpl_backend,
+                    initargs=(configs_input["roi"] is None,),
+                )
+            )
         else:
             pool = None
 

@@ -8,14 +8,20 @@ import time
 from typing import Dict, Optional, Tuple
 
 import hictkpy
-import matplotlib.pyplot as plt
 import numpy as np
 import structlog
 from numpy.typing import NDArray
 
 import stripepy.plot
 from stripepy.IO import Result, ResultFile
-from stripepy.utils.common import pretty_format_elapsed_time
+from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    from stripepy.utils.common import _DummyPyplot
+
+    plt = _DummyPyplot()
 
 
 def _generate_random_region(
@@ -321,6 +327,13 @@ def _plot_stripe_dimension_distribution(
 def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwargs):
     logger = structlog.get_logger()
     t0 = time.time()
+
+    # Raise an error immediately if matplotlib is not available
+    try:
+        _import_matplotlib()
+    except ImportError as e:
+        logger.error(e)
+        raise
 
     if output_name.exists():
         if force:

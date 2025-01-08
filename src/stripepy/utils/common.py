@@ -69,3 +69,37 @@ def pretty_format_elapsed_time(t0: float, t1: Optional[float] = None) -> str:
     minutes = (delta - (hours * 3600)) // 60
     seconds = delta - (hours * 3600) - (minutes * 60)
     return f"{hours:.0f}h:{minutes:.0f}m:{seconds:.3f}s"
+
+
+def _import_matplotlib():
+    """
+    Helper function to import matplotlib.
+    """
+    try:
+        import matplotlib
+
+        return matplotlib
+    except ImportError as e:
+        raise ImportError(
+            "To enable matplotlib support, please install StripePy with: pip install 'stripepy-hic[all]'"
+        ) from e
+
+
+def _import_pyplot():
+    """
+    Helper function to import matplotlib.pyplot.
+    """
+    _import_matplotlib()
+    import matplotlib.pyplot as plt
+
+    return plt
+
+
+class _DummyPyplot(object):
+    """
+    class to mock common types from matplotlib.pyplot.
+    """
+
+    def __init__(self):
+        self.Figure = None
+        self.Axes = None

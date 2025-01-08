@@ -22,8 +22,12 @@ def _setup_matplotlib(subcommand: str, **kwargs):
     if subcommand == "call" and kwargs["configs_input"]["roi"] is None:
         return
 
-    import matplotlib
-    import matplotlib.pyplot as plt
+    try:
+        import matplotlib
+        import matplotlib.pyplot as plt
+    except ImportError:
+        structlog.get_logger().warning("failed to configure matplotlib")
+        return
 
     # This is very important, as some plotting operations are performed concurrently
     # using multiprocessing.
