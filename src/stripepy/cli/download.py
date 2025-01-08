@@ -14,10 +14,10 @@ import time
 import urllib.request
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
-import alive_progress as ap
 import structlog
 
 from stripepy.utils.common import pretty_format_elapsed_time
+from stripepy.utils.progress_bar import initialize_progress_bar
 
 
 @functools.cache
@@ -130,7 +130,7 @@ def _hash_file(path: pathlib.Path, chunk_size=16 << 20) -> str:
     file_size = path.stat().st_size
     disable_bar = not sys.stderr.isatty() or file_size < (256 << 20)
 
-    with ap.alive_bar(
+    with initialize_progress_bar(
         total=file_size,
         disable=disable_bar,
         enrich_print=False,
@@ -185,7 +185,7 @@ def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
 
         disable_bar = not sys.stderr.isatty() or size is None
 
-        with ap.alive_bar(
+        with initialize_progress_bar(
             total=size,
             manual=True,
             disable=disable_bar,

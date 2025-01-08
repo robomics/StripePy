@@ -10,13 +10,13 @@ import sys
 import time
 from typing import Any, Dict, List, Tuple
 
-import alive_progress as ap
 import numpy as np
 import pandas as pd
 import structlog
 
 from stripepy import IO, others, stripepy
 from stripepy.utils.common import pretty_format_elapsed_time
+from stripepy.utils.progress_bar import initialize_progress_bar
 
 
 def _generate_metadata_attribute(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any]) -> Dict[str, Any]:
@@ -172,7 +172,7 @@ def run(
             f.chromosomes(), include_plotting=configs_input["roi"] is not None, nproc=configs_other["nproc"]
         )
         progress_bar = ctx.enter_context(
-            ap.alive_bar(
+            initialize_progress_bar(
                 total=sum(f.chromosomes().values()),
                 manual=True,
                 disable=disable_bar,
