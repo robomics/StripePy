@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import pathlib
+import warnings
 
 import h5py
 import hictkpy
@@ -83,7 +84,9 @@ class TestStripePyCall:
                 main(args)
             pytest.skip("matplotlib not available")
 
-        main(args)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            main(args)
 
         outfile = pathlib.Path(tmpdir) / testfile.stem / str(resolution) / "results.hdf5"
 
