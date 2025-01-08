@@ -56,7 +56,6 @@ keywords = [
 requires-python = ">=3.9"
 dependencies = [
     "alive-progress >=3.2, <4",
-    "colorama >=0.4, <0.5",
     "h5py >3, <4",
     "hictkpy[scipy] >=1, <2",
     "matplotlib >=3.8, <4",
@@ -70,6 +69,7 @@ dependencies = [
 
 all = [
     "stripepy-hic",
+    "colorama >=0.4, <0.5",
     "rich >=13.9, <14",
 ]
 

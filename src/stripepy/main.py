@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: MIT
 
 import collections.abc
+import importlib.util
 import pathlib
 import platform
 import sys
 from typing import List, Optional, Union
 
-import colorama
 import hictkpy
 import structlog
 
@@ -32,25 +32,6 @@ def _setup_matplotlib(subcommand: str, **kwargs):
     plt.set_loglevel(level="warning")
 
 
-class _StructLogColorfulStyles:
-    reset = colorama.Style.RESET_ALL
-    bright = colorama.Style.BRIGHT
-    dim = colorama.Style.DIM
-
-    level_critical = colorama.Fore.RED
-    level_exception = colorama.Fore.RED
-    level_error = colorama.Fore.RED
-    level_warn = colorama.Fore.YELLOW
-    level_info = colorama.Fore.GREEN
-    level_debug = colorama.Fore.GREEN
-    level_notset = colorama.Back.RED
-
-    timestamp = dim
-    chromosome = colorama.Fore.BLUE
-    step = colorama.Fore.BLUE
-    logger_name = colorama.Fore.BLUE
-
-
 class _StructLogPlainStyles:
     reset = ""
     bright = ""
@@ -70,6 +51,34 @@ class _StructLogPlainStyles:
     logger_name = ""
 
 
+class _StructLogColorfulStyles:
+    @staticmethod
+    def _try_get_color(key: str):
+        try:
+            import colorama
+
+            return eval(f"colorama.{key}")
+        except ImportError:
+            return ""
+
+    reset = _try_get_color("Style.RESET_ALL")
+    bright = _try_get_color("Style.BRIGHT")
+    dim = _try_get_color("Style.DIM")
+
+    level_critical = _try_get_color("Fore.RED")
+    level_exception = _try_get_color("Fore.RED")
+    level_error = _try_get_color("Fore.RED")
+    level_warn = _try_get_color("Fore.YELLOW")
+    level_info = _try_get_color("Fore.GREEN")
+    level_debug = _try_get_color("Fore.GREEN")
+    level_notset = _try_get_color("Back.RED")
+
+    timestamp = dim
+    chromosome = _try_get_color("Fore.BLUE")
+    step = _try_get_color("Fore.BLUE")
+    logger_name = _try_get_color("Fore.BLUE")
+
+
 def _configure_logger_columns(
     colors: bool,
     level_styles: Optional[structlog.dev.Styles] = None,
@@ -83,6 +92,12 @@ def _configure_logger_columns(
     The body of this function is an extension of the structlog.dev.ConsoleRenderer:
     https://github.com/hynek/structlog/blob/a60ce7bbb50451ed786ace3c3893fb3a6a01df0a/src/structlog/dev.py#L433
     """
+
+    if colors and importlib.util.find_spec("colorama") is None:
+        return _configure_logger_columns(
+            False, level_styles, event_key, timestamp_key, pad_level, longest_chrom_name, max_step_nest_levels
+        )
+
     level_to_color = (
         structlog.dev.ConsoleRenderer().get_default_level_styles(colors) if level_styles is None else level_styles
     )
@@ -102,6 +117,8 @@ def _configure_logger_columns(
         if platform.system() == "Windows":
             # Colorama must be init'd on Windows, but must NOT be
             # init'd on other OSes, because it can break colors.
+            import colorama
+
             colorama.init()
 
         styles = _StructLogColorfulStyles
