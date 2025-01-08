@@ -329,11 +329,7 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
     t0 = time.time()
 
     # Raise an error immediately if matplotlib is not available
-    try:
-        _import_matplotlib()
-    except ImportError as e:
-        logger.error(e)
-        raise
+    _import_matplotlib()
 
     if output_name.exists():
         if force:

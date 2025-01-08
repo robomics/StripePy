@@ -148,11 +148,7 @@ def run(
 
     if configs_input["roi"] is not None:
         # Raise an error immediately if --roi was passed and matplotlib is not available
-        try:
-            _import_matplotlib()
-        except ImportError as e:
-            structlog.get_logger().error(e)
-            raise
+        _import_matplotlib()
 
     # Data loading:
     f = others.open_matrix_file_checked(configs_input["contact_map"], configs_input["resolution"])
