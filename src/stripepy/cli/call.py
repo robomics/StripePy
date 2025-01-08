@@ -140,7 +140,7 @@ def run(
     configs_thresholds: Dict[str, Any],
     configs_output: Dict[str, Any],
     configs_other: Dict[str, Any],
-):
+) -> int:
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
 
@@ -337,3 +337,5 @@ def run(
     main_logger.info(
         "processed %d chromosomes in %s", len(f.chromosomes()), pretty_format_elapsed_time(start_global_time)
     )
+
+    return 0

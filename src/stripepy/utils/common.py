@@ -81,7 +81,7 @@ def _import_matplotlib():
         return matplotlib
     except ImportError as e:
         raise ImportError(
-            "Unable to import matplotlib: to enable matplotlib support, please install StripePy with: pip install 'stripepy-hic[all]'"
+            "unable to import matplotlib: to enable matplotlib support, please install StripePy with: pip install 'stripepy-hic[all]'"
         ) from e
 
 

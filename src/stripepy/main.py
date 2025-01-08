@@ -335,10 +335,9 @@ def main(args: Union[List[str], None] = None):
         raise NotImplementedError
 
     except (RuntimeError, ImportError) as e:
-        logger = structlog.get_logger()
-        logger.exception(e)
-        sys.exit(1)
+        structlog.get_logger().exception(e)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

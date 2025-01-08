@@ -91,7 +91,9 @@ def run(
     h5_file: pathlib.Path,
     relative_change_threshold: float,
     transform: Union[str, None],
-):
+) -> int:
     with ResultFile(h5_file) as f:
         for chrom, size in f.chromosomes.items():
             _dump_stripes(f, chrom, size, f.resolution, relative_change_threshold, transform)
+
+    return 0

@@ -265,7 +265,7 @@ def run(
     unit_test: bool,
     end2end_test: bool,
     force: bool,
-):
+) -> int:
     t0 = time.time()
     if list_only:
         _list_datasets()
@@ -303,3 +303,5 @@ def run(
     logger.info(
         f"file size: %.2fMB. Elapsed time: %s", dest.stat().st_size / (1024 << 10), pretty_format_elapsed_time(t0)
     )
+
+    return 0

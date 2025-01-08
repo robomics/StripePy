@@ -324,7 +324,13 @@ def _plot_stripe_dimension_distribution(
     return fig
 
 
-def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwargs):
+def run(
+    plot_type: str,
+    output_name: pathlib.Path,
+    dpi: int,
+    force: bool,
+    **kwargs,
+) -> int:
     logger = structlog.get_logger()
     t0 = time.time()
 
@@ -374,3 +380,5 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
 
     logger.info("DONE!")
     logger.info("plotting took %s seconds", pretty_format_elapsed_time(t0))
+
+    return 0
