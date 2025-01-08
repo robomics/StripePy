@@ -606,6 +606,9 @@ def _plot_hic_matrix_with_seeds(
         ax=axs[1],
     )
 
+    axs[0].set(title="Lower Triangular")
+    axs[1].set(title="Upper Triangular")
+
     if title is not None:
         fig.suptitle(title)
     fig.tight_layout()
