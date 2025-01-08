@@ -200,7 +200,11 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     def get_avail_ref_genomes():
         from .download import _get_datasets
 
-        return {record["assembly"] for record in _get_datasets(math.inf).values() if "assembly" in record}
+        return {
+            record["assembly"]
+            for record in _get_datasets(math.inf, include_private=False).values()
+            if "assembly" in record
+        }
 
     grp = sc.add_mutually_exclusive_group(required=False)
     grp.add_argument(
