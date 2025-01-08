@@ -36,26 +36,27 @@ def _setup_matplotlib(subcommand: str, **kwargs):
     plt.set_loglevel(level="warning")
 
 
-class _StructLogPlainStyles:
-    reset = ""
-    bright = ""
-    dim = ""
+class _StructLogPlainStyles(object):
+    def __init__(self):
+        self.reset = ""
+        self.bright = ""
+        self.dim = ""
 
-    level_critical = ""
-    level_exception = ""
-    level_error = ""
-    level_warn = ""
-    level_info = ""
-    level_debug = ""
-    level_notset = ""
+        self.level_critical = ""
+        self.level_exception = ""
+        self.level_error = ""
+        self.level_warn = ""
+        self.level_info = ""
+        self.level_debug = ""
+        self.level_notset = ""
 
-    timestamp = ""
-    chromosome = ""
-    step = ""
-    logger_name = ""
+        self.timestamp = ""
+        self.chromosome = ""
+        self.step = ""
+        self.logger_name = ""
 
 
-class _StructLogColorfulStyles:
+class _StructLogColorfulStyles(object):
     @staticmethod
     def _try_get_color(key: str):
         try:
@@ -65,22 +66,24 @@ class _StructLogColorfulStyles:
         except ImportError:
             return ""
 
-    reset = _try_get_color("Style.RESET_ALL")
-    bright = _try_get_color("Style.BRIGHT")
-    dim = _try_get_color("Style.DIM")
+    def __init__(self):
+        _try_get_color = _StructLogColorfulStyles._try_get_color
+        self.reset = _try_get_color("Style.RESET_ALL")
+        self.bright = _try_get_color("Style.BRIGHT")
+        self.dim = _try_get_color("Style.DIM")
 
-    level_critical = _try_get_color("Fore.RED")
-    level_exception = _try_get_color("Fore.RED")
-    level_error = _try_get_color("Fore.RED")
-    level_warn = _try_get_color("Fore.YELLOW")
-    level_info = _try_get_color("Fore.GREEN")
-    level_debug = _try_get_color("Fore.GREEN")
-    level_notset = _try_get_color("Back.RED")
+        self.level_critical = _try_get_color("Fore.RED")
+        self.level_exception = _try_get_color("Fore.RED")
+        self.level_error = _try_get_color("Fore.RED")
+        self.level_warn = _try_get_color("Fore.YELLOW")
+        self.level_info = _try_get_color("Fore.GREEN")
+        self.level_debug = _try_get_color("Fore.GREEN")
+        self.level_notset = _try_get_color("Back.RED")
 
-    timestamp = dim
-    chromosome = _try_get_color("Fore.BLUE")
-    step = _try_get_color("Fore.BLUE")
-    logger_name = _try_get_color("Fore.BLUE")
+        self.timestamp = self.dim
+        self.chromosome = _try_get_color("Fore.BLUE")
+        self.step = _try_get_color("Fore.BLUE")
+        self.logger_name = _try_get_color("Fore.BLUE")
 
 
 def _configure_logger_columns(
@@ -125,9 +128,9 @@ def _configure_logger_columns(
 
             colorama.init()
 
-        styles = _StructLogColorfulStyles
+        styles = _StructLogColorfulStyles()
     else:
-        styles = _StructLogPlainStyles
+        styles = _StructLogPlainStyles()
 
     def step_formatter(data):
         if isinstance(data, collections.abc.Sequence):
