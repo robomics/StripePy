@@ -336,6 +336,8 @@ def main(args: Union[List[str], None] = None):
 
     except (RuntimeError, ImportError) as e:
         structlog.get_logger().exception(e)
+        if args is not None:
+            raise
         return 1
 
 
