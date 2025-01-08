@@ -35,6 +35,9 @@ class TestStripePyCall:
         testfile = testdir / "data" / "4DNFI9GMP2J8.mcool"
         resolution = 10_000
 
+        chrom_sizes = hictkpy.MultiResFile(testfile).chromosomes()
+        chrom_size_cutoff = sum(chrom_sizes.values()) // len(chrom_sizes)
+
         args = [
             "call",
             str(testfile),
@@ -47,6 +50,8 @@ class TestStripePyCall:
             "0.25",
             "--output-folder",
             str(tmpdir),
+            "--min-chrom-size",
+            str(chrom_size_cutoff),
         ]
         main(args)
 
