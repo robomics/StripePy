@@ -89,7 +89,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install package
-        run: pip install --verbose '.[test]'
+        run: pip install --verbose '.[all,test]'
 
       - name: Run simple CLI tests
         run: |
