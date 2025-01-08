@@ -388,3 +388,28 @@ class Stripe(object):
         # Mean intensity - left and right neighborhoods:
         self._outer_lmean = self._compute_lmean(I, window)
         self._outer_rmean = self._compute_rmean(I, window)
+
+    def set_biodescriptors(
+        self, inner_mean: float, inner_std: float, outer_lmean: float, outer_rmean: float, five_number: NDArray[float]
+    ):
+        """
+        Set the stripe biodescriptors based on pre-computed statistics.
+
+        inner_mean: float
+
+        inner_std: float
+
+        outer_lmean: float
+
+        outer_rmean: float
+
+        five_number: NDArray[float]
+        """
+        if not self._all_bounds_set():
+            raise RuntimeError("set_biodescriptors() was called on a bound-less stripe")
+
+        self._inner_mean = inner_mean
+        self._inner_std = inner_std
+        self._outer_lmean = outer_lmean
+        self._outer_rmean = outer_rmean
+        self._five_number = five_number

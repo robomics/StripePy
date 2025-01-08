@@ -346,6 +346,95 @@ class ResultFile(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._h5.close()
 
+    def __getitem__(self, chrom: str) -> Result:
+        if chrom not in self._chroms:
+            raise KeyError(f'chromosome "{chrom}" not found')
+
+        res = Result(chrom, self._chroms[chrom])
+        res.set_min_persistence(self.get_min_persistence(chrom))
+        for location in ("LT", "UT"):
+            res.set(
+                "all_minimum_points", self.get(chrom, "all_minimum_points", location)["all_minimum_points"], location
+            )
+            res.set(
+                "all_maximum_points", self.get(chrom, "all_maximum_points", location)["all_maximum_points"], location
+            )
+            res.set(
+                "persistence_of_all_minimum_points",
+                self.get(chrom, "persistence_of_all_minimum_points", location)["persistence_of_all_minimum_points"],
+                location,
+            )
+            res.set(
+                "persistence_of_all_maximum_points",
+                self.get(chrom, "persistence_of_all_maximum_points", location)["persistence_of_all_maximum_points"],
+                location,
+            )
+            res.set(
+                "pseudodistribution", self.get(chrom, "pseudodistribution", location)["pseudodistribution"], location
+            )
+
+            df = self.get(chrom, "stripes", location)
+
+            stripes = []
+
+            cols = [
+                "seed",
+                "left_bound",
+                "right_bound",
+                "top_bound",
+                "bottom_bound",
+                "top_persistence",
+                "inner_mean",
+                "inner_std",
+                "outer_lmean",
+                "outer_rmean",
+                "quartile",
+            ]
+            for col in cols:
+                if col not in df:
+                    if col == "quartile":
+                        df[col] = pd.Series(list(np.full(5, np.nan)))
+                    else:
+                        df[col] = np.nan
+
+            if location == "LT":
+                location_ = "lower_triangular"
+            else:
+                location_ = "upper_triangular"
+
+            for (
+                seed,
+                left_bound,
+                right_bound,
+                top_bound,
+                bottom_bound,
+                top_persistence,
+                inner_mean,
+                inner_std,
+                outer_lmean,
+                outer_rmean,
+                quartile,
+            ) in df[cols].itertuples(index=False):
+                s = Stripe(
+                    seed=seed,
+                    top_pers=top_persistence,
+                    horizontal_bounds=(left_bound, right_bound),
+                    vertical_bounds=(top_bound, bottom_bound),
+                    where=location_,
+                )
+                s.set_biodescriptors(
+                    inner_mean=inner_mean,
+                    inner_std=inner_std,
+                    outer_lmean=outer_lmean,
+                    outer_rmean=outer_rmean,
+                    five_number=quartile,
+                )
+                stripes.append(s)
+
+            res.set("stripes", stripes, location)
+
+        return res
+
     @property
     def path(self) -> pathlib.Path:
         return self._path
@@ -465,10 +554,16 @@ class ResultFile(object):
             "persistence_of_all_maximum_points": f"/{chrom}/global-pseudo-distributions/{location}/maxima_pts_and_persistence",
             "geo_descriptors": f"/{chrom}/stripes/{location}/geo-descriptors",
             "bio_descriptors": f"/{chrom}/stripes/{location}/bio-descriptors",
+            "stripes": None,
         }
 
         if field not in mappings:
             raise KeyError(f"Unknown field \"{field}\". Valid fields are {', '.join(mappings.keys())}")
+
+        if field == "stripes":
+            df1 = self._get_v1(chrom, "geo_descriptors", location)
+            df2 = self._get_v1(chrom, "bio_descriptors", location)
+            return pd.concat((df1, df2), axis="columns")
 
         path = mappings[field]
 
@@ -522,10 +617,16 @@ class ResultFile(object):
             "persistence_of_all_maximum_points",
             "geo_descriptors",
             "bio_descriptors",
+            "stripes",
         }
 
         if field not in known_fields:
             raise KeyError(f"Unknown field \"{field}\". Valid fields are {', '.join(known_fields)}")
+
+        if field == "stripes":
+            df1 = self._get_v2(chrom, "geo_descriptors", location)
+            df2 = self._get_v2(chrom, "bio_descriptors", location)
+            return pd.concat((df1, df2), axis="columns")
 
         chrom_id = self._index_chromosomes()[chrom]
 
@@ -607,14 +708,15 @@ class ResultFile(object):
 
             return df
 
-    def get(self, chrom: str, field: str, location: str) -> pd.DataFrame:
+    def get(self, chrom: Optional[str], field: str, location: str) -> pd.DataFrame:
         """
         Get the data associated with the given chromosome, field, and location.
 
         Parameters
         ----------
-        chrom: str
-            chromosome name
+        chrom: Optional[str]
+            chromosome name.
+            when not provided, return data for the entire genome.
         field: str
             name of the field to be fetched.
             Supported names:
@@ -632,6 +734,20 @@ class ResultFile(object):
         -------
             the data associated with the given chromosome, field, and location
         """
+        if chrom is None:
+            dfs = []
+            for chrom in self._chroms:
+                df = self.get(chrom, field, location)
+                df["chrom"] = chrom
+                dfs.append(df)
+
+            df = pd.concat(dfs).reset_index()
+            df["chrom"] = df["chrom"].astype("category")
+            cols = df.columns.tolist()
+            cols.insert(0, cols.pop(cols.index("chrom")))
+
+            return df[cols]
+
         if chrom not in self._chroms:
             raise KeyError(f'File "{self.path}" does not have data for chromosome "{chrom}"')
 

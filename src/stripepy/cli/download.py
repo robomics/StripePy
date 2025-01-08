@@ -24,7 +24,7 @@ from stripepy.utils.common import pretty_format_elapsed_time
 def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
     assert not math.isnan(max_size)
 
-    record_id = "14609227"
+    record_id = "14616548"
 
     datasets = {
         "4DNFI3RFZLZ5": {
@@ -73,7 +73,7 @@ def _get_datasets(max_size: float) -> Dict[str, Dict[str, str]]:
         },
         "__stripepy_plot_images": {
             "url": f"https://zenodo.org/records/{record_id}/files/stripepy-plot-test-images.tar.xz?download=1",
-            "md5": "5c08f95b235b9adcebf4bf09df904b42",
+            "md5": "adf60f386521f70b24936e53a6d11eab",
             "filename": "stripepy-plot-test-images.tar.xz",
             "assembly": "hg38",
             "format": "tar",
