@@ -24,7 +24,7 @@ StripePy is developed on Linux and macOS and is also tested on Windows.
 ### Installing with pip
 
 ```bash
-pip install stripepy-hic
+pip install 'stripepy-hic[all]'
 ```
 
 ### Installing with conda
@@ -50,7 +50,7 @@ git clone https://github.com/paulsengroup/StripePy.git
 
 # install StripePy
 cd StripePy
-pip install .
+pip install '.[all]'
 
 # ensure StripePy is in your PATH
 stripepy --help

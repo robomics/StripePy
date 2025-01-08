@@ -310,7 +310,7 @@ def main(args: Union[List[str], None] = None):
 
         raise NotImplementedError
 
-    except Exception as e:
+    except RuntimeError as e:
         logger = structlog.get_logger()
         logger.exception(e)
         sys.exit(1)

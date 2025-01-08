@@ -62,21 +62,25 @@ dependencies = [
     "matplotlib >=3.8, <4",
     "numpy >=2, <3",
     "pandas >=2.0, <3",
-    "rich >=13.9, <14",
     "scipy >=1.10, <2",
     "structlog >=24, <25"
 ]
 
 [project.optional-dependencies]
 
+all = [
+    "stripepy-hic",
+    "rich >=13.9, <14",
+]
+
 test = [
+    "stripepy-hic[all]",
     "pytest",
     "pytest-cov",
-    "stripepy-hic",
 ]
 
 dev = [
-    "stripepy-hic[test]",
+    "stripepy-hic[all,test]",
     "black[jupyter]",
     "build",
     "isort",
