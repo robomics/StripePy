@@ -824,38 +824,30 @@ def step_5(
     if logger is None:
         logger = structlog.get_logger()
 
-    chrom_name = result.chrom[0]
+    chrom_name, chrom_size = result.chrom
     start, end = result.roi["genomic"]
+    dummy_result = IO.Result(chrom_name, chrom_size)
 
-    fig, _, _ = plot.hic_matrix(
-        raw_matrix,
-        (
-            start,
-            end,
-        ),
-        log_scale=False,
-        with_colorbar=True,
+    matrix_output_paths = (
+        output_folder / chrom_name / "1_preprocessing" / f"raw_matrix_{start}_{end}.jpg",
+        output_folder / chrom_name / "1_preprocessing" / f"proc_matrix_{start}_{end}.jpg",
     )
 
-    fig.suptitle(f"{result.chrom[0]}:{start}-{end}")
-    fig.tight_layout()
-    fig.savefig(output_folder / chrom_name / "1_preprocessing" / f"raw_matrix_{start}_{end}.jpg", dpi=256)
-    plt.close(fig)
+    matrices = (raw_matrix, proc_matrix)
 
-    fig, _, _ = plot.hic_matrix(
-        proc_matrix,
-        (
-            start,
-            end,
-        ),
-        log_scale=False,
-        with_colorbar=True,
-    )
+    for dest, matrix in zip(matrix_output_paths, matrices):
+        fig, _ = plot.plot(
+            dummy_result,
+            resolution=resolution,
+            plot_type="matrix",
+            start=start,
+            end=end,
+            matrix=matrix,
+            log_scale=False,
+        )
 
-    fig.suptitle(f"{result.chrom[0]}:{start}-{end}")
-    fig.tight_layout()
-    fig.savefig(output_folder / chrom_name / "1_preprocessing" / f"proc_matrix_{start}_{end}.jpg", dpi=256)
-    plt.close(fig)
+        fig.savefig(dest, dpi=256)
+        plt.close(fig)
 
     _plot_pseudodistribution(
         result,
