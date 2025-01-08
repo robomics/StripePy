@@ -565,6 +565,29 @@ def _plot_pseudodistribution(
     return fig, axs
 
 
+def _plot_hic_matrix(
+    matrix: npt.NDArray,
+    start: int,
+    end: int,
+    cmap: str = "fruit_punch",
+    log_scale: bool = True,
+    title: Optional[str] = None,
+) -> Tuple[plt.Figure, plt.Axes]:
+    fig, ax, _ = hic_matrix(
+        matrix,
+        (start, end),
+        cmap=cmap,
+        log_scale=log_scale,
+        with_colorbar=True,
+    )
+
+    if title is not None:
+        fig.suptitle(title)
+    fig.tight_layout()
+
+    return fig, ax
+
+
 def _plot_hic_matrix_with_seeds(
     matrix: npt.NDArray,
     result: Result,
@@ -801,6 +824,7 @@ def plot(
 
     valid_plot_types = {
         "pseudodistribution",
+        "matrix",
         "matrix_with_seeds",
         "matrix_with_stripes_masked",
         "matrix_with_stripes",
@@ -812,15 +836,41 @@ def plot(
     if matrix is None and plot_type.startswith("matrix"):
         raise ValueError(f'matrix parameter is required when plot_type is "{plot_type}"')
 
-    title = f"{result.chrom[0]}:{start}-{end}"
+    title = kwargs.pop("title", f"{result.chrom[0]}:{start}-{end}")
+    if not title:
+        title = None
 
     if plot_type == "pseudodistribution":
-        return _plot_pseudodistribution(result, resolution, start, end, title=title)
+        return _plot_pseudodistribution(
+            result,
+            resolution,
+            start,
+            end,
+            title=title,
+        )
+
+    if plot_type == "matrix":
+        return _plot_hic_matrix(
+            matrix,
+            start,
+            end,
+            title=title,
+            **kwargs,
+        )
 
     if plot_type == "matrix_with_seeds":
-        return _plot_hic_matrix_with_seeds(matrix, result, resolution, start, end, title=title, **kwargs)
+        return _plot_hic_matrix_with_seeds(
+            matrix,
+            result,
+            resolution,
+            start,
+            end,
+            title=title,
+            **kwargs,
+        )
 
     if plot_type == "matrix_with_stripes_masked":
+        override_height = kwargs.pop("override_height", True)
         return _plot_hic_matrix_with_stripes(
             matrix,
             result,
@@ -829,18 +879,36 @@ def plot(
             end,
             title=title,
             mask_regions=True,
-            override_height=end - start,
+            override_height=end - start if override_height else None,
             **kwargs,
         )
 
     if plot_type == "matrix_with_stripes":
+        override_height = kwargs.pop("override_height", False)
         return _plot_hic_matrix_with_stripes(
-            matrix, result, resolution, start, end, title=title, mask_regions=False, **kwargs
+            matrix,
+            result,
+            resolution,
+            start,
+            end,
+            title=title,
+            mask_regions=False,
+            override_height=end - start if override_height else None,
+            **kwargs,
         )
 
     if plot_type == "geo_descriptors":
+        df1 = kwargs.get("stripes_lt", result.get_stripe_geo_descriptors("LT"))
+        df2 = kwargs.get("stripes_ut", result.get_stripe_geo_descriptors("UT"))
+
+        left_bound = start // resolution
+        right_bound = (end + resolution - 1) // resolution
+
+        df1 = df1[df1["seed"].between(left_bound, right_bound, inclusive="both")]
+        df2 = df2[df2["seed"].between(left_bound, right_bound, inclusive="both")]
+
         return _plot_stripe_dimension_distribution(
-            result.get_stripe_geo_descriptors("LT"),
-            result.get_stripe_geo_descriptors("UT"),
+            df1,
+            df2,
             resolution,
         )
