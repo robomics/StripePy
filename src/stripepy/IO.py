@@ -554,10 +554,16 @@ class ResultFile(object):
             "persistence_of_all_maximum_points": f"/{chrom}/global-pseudo-distributions/{location}/maxima_pts_and_persistence",
             "geo_descriptors": f"/{chrom}/stripes/{location}/geo-descriptors",
             "bio_descriptors": f"/{chrom}/stripes/{location}/bio-descriptors",
+            "stripes": None,
         }
 
         if field not in mappings:
             raise KeyError(f"Unknown field \"{field}\". Valid fields are {', '.join(mappings.keys())}")
+
+        if field == "stripes":
+            df1 = self._get_v1(chrom, "geo_descriptors", location)
+            df2 = self._get_v1(chrom, "bio_descriptors", location)
+            return pd.concat((df1, df2), axis="columns")
 
         path = mappings[field]
 
@@ -611,10 +617,16 @@ class ResultFile(object):
             "persistence_of_all_maximum_points",
             "geo_descriptors",
             "bio_descriptors",
+            "stripes",
         }
 
         if field not in known_fields:
             raise KeyError(f"Unknown field \"{field}\". Valid fields are {', '.join(known_fields)}")
+
+        if field == "stripes":
+            df1 = self._get_v2(chrom, "geo_descriptors", location)
+            df2 = self._get_v2(chrom, "bio_descriptors", location)
+            return pd.concat((df1, df2), axis="columns")
 
         chrom_id = self._index_chromosomes()[chrom]
 
