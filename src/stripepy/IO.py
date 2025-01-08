@@ -346,6 +346,95 @@ class ResultFile(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._h5.close()
 
+    def __getitem__(self, chrom: str) -> Result:
+        if chrom not in self._chroms:
+            raise KeyError(f'chromosome "{chrom}" not found')
+
+        res = Result(chrom, self._chroms[chrom])
+        res.set_min_persistence(self.get_min_persistence(chrom))
+        for location in ("LT", "UT"):
+            res.set(
+                "all_minimum_points", self.get(chrom, "all_minimum_points", location)["all_minimum_points"], location
+            )
+            res.set(
+                "all_maximum_points", self.get(chrom, "all_maximum_points", location)["all_maximum_points"], location
+            )
+            res.set(
+                "persistence_of_all_minimum_points",
+                self.get(chrom, "persistence_of_all_minimum_points", location)["persistence_of_all_minimum_points"],
+                location,
+            )
+            res.set(
+                "persistence_of_all_maximum_points",
+                self.get(chrom, "persistence_of_all_maximum_points", location)["persistence_of_all_maximum_points"],
+                location,
+            )
+            res.set(
+                "pseudodistribution", self.get(chrom, "pseudodistribution", location)["pseudodistribution"], location
+            )
+
+            df = self.get(chrom, "stripes", location)
+
+            stripes = []
+
+            cols = [
+                "seed",
+                "left_bound",
+                "right_bound",
+                "top_bound",
+                "bottom_bound",
+                "top_persistence",
+                "inner_mean",
+                "inner_std",
+                "outer_lmean",
+                "outer_rmean",
+                "quartile",
+            ]
+            for col in cols:
+                if col not in df:
+                    if col == "quartile":
+                        df[col] = pd.Series(list(np.full(5, np.nan)))
+                    else:
+                        df[col] = np.nan
+
+            if location == "LT":
+                location_ = "lower_triangular"
+            else:
+                location_ = "upper_triangular"
+
+            for (
+                seed,
+                left_bound,
+                right_bound,
+                top_bound,
+                bottom_bound,
+                top_persistence,
+                inner_mean,
+                inner_std,
+                outer_lmean,
+                outer_rmean,
+                quartile,
+            ) in df[cols].itertuples(index=False):
+                s = Stripe(
+                    seed=seed,
+                    top_pers=top_persistence,
+                    horizontal_bounds=(left_bound, right_bound),
+                    vertical_bounds=(top_bound, bottom_bound),
+                    where=location_,
+                )
+                s.set_biodescriptors(
+                    inner_mean=inner_mean,
+                    inner_std=inner_std,
+                    outer_lmean=outer_lmean,
+                    outer_rmean=outer_rmean,
+                    five_number=quartile,
+                )
+                stripes.append(s)
+
+            res.set("stripes", stripes, location)
+
+        return res
+
     @property
     def path(self) -> pathlib.Path:
         return self._path
