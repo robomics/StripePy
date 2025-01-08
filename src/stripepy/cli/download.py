@@ -269,15 +269,15 @@ def run(
     t0 = time.time()
     if list_only:
         _list_datasets()
-        return
+        return 0
 
     if unit_test:
         _download_data_for_unit_tests()
-        return
+        return 0
 
     if end2end_test:
         _download_data_for_end2end_tests()
-        return
+        return 0
 
     do_random_sample = name is None and assembly is None
 
