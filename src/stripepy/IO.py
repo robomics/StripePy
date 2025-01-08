@@ -708,14 +708,15 @@ class ResultFile(object):
 
             return df
 
-    def get(self, chrom: str, field: str, location: str) -> pd.DataFrame:
+    def get(self, chrom: Optional[str], field: str, location: str) -> pd.DataFrame:
         """
         Get the data associated with the given chromosome, field, and location.
 
         Parameters
         ----------
-        chrom: str
-            chromosome name
+        chrom: Optional[str]
+            chromosome name.
+            when not provided, return data for the entire genome.
         field: str
             name of the field to be fetched.
             Supported names:
@@ -733,6 +734,20 @@ class ResultFile(object):
         -------
             the data associated with the given chromosome, field, and location
         """
+        if chrom is None:
+            dfs = []
+            for chrom in self._chroms:
+                df = self.get(chrom, field, location)
+                df["chrom"] = chrom
+                dfs.append(df)
+
+            df = pd.concat(dfs).reset_index()
+            df["chrom"] = df["chrom"].astype("category")
+            cols = df.columns.tolist()
+            cols.insert(0, cols.pop(cols.index("chrom")))
+
+            return df[cols]
+
         if chrom not in self._chroms:
             raise KeyError(f'File "{self.path}" does not have data for chromosome "{chrom}"')
 
