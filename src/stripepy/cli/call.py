@@ -89,19 +89,24 @@ def _write_param_summary(*configs: Dict[str, Any]):
     structlog.get_logger().info(f"CONFIG:\n{config_str}")
 
 
-def _compute_progress_bar_weights(chrom_sizes: Dict[str, int]) -> pd.DataFrame:
-    # These weights have been computed on a Linux machine (Ryzen 9 5950X) using 1 core to process
+def _compute_progress_bar_weights(chrom_sizes: Dict[str, int], include_plotting: bool, nproc: int) -> pd.DataFrame:
+    # These weights have been computed on a Linux machine (Ryzen 9 7950X3D) using 1 core to process
     # 4DNFI9GMP2J8.mcool at 10kbp
     step_weights = {
-        "input": 0.067616,
-        "step_1": 0.039959,
-        "step_2": 0.033109,
-        "step_3": 0.721486,
-        "step_4": 0.135708,
-        "output": 0.002122,
+        "input": 0.035557,
+        "step_1": 0.018159,
+        "step_2": 0.015722,
+        "step_3": 0.301879,
+        "step_4": 0.051055,
+        "output": 0.054285,
+        "step_5": 0.523344 / nproc,
     }
 
-    assert np.isclose(sum(step_weights.values()), 1.0)
+    if not include_plotting:
+        step_weights["step_5"] = 0.0
+
+    tot = sum(step_weights.values())
+    step_weights = {k: v / tot for k, v in step_weights.items()}
 
     weights = []
     for size in chrom_sizes.values():
@@ -115,6 +120,15 @@ def _compute_progress_bar_weights(chrom_sizes: Dict[str, int]) -> pd.DataFrame:
     df = pd.DataFrame(weights.reshape(shape), columns=list(step_weights.keys()))
     df["chrom"] = list(chrom_sizes.keys())
     return df.set_index(["chrom"])
+
+
+def _init_mpl_backend():
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+    except ImportError:
+        pass
 
 
 def run(
@@ -149,12 +163,14 @@ def run(
         # Set up the process pool when appropriate
         if configs_other["nproc"] > 1:
             main_logger.debug("initializing a pool of %d processes...", configs_other["nproc"])
-            pool = ctx.enter_context(mp.Pool(configs_other["nproc"]))
+            pool = ctx.enter_context(mp.Pool(processes=configs_other["nproc"], initializer=_init_mpl_backend))
         else:
             pool = None
 
         disable_bar = not sys.stderr.isatty()
-        progress_weights = _compute_progress_bar_weights(f.chromosomes())
+        progress_weights_df = _compute_progress_bar_weights(
+            f.chromosomes(), include_plotting=configs_input["roi"] is not None, nproc=configs_other["nproc"]
+        )
         progress_bar = ctx.enter_context(
             ap.alive_bar(
                 total=sum(f.chromosomes().values()),
@@ -174,13 +190,13 @@ def run(
         for chrom_name, chrom_size, skip in _plan(
             f.chromosomes(include_ALL=False), configs_thresholds["min_chrom_size"]
         ):
-            pw0, pw1, pw2, pw3, pw4, pw5 = progress_weights.loc[chrom_name, :]
+            progress_weights = progress_weights_df.loc[chrom_name, :].to_dict()
 
             if skip:
                 logger.warning("writing an empty entry for chromosome %s...", chrom_name)
                 result = _generate_empty_result(chrom_name, chrom_size, configs_input["resolution"])
                 h5.write_descriptors(result)
-                progress_bar(pw5)
+                progress_bar(max(progress_weights.values()))
                 continue
 
             logger = main_logger.bind(chrom=chrom_name)
@@ -194,32 +210,24 @@ def run(
 
             logger.debug("fetching interactions using normalization=%s", configs_input["normalization"])
             I = f.fetch(chrom_name, normalization=configs_input["normalization"]).to_csr("full")
-            progress_bar(pw0)
+            progress_bar(progress_weights["input"])
 
             # RoI:
             RoI = others.define_RoI(configs_input["roi"], chrom_size, configs_input["resolution"])
             if RoI is not None:
-                logger.info("region of interest to be used for plotting: %s", RoI)
+                logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *RoI["genomic"])
 
             logger = logger.bind(step=(1,))
             logger.info("data pre-processing")
             start_time = time.time()
-            if all(param is not None for param in [RoI, configs_output["output_folder"]]):
-                output_folder_1 = f"{configs_output['output_folder']}/plots/{chrom_name}/1_preprocessing/"
-                LT_Iproc, UT_Iproc, Iproc_RoI = stripepy.step_1(
-                    I,
-                    configs_input["genomic_belt"],
-                    configs_input["resolution"],
-                    RoI=RoI,
-                    output_folder=output_folder_1,
-                    logger=logger,
-                )
-            else:
-                LT_Iproc, UT_Iproc, _ = stripepy.step_1(
-                    I, configs_input["genomic_belt"], configs_input["resolution"], logger=logger
-                )
-                Iproc_RoI = None
-            progress_bar(pw1)
+            LT_Iproc, UT_Iproc, Iproc_RoI = stripepy.step_1(
+                I,
+                configs_input["genomic_belt"],
+                configs_input["resolution"],
+                RoI=RoI,
+                logger=logger,
+            )
+            progress_bar(progress_weights["step_1"])
             logger.info("preprocessing took %s", pretty_format_elapsed_time(start_time))
 
             # Find the indices where the sum is zero
@@ -233,105 +241,83 @@ def run(
             logger = logger.bind(step=(2,))
             logger.info("topological data analysis")
             start_time = time.time()
-            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_2 = f"{configs_output['output_folder']}/plots/{chrom_name}/2_TDA/"
-                result = stripepy.step_2(
-                    chrom_name,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    configs_thresholds["glob_pers_min"],
-                    Iproc_RoI=Iproc_RoI,
-                    RoI=RoI,
-                    output_folder=output_folder_2,
-                    logger=logger,
-                )
-            else:
-                result = stripepy.step_2(
-                    chrom_name,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    configs_thresholds["glob_pers_min"],
-                    logger=logger,
-                )
-            progress_bar(pw2)
+            result = stripepy.step_2(
+                chrom_name,
+                f.chromosomes().get(chrom_name),
+                LT_Iproc,
+                UT_Iproc,
+                configs_thresholds["glob_pers_min"],
+                logger=logger,
+            )
+            progress_bar(progress_weights["step_2"])
             logger.info("topological data analysis took %s", pretty_format_elapsed_time(start_time))
+
+            if RoI is not None:
+                result.set_roi(RoI)
 
             logger = logger.bind(step=(3,))
             logger.info("shape analysis")
             start_time = time.time()
+            result = stripepy.step_3(
+                result,
+                LT_Iproc,
+                UT_Iproc,
+                configs_input["resolution"],
+                configs_input["genomic_belt"],
+                configs_thresholds["max_width"],
+                configs_thresholds["loc_pers_min"],
+                configs_thresholds["loc_trend_min"],
+                map=pool.map if pool is not None else map,
+                logger=logger,
+            )
 
-            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_3 = f"{configs_output['output_folder']}/plots/{chrom_name}/3_shape_analysis/"
-                result = stripepy.step_3(
-                    result,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    configs_input["genomic_belt"],
-                    configs_thresholds["max_width"],
-                    configs_thresholds["constrain_heights"],
-                    configs_thresholds["loc_pers_min"],
-                    configs_thresholds["loc_trend_min"],
-                    Iproc_RoI=Iproc_RoI,
-                    RoI=RoI,
-                    output_folder=output_folder_3,
-                    map=pool.map if pool is not None else map,
-                    logger=logger,
-                )
-            else:
-                result = stripepy.step_3(
-                    result,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    configs_input["genomic_belt"],
-                    configs_thresholds["max_width"],
-                    configs_thresholds["constrain_heights"],
-                    configs_thresholds["loc_pers_min"],
-                    configs_thresholds["loc_trend_min"],
-                    map=pool.map if pool is not None else map,
-                    logger=logger,
-                )
-
-            progress_bar(pw3)
+            progress_bar(progress_weights["step_3"])
             logger.info("shape analysis took %s", pretty_format_elapsed_time(start_time))
 
             logger = logger.bind(step=(4,))
             logger.info("statistical analysis and post-processing")
             start_time = time.time()
 
-            if all(param is not None for param in [Iproc_RoI, RoI, configs_output["output_folder"]]):
-                output_folder_4 = f"{configs_output['output_folder']}/plots/{chrom_name}/4_biological_analysis/"
-                thresholds_relative_change = np.arange(0.0, 15.2, 0.2)
-                result = stripepy.step_4(
-                    result,
-                    LT_Iproc,
-                    UT_Iproc,
-                    configs_input["resolution"],
-                    thresholds_relative_change,
-                    Iproc_RoI=Iproc_RoI,
-                    RoI=RoI,
-                    output_folder=output_folder_4,
-                    logger=logger,
-                )
-            else:
-                result = stripepy.step_4(
-                    result,
-                    LT_Iproc,
-                    UT_Iproc,
-                    logger=logger,
-                )
+            result = stripepy.step_4(
+                result,
+                LT_Iproc,
+                UT_Iproc,
+                logger=logger,
+            )
 
-            progress_bar(pw4)
+            progress_bar(progress_weights["step_4"])
             logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))
 
             logger = main_logger.bind(chrom=chrom_name)
             logger.info('writing results to file "%s"', h5.path)
             h5.write_descriptors(result)
-            progress_bar(pw5)
+            progress_bar(progress_weights["output"])
             logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
+
+            if result.roi is not None:
+                start_time = time.time()
+                logger = logger.bind(step=(5,))
+                logger.info("generating plots")
+                stripepy.step_5(
+                    result,
+                    configs_input["resolution"],
+                    LT_Iproc,
+                    UT_Iproc,
+                    f.fetch(
+                        f"{chrom_name}:{result.roi['genomic'][0]}-{result.roi['genomic'][1]}",
+                        normalization=configs_input["normalization"],
+                    ).to_numpy("full"),
+                    Iproc_RoI,
+                    configs_input["genomic_belt"],
+                    configs_thresholds["loc_pers_min"],
+                    configs_thresholds["loc_trend_min"],
+                    configs_output["output_folder"] / "plots",
+                    map=pool.map if pool is not None else map,
+                    logger=logger,
+                )
+
+                progress_bar(progress_weights["step_5"])
+                logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
 
     main_logger.info("DONE!")
     main_logger.info(

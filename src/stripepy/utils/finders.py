@@ -3,9 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 from functools import partial
-from multiprocessing import Pool
+from typing import List, Optional, Tuple
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 from . import TDA
@@ -40,7 +39,7 @@ def find_horizontal_domain(pd, coarse_h_domain, max_width=1e9):
     return [max(MP - L_bound, 0), min(MP + R_bound, len(pd))]
 
 
-def find_lower_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder, it):
+def find_lower_v_domain(I, threshold_cut, max_height, min_persistence, it) -> Tuple[List, Optional[List]]:
 
     # For each slice (hosting a seed site):
     n, seed_site, HIoI = it
@@ -54,64 +53,31 @@ def find_lower_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
     Y /= max(Y)
 
     # Lower boundary:
-    X_tr = np.array(range(seed_site, seed_site + len(Y)))
     Y_hat = _compute_wQISA_predictions(Y, 5)  # Basically: average of a 2-"pixel" neighborhood
 
     # Peaks:
     if min_persistence is None:
-
         candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
         if len(candida_bound) == 0:
             candida_bound = [len(Y_hat) - 1]
 
         # Vertical domain + no peak:
-        Vdomain_and_peaks = ([seed_site, seed_site + candida_bound[0]], None)
+        return [seed_site, seed_site + candida_bound[0]], None
 
-    else:
-        _, _, loc_Maxima, loc_pers_of_Maxima = TDA.TDA(Y, min_persistence=min_persistence)
-        candida_bound = [max(loc_Maxima)]
+    _, _, loc_Maxima, loc_pers_of_Maxima = TDA.TDA(Y, min_persistence=min_persistence)
+    candida_bound = [max(loc_Maxima)]
 
-        # Consider as min_persistence is set to None:
-        if len(loc_Maxima) < 2:
-            candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
-            if len(candida_bound) == 0:
-                candida_bound = [len(Y_hat) - 1]
+    # Consider as min_persistence is set to None:
+    if len(loc_Maxima) < 2:
+        candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
+        if len(candida_bound) == 0:
+            candida_bound = [len(Y_hat) - 1]
 
-        # Vertical domain + peaks:
-        Vdomain_and_peaks = ([seed_site, seed_site + candida_bound[0]], list(np.array(loc_Maxima[:-1]) + seed_site))
-
-    # In case some VIoIs are meant to be plotted:
-    if VIoIs2plot is not None:
-        if n in VIoIs2plot:
-            fig, ax = plt.subplots(1, 1)
-            ax.plot(X_tr, Y, color="red", linewidth=0.5, linestyle="solid")
-            ax.plot(X_tr, Y_hat, color="black", linewidth=0.5, linestyle="solid")
-            if min_persistence is not None:
-                ax.plot(
-                    [seed_site + a for a in loc_Maxima[:-1]],
-                    np.array(Y)[loc_Maxima[:-1]].tolist(),
-                    color="blue",
-                    marker=".",
-                    linestyle="",
-                    markersize=8 * 1.5,
-                )
-            ax.plot(
-                [seed_site + candida_bound[0], seed_site + candida_bound[0]],
-                [0.0, 1.0],
-                color="blue",
-                linewidth=1.0,
-                linestyle="dashed",
-            )
-            plt.xlim((X_tr[0], X_tr[-1]))
-            plt.ylim((0, 1))
-            fig.set_dpi(256)
-            fig.tight_layout()
-            plt.savefig(f"{output_folder}/LT_local-pseudo-distrib_{seed_site}.jpg")
-            plt.close()
-    return Vdomain_and_peaks
+    # Vertical domain + peaks:
+    return [seed_site, seed_site + candida_bound[0]], list(np.array(loc_Maxima[:-1]) + seed_site)
 
 
-def find_upper_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder, it):
+def find_upper_v_domain(I, threshold_cut, max_height, min_persistence, it) -> Tuple[List, Optional[List]]:
 
     # For each slice (hosting a seed site):
     n, seed_site, HIoI = it
@@ -124,63 +90,28 @@ def find_upper_v_domain(I, VIoIs2plot, threshold_cut, max_height, min_persistenc
     Y /= max(Y)
 
     # Upper boundary:
-    X_tr = np.array(range(seed_site, seed_site + len(Y)))
-    # Y_hat = compute_predictions(X, Y, 10.)
     Y_hat = _compute_wQISA_predictions(Y, 5)
 
     # Peaks:
     if min_persistence is None:
-
         candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
         if len(candida_bound) == 0:
             candida_bound = [len(Y_hat) - 1]
 
         # Vertical domain + no peak:
-        Vdomain_and_peaks = ([seed_site - candida_bound[0], seed_site], None)
+        return [seed_site - candida_bound[0], seed_site], None
 
-    else:
-        _, _, loc_Maxima, loc_pers_of_Maxima = TDA.TDA(Y, min_persistence=min_persistence)
-        candida_bound = [max(loc_Maxima)]
+    _, _, loc_Maxima, loc_pers_of_Maxima = TDA.TDA(Y, min_persistence=min_persistence)
+    candida_bound = [max(loc_Maxima)]
 
-        # Consider as min_persistence is set to None:
-        if len(loc_Maxima) < 2:
-            candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
-            if len(candida_bound) == 0:
-                candida_bound = [len(Y_hat) - 1]
+    # Consider as min_persistence is set to None:
+    if len(loc_Maxima) < 2:
+        candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
+        if len(candida_bound) == 0:
+            candida_bound = [len(Y_hat) - 1]
 
-        # Vertical domain + peaks:
-        Vdomain_and_peaks = ([seed_site - candida_bound[0], seed_site], list(seed_site - np.array(loc_Maxima[:-1])))
-
-    # In case some VIoIs are meant to be plotted:
-    if VIoIs2plot is not None:
-        if n in VIoIs2plot:
-            fig, ax = plt.subplots(1, 1)
-            ax.plot(X_tr, Y, color="red", linewidth=0.5, linestyle="solid")
-            ax.plot(X_tr, Y_hat, color="black", linewidth=0.5, linestyle="solid")
-            if min_persistence is not None:
-                ax.plot(
-                    [seed_site + a for a in loc_Maxima[:-1]],
-                    np.array(Y)[loc_Maxima[:-1]].tolist(),
-                    color="blue",
-                    marker=".",
-                    linestyle="",
-                    markersize=8 * 1.5,
-                )
-            ax.plot(
-                [seed_site + candida_bound[0], seed_site + candida_bound[0]],
-                [0.0, 1.0],
-                color="blue",
-                linewidth=1.0,
-                linestyle="dashed",
-            )
-            plt.xlim((X_tr[0], X_tr[-1]))
-            plt.ylim((0, 1))
-            fig.set_dpi(256)
-            fig.tight_layout()
-            plt.savefig(f"{output_folder}/UT_local-pseudo-distrib_{seed_site}.jpg")
-            plt.close()
-
-    return Vdomain_and_peaks
+    # Vertical domain + peaks:
+    return [seed_site - candida_bound[0], seed_site], list(seed_site - np.array(loc_Maxima[:-1]))
 
 
 def find_HIoIs(pd, seed_sites, seed_site_bounds, max_width, map=map):
@@ -224,8 +155,6 @@ def find_VIoIs(
     max_height,
     threshold_cut=0.1,
     min_persistence=0.20,
-    VIoIs2plot=None,
-    output_folder=None,
     where="lower",
     map=map,
 ):
@@ -236,7 +165,7 @@ def find_VIoIs(
     # Lower-triangular part of the Hi-C matrix:
     if where == "lower":
         Vdomains_and_peaks = map(
-            partial(find_lower_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
+            partial(find_lower_v_domain, I, threshold_cut, max_height, min_persistence),
             iterable_input,
         )
 
@@ -246,7 +175,7 @@ def find_VIoIs(
     elif where == "upper":
         # HIoIs = pool.map(partial(find_h_domain, pd), iterable_input)
         Vdomains_and_peaks = map(
-            partial(find_upper_v_domain, I, VIoIs2plot, threshold_cut, max_height, min_persistence, output_folder),
+            partial(find_upper_v_domain, I, threshold_cut, max_height, min_persistence),
             iterable_input,
         )
 

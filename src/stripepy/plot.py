@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import functools
+import itertools
 import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -10,8 +11,12 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from matplotlib.image import AxesImage
 from matplotlib.ticker import EngFormatter, ScalarFormatter
+
+from stripepy.IO import Result
+from stripepy.utils.TDA import TDA
 
 
 @functools.cache
@@ -171,10 +176,11 @@ def hic_matrix(
     """
     _register_cmaps()
 
+    multiplier = 1.15 if with_colorbar else 1.0
     if fig is None:
         if ax is not None:
             raise RuntimeError("ax should be None when fig is None")
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots(1, 1, figsize=(6.4 * multiplier, 6.4))
     elif ax is None:
         raise RuntimeError("ax cannot be None when fig is not None")
 
@@ -191,7 +197,8 @@ def hic_matrix(
     _format_ticks(ax)
 
     if with_colorbar:
-        fig.colorbar(img, ax=ax)
+        assert multiplier > 1
+        fig.colorbar(img, ax=ax, fraction=multiplier - 1)
 
     return fig, ax, img
 
@@ -486,3 +493,351 @@ def draw_boxes(
         y = np.clip([y, y + height, y + height, y + width, y], bound_box[0], bound_box[1])
         ax.plot(x, y, **kwargs)
     return fig, ax
+
+
+def _fetch_persistence_maximum_points(result: Result, resolution: int, start: int, end: int) -> Dict[str, npt.NDArray]:
+    def fetch(v: npt.NDArray[int], left_bound: int, right_bound: int) -> Tuple[npt.NDArray[int], npt.NDArray[int]]:
+        assert left_bound >= 0
+        assert right_bound >= left_bound
+
+        idx = np.where((v >= left_bound) & (v < right_bound))[0]
+        return idx.astype(int), v[idx].astype(int)
+
+    pd_lt = result.get("pseudodistribution", "LT")
+    pd_ut = result.get("pseudodistribution", "UT")
+
+    min_persistence = result.min_persistence
+    lt_idx, lt_seeds = fetch(
+        np.sort(TDA(pd_lt, min_persistence=min_persistence)[2]), start // resolution, end // resolution
+    )
+    ut_idx, ut_seeds = fetch(
+        np.sort(TDA(pd_ut, min_persistence=min_persistence)[2]), start // resolution, end // resolution
+    )
+
+    return {
+        "pseudodistribution_lt": pd_lt,
+        "pseudodistribution_ut": pd_ut,
+        "seeds_lt": lt_seeds,
+        "seeds_ut": ut_seeds,
+        "seed_indices_lt": lt_idx,
+        "seed_indices_ut": ut_idx,
+    }
+
+
+def _fetch_geo_descriptors(
+    result: Result,
+    resolution: int,
+    left_bound: int,
+    right_bound: int,
+    location: str,
+) -> pd.DataFrame:
+    assert location in {"LT", "UT"}
+    assert left_bound >= 0
+    assert right_bound >= left_bound
+
+    df = result.get_stripe_geo_descriptors(location)
+
+    for col in df.columns:
+        if col == "top_persistence":
+            continue
+        df[col] = np.minimum(df[col] * resolution, result.chrom[1])
+
+    return df[df["seed"].between(left_bound, right_bound, inclusive="both")]
+
+
+def _plot_pseudodistribution(
+    result: Result, resolution: int, start: int, end: int, title: Optional[str]
+) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:
+    data = _fetch_persistence_maximum_points(result, resolution, start, end)
+
+    fig, axs = pseudodistribution(
+        data["pseudodistribution_lt"],
+        data["pseudodistribution_ut"],
+        region=(start, end),
+        resolution=resolution,
+        highlighted_points_lt=data["seeds_lt"] * resolution,
+        highlighted_points_ut=data["seeds_ut"] * resolution,
+    )
+
+    if title is not None:
+        fig.suptitle(title)
+    fig.tight_layout()
+    return fig, axs
+
+
+def _plot_hic_matrix_with_seeds(
+    matrix: npt.NDArray,
+    result: Result,
+    resolution: int,
+    start: int,
+    end: int,
+    cmap: str = "fruit_punch",
+    log_scale: bool = True,
+    title: Optional[str] = None,
+) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:
+    data = _fetch_persistence_maximum_points(result, resolution, start, end)
+
+    fig, axs = plt.subplots(1, 2, figsize=(13.5, 6.4), sharey=True)
+
+    for ax in axs:
+        _, _, img = hic_matrix(
+            matrix,
+            (start, end),
+            cmap=cmap,
+            log_scale=log_scale,
+            with_colorbar=False,
+            fig=fig,
+            ax=ax,
+        )
+
+    plot_sites(
+        data["seeds_lt"] * resolution,
+        (start, end),
+        location="lower",
+        fig=fig,
+        ax=axs[0],
+    )
+
+    plot_sites(
+        data["seeds_ut"] * resolution,
+        (start, end),
+        location="upper",
+        fig=fig,
+        ax=axs[1],
+    )
+
+    if title is not None:
+        fig.suptitle(title)
+    fig.tight_layout()
+
+    fig.subplots_adjust(right=0.94)
+    cbar_ax = fig.add_axes((0.95, 0.05, 0.015, 0.9))
+    fig.colorbar(img, cax=cbar_ax)  # noqa
+
+    return fig, axs
+
+
+def _plot_hic_matrix_with_stripes(
+    matrix: npt.NDArray,
+    result: Result,
+    resolution: int,
+    start: int,
+    end: int,
+    relative_change_threshold: float = 0.0,
+    cmap: str = "fruit_punch",
+    override_height: Optional[int] = None,
+    mask_regions: bool = False,
+    log_scale: bool = False,
+    title: Optional[str] = None,
+) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:
+    geo_descriptors_lt = result.get_stripe_geo_descriptors("LT")
+    geo_descriptors_ut = result.get_stripe_geo_descriptors("UT")
+
+    for col in ("seed", "left_bound", "right_bound", "top_bound", "bottom_bound"):
+        geo_descriptors_lt[col] *= resolution
+        geo_descriptors_ut[col] *= resolution
+
+    chrom_size = result.chrom[1]
+
+    if relative_change_threshold > 0:
+        mask_lt = (
+            result.get_stripe_bio_descriptors("LT")["rel_change"].iloc[geo_descriptors_lt.index]
+            >= relative_change_threshold
+        )
+        mask_ut = (
+            result.get_stripe_bio_descriptors("UT")["rel_change"].iloc[geo_descriptors_ut.index]
+            >= relative_change_threshold
+        )
+
+        geo_descriptors_lt = geo_descriptors_lt[mask_lt]
+        geo_descriptors_ut = geo_descriptors_ut[mask_ut]
+
+    geo_descriptors_lt = geo_descriptors_lt[geo_descriptors_lt["right_bound"].between(start, end, inclusive="both")]
+    geo_descriptors_ut = geo_descriptors_ut[geo_descriptors_ut["right_bound"].between(start, end, inclusive="both")]
+
+    outlines_lt = [
+        (min(lb - start, chrom_size), min(rb - start, chrom_size), min(bb - tb, chrom_size))
+        for lb, rb, bb, tb in geo_descriptors_lt[["left_bound", "right_bound", "bottom_bound", "top_bound"]].itertuples(
+            index=False
+        )
+    ]
+
+    outlines_ut = [
+        (min(lb - start, chrom_size), min(rb - start, chrom_size), min(tb - bb, chrom_size))
+        for lb, rb, bb, tb in geo_descriptors_ut[["left_bound", "right_bound", "bottom_bound", "top_bound"]].itertuples(
+            index=False
+        )
+    ]
+
+    if mask_regions:
+        whitelist = [(x, y) for x, y, _ in outlines_lt]
+        m1 = np.triu(matrix) + np.tril(
+            mask_regions_1d(
+                matrix,
+                resolution,
+                whitelist=whitelist,
+                location="lower",
+            ),
+            k=-1,
+        )
+
+        whitelist = [(x, y) for x, y, _ in outlines_ut]
+        m2 = np.tril(matrix) + np.triu(
+            mask_regions_1d(
+                matrix,
+                resolution,
+                whitelist=whitelist,
+                location="upper",
+            ),
+            k=1,
+        )
+    else:
+        m1 = matrix
+        m2 = matrix
+
+    fig, axs = plt.subplots(1, 2, figsize=(13.5, 6.4), sharey=True)
+
+    _, _, img = hic_matrix(
+        m1,
+        (start, end),
+        cmap=cmap,
+        log_scale=log_scale,
+        with_colorbar=False,
+        fig=fig,
+        ax=axs[0],
+    )
+    hic_matrix(
+        m2,
+        (start, end),
+        cmap=cmap,
+        log_scale=log_scale,
+        with_colorbar=False,
+        fig=fig,
+        ax=axs[1],
+    )
+
+    rectangles = []
+    for lb, ub, height in outlines_lt:
+        x = min(start + lb, chrom_size)
+        y = min(start + lb, chrom_size)
+        width = min(ub - lb, chrom_size)
+        if override_height is not None:
+            height = min(end - x, override_height)
+        rectangles.append((x, y, width, height))
+
+    draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[0])
+
+    rectangles = []
+    for lb, ub, height in outlines_ut:
+        x = min(start + lb, chrom_size)
+        y = min(start + lb, chrom_size)
+        width = min(ub - lb, chrom_size)
+        if override_height is not None:
+            height = min(start - x, override_height)
+        rectangles.append((x, y, width, height))
+
+    draw_boxes(rectangles, (start, end), color="blue", linestyle="dashed", fig=fig, ax=axs[1])
+
+    axs[0].set(title="Lower Triangular")
+    axs[1].set(title="Upper Triangular")
+
+    if title is not None:
+        fig.suptitle(title)
+    fig.tight_layout()
+
+    fig.subplots_adjust(right=0.94)
+    cbar_ax = fig.add_axes((0.95, 0.05, 0.015, 0.9))
+    fig.colorbar(img, cax=cbar_ax)
+
+    return fig, axs
+
+
+def _plot_stripe_dimension_distribution(
+    geo_descriptors_lt: pd.DataFrame,
+    geo_descriptors_ut: pd.DataFrame,
+    resolution: int,
+) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:
+    fig, axs = plt.subplots(2, 2, figsize=(12.8, 8), sharex="col", sharey="col")
+
+    stripe_widths_lt = (geo_descriptors_lt["right_bound"] - geo_descriptors_lt["left_bound"]) * resolution
+    stripe_heights_lt = (geo_descriptors_lt["bottom_bound"] - geo_descriptors_lt["top_bound"]) * resolution
+
+    stripe_widths_ut = (geo_descriptors_ut["right_bound"] - geo_descriptors_ut["left_bound"]) * resolution
+    stripe_heights_ut = (geo_descriptors_ut["bottom_bound"] - geo_descriptors_ut["top_bound"]) * resolution
+
+    for ax in itertools.chain.from_iterable(axs):
+        ax.xaxis.set_major_formatter(EngFormatter("b"))
+        ax.xaxis.tick_bottom()
+
+    axs[0][0].hist(stripe_widths_lt, bins=max(1, (stripe_widths_lt.max() - stripe_widths_lt.min()) // resolution))
+    axs[0][1].hist(stripe_heights_lt, bins="auto")
+    axs[1][0].hist(stripe_widths_ut, bins=max(1, (stripe_widths_ut.max() - stripe_widths_ut.min()) // resolution))
+    axs[1][1].hist(stripe_heights_ut, bins="auto")
+
+    axs[0][0].set(title="Stripe width distribution (lower triangle)", ylabel="Count")
+    axs[0][1].set(title="Stripe height distribution (lower triangle)")
+    axs[1][0].set(title="Stripe width distribution (upper triangle)", xlabel="Width (bp)", ylabel="Count")
+    axs[1][1].set(title="Stripe height distribution (upper triangle)", xlabel="Height (bp)")
+
+    fig.tight_layout()
+    return fig, axs
+
+
+def plot(
+    result: Result,
+    resolution: int,
+    plot_type: str,
+    start: int,
+    end: int,
+    matrix: Optional[npt.NDArray] = None,
+    **kwargs,
+) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:
+    assert start >= 0
+    assert start <= end
+    assert resolution > 0
+
+    valid_plot_types = {
+        "pseudodistribution",
+        "matrix_with_seeds",
+        "matrix_with_stripes_masked",
+        "matrix_with_stripes",
+        "geo_descriptors",
+    }
+    if plot_type not in valid_plot_types:
+        raise ValueError(f"{plot_type} is not a valid plot type: valid types are {', '.join(valid_plot_types)}")
+
+    if matrix is None and plot_type.startswith("matrix"):
+        raise ValueError(f'matrix parameter is required when plot_type is "{plot_type}"')
+
+    title = f"{result.chrom[0]}:{start}-{end}"
+
+    if plot_type == "pseudodistribution":
+        return _plot_pseudodistribution(result, resolution, start, end, title=title)
+
+    if plot_type == "matrix_with_seeds":
+        return _plot_hic_matrix_with_seeds(matrix, result, resolution, start, end, title=title, **kwargs)
+
+    if plot_type == "matrix_with_stripes_masked":
+        return _plot_hic_matrix_with_stripes(
+            matrix,
+            result,
+            resolution,
+            start,
+            end,
+            title=title,
+            mask_regions=True,
+            override_height=end - start,
+            **kwargs,
+        )
+
+    if plot_type == "matrix_with_stripes":
+        return _plot_hic_matrix_with_stripes(
+            matrix, result, resolution, start, end, title=title, mask_regions=False, **kwargs
+        )
+
+    if plot_type == "geo_descriptors":
+        return _plot_stripe_dimension_distribution(
+            result.get_stripe_geo_descriptors("LT"),
+            result.get_stripe_geo_descriptors("UT"),
+            resolution,
+        )

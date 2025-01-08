@@ -4,18 +4,12 @@
 
 import pathlib
 import tempfile
-from typing import List
 
 import pytest
 
-from stripepy.others import open_matrix_file_checked
+from stripepy.others import define_RoI, open_matrix_file_checked
 
 from .common.cool import generate_singleres_test_file
-
-
-def _discretize(v: List[int], factor: int) -> List[int]:
-    assert factor > 0
-    return [(x + factor - 1) // factor for x in v]
 
 
 @pytest.mark.unit
@@ -59,3 +53,33 @@ class TestOpenMatrixFileChecked:
 
         with pytest.raises(Exception):
             open_matrix_file_checked(path_to_clr, resolution + 1)
+
+
+@pytest.mark.unit
+class TestDefineRoI:
+    def test_middle_large_chromosome(self):
+        roi = define_RoI(location="middle", chrom_size=1000, resolution=10, window_size=500)
+        assert roi == {"genomic": [250, 750], "matrix": [25, 75]}
+
+    def test_middle_small_chromosome(self):
+        roi = define_RoI(location="middle", chrom_size=123, resolution=10, window_size=500)
+        assert roi == {"genomic": [0, 123], "matrix": [0, 12]}
+
+    def test_start_large_chromosome(self):
+        roi = define_RoI(location="start", chrom_size=1000, resolution=10, window_size=500)
+        assert roi == {"genomic": [0, 500], "matrix": [0, 50]}
+
+    def test_start_small_chromosome(self):
+        roi = define_RoI(location="start", chrom_size=123, resolution=10, window_size=500)
+        assert roi == {"genomic": [0, 123], "matrix": [0, 12]}
+
+    def test_noop(self):
+        assert define_RoI(location=None, chrom_size=0, resolution=0) is None
+        assert define_RoI(location="middle", chrom_size=1000, resolution=10, window_size=0) is None
+
+    def test_invalid_params(self):
+        with pytest.raises(Exception):
+            define_RoI(location="middle", chrom_size=0, resolution=10, window_size=500)
+            define_RoI(location="middle", chrom_size=1000, resolution=0, window_size=500)
+
+            define_RoI(location="foo", chrom_size=1000, resolution=10, window_size=500)

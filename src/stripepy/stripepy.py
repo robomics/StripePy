@@ -2,23 +2,21 @@
 #
 # SPDX-License-Identifier: MIT
 
+import itertools
 import pathlib
 import time
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.sparse as ss
-import seaborn as sns
 import structlog
 from numpy.typing import NDArray
 
 from . import IO, plot
 from .utils import TDA, common, finders, regressions, stripe
-
-be_verbose = True  # TODO consider safe removal of be_verbose
 
 
 def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
@@ -98,7 +96,7 @@ def _scale_Iproc(
     return tuple(J / scaling_factor_Iproc for J in [I, LT_I, UT_I])  # noqa
 
 
-def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> NDArray:
+def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArray]:
     """
     Extract a region of interest (ROI) from the sparse matrix I
 
@@ -111,71 +109,16 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> NDArray:
 
     Returns
     -------
-    NDArray
-        dense matrix with the interactions for the regions of interest
+    Optional[NDArray]
+        dense matrix with the interactions for the regions of interest (or None in case RoI itself is None)
     """
+
+    if RoI is None:
+        return None
 
     rows = cols = slice(RoI["matrix"][0], RoI["matrix"][1])
     I_RoI = I[rows, cols].toarray()
     return I_RoI
-
-
-def _plot_RoIs(
-    I: ss.csr_matrix, Iproc: ss.csr_matrix, RoI: Union[NDArray, None], output_folder: Union[pathlib.Path, None]
-) -> Union[NDArray, None]:
-    """
-    Helper function to plot a region of interest.
-    This function does nothing when RoI is None.
-    If output_folder is None (but RoI is not), then this function simply extracts the interactions
-    that would've been used for plotting, but generates no plots.
-
-    Parameters
-    ----------
-    I: ss.csr_matrix
-        the unprocessed input sparse matrix
-    Iproc: ss.csr_matrix
-        the processed input sparse matrix
-    RoI: Union[NDArray, None]
-        the region of interest to be plotted in matrix ('matrix') and genomic ('genomic') coordinates
-    output_folder: pathlib.Path
-        folder where to save the plots
-
-    Returns
-    -------
-    Union[NDArray, None]
-        the dense matrix used for plotting or None when RoI is None
-    """
-
-    # TODO rea1991 Once there is better test coverage, rewrite this as suggested in in #16
-    if RoI is not None:
-        print("1.4) Extracting a Region of Interest (RoI) for plot purposes...")
-        I_RoI = _extract_RoIs(I, RoI)
-        Iproc_RoI = _extract_RoIs(Iproc, RoI)
-
-        if output_folder is not None:
-            start_pos, end_pos, _, _ = RoI["genomic"]
-            # Plots:
-            dest = pathlib.Path(output_folder) / f"I_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
-            fig, _, _ = plot.hic_matrix(
-                I_RoI,
-                (start_pos, end_pos),
-                log_scale=False,
-            )
-
-            fig.savefig(dest, dpi=256)
-            plt.close(fig)
-
-            dest = pathlib.Path(output_folder) / f"Iproc_{RoI['genomic'][0]}_{RoI['genomic'][1]}.jpg"
-            fig, _, _ = plot.hic_matrix(
-                Iproc_RoI,
-                (start_pos, end_pos),
-                log_scale=False,
-            )
-            fig.savefig(dest, dpi=256)
-            plt.close(fig)
-    else:
-        Iproc_RoI = None  # TODO handle this case in _extract_RoIs
-    return Iproc_RoI
 
 
 def _compute_global_pseudodistribution(T: ss.csr_matrix, smooth: bool = True) -> NDArray[float]:
@@ -200,41 +143,6 @@ def _compute_global_pseudodistribution(T: ss.csr_matrix, smooth: bool = True) ->
     if smooth:
         pseudo_dist = np.maximum(regressions._compute_wQISA_predictions(pseudo_dist, 11), pseudo_dist)  # smoothing
     return pseudo_dist
-
-
-def _find_seeds_in_RoI(
-    seeds: List[int], left_bound_RoI: int, right_bound_RoI: int
-) -> Tuple[NDArray[np.int64], List[int]]:
-    # TODO remove
-    """
-    Select seed coordinates that fall within the given left and right boundaries.
-
-    Parameters
-    ----------
-    seeds: List[int]
-        a list with the seed coordinates
-    left_bound_RoI: int
-        left bound of the region of interest
-    right_bound_RoI: int
-        right bound of the region of interest
-
-    Returns
-    -------
-    Tuple[NDArray[np.int64], List[int]]
-        a tuple consisting of:
-
-         * the indices of seed coordinates falling within the given boundaries
-         * the coordinates of the selected seeds
-    """
-
-    assert left_bound_RoI >= 0
-    assert right_bound_RoI >= left_bound_RoI
-
-    # Find sites within the range of interest -- lower-triangular:
-    ids_seeds_in_RoI = np.where((left_bound_RoI <= np.array(seeds)) & (np.array(seeds) <= right_bound_RoI))[0]
-    seeds_in_RoI = np.array(seeds)[ids_seeds_in_RoI].tolist()
-
-    return ids_seeds_in_RoI, seeds_in_RoI
 
 
 def _store_results(
@@ -326,13 +234,16 @@ def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None, logger=Non
     logger.bind(step=(1, 3)).info("projecting interactions onto [1, 0]")
     Iproc, LT_Iproc, UT_Iproc = _scale_Iproc(Iproc, LT_Iproc, UT_Iproc)
 
-    Iproc_RoI = _plot_RoIs(I, Iproc, RoI, output_folder)
-
-    return LT_Iproc, UT_Iproc, Iproc_RoI
+    return LT_Iproc, UT_Iproc, _extract_RoIs(Iproc, RoI)
 
 
 def step_2(
-    chrom: str, L, U, resolution, min_persistence, Iproc_RoI=None, RoI=None, output_folder=None, logger=None
+    chrom_name: str,
+    chrom_size: int,
+    L: ss.csr_matrix,
+    U: ss.csr_matrix,
+    min_persistence: float,
+    logger=None,
 ) -> IO.Result:
     if logger is None:
         logger = structlog.get_logger()
@@ -341,9 +252,8 @@ def step_2(
     LT_pd = _compute_global_pseudodistribution(L, smooth=True)
     UT_pd = _compute_global_pseudodistribution(U, smooth=True)
 
-    result = IO.Result(chrom)
-    if RoI is not None:
-        result.set_roi(RoI)
+    result = IO.Result(chrom_name, chrom_size)
+
     result.set_min_persistence(min_persistence)
 
     result.set("pseudodistribution", LT_pd, "LT")
@@ -434,94 +344,18 @@ def step_2(
     logger.bind(step=(2, 3, 2)).info("upper-triangular part: generated %d candidate stripes", len(stripes))
     result.set("stripes", stripes, "UT")
 
-    if result.roi is not None:
-        logger.bind(step=(2, 4, 0)).info("finding seed sites inside the region of interest...")
-        ids_LT_MPs_in_RoI, LT_MPs_in_RoI = _find_seeds_in_RoI(LT_MPs, result.roi["matrix"][0], result.roi["matrix"][1])
-        ids_UT_MPs_in_RoI, UT_MPs_in_RoI = _find_seeds_in_RoI(UT_MPs, result.roi["matrix"][0], result.roi["matrix"][1])
-        logger.bind(step=(2, 4, 0)).info(
-            "found %d and %d seed sites for the lower- and upper-triangular part, respectively",
-            len(ids_LT_MPs_in_RoI),
-            len(ids_UT_MPs_in_RoI),
-        )
-
-        logger.bind(step=(2, 5, 0)).info("plotting pseudo-distributions and sites for the region of interest...")
-        if output_folder is not None:
-
-            # Plot pseudo-distributions:
-            IO.pseudodistrib(
-                LT_pd, RoI["genomic"][0:2], resolution, output_folder=output_folder, file_name=f"LT_pseudo-distrib.jpg"
-            )
-            IO.pseudodistrib(
-                UT_pd, RoI["genomic"][0:2], resolution, output_folder=output_folder, file_name=f"UT-pseudo-distrib.jpg"
-            )
-
-            # Plot pseudo-distributions and persistent maxima:
-            IO.pseudodistrib(
-                LT_pd,
-                RoI["genomic"][0:2],
-                resolution,
-                coords2scatter=[LT_MPs_in_RoI],
-                colors=["blue"],
-                output_folder=output_folder,
-                title=None,
-                file_name=f"LT_pseudo-distrib_and_pers-maxima.jpg",
-                display=False,
-            )
-            IO.pseudodistrib(
-                UT_pd,
-                RoI["genomic"][0:2],
-                resolution,
-                coords2scatter=[UT_MPs_in_RoI],
-                colors=["blue"],
-                output_folder=output_folder,
-                title=None,
-                file_name=f"UT_pseudo-distrib_and_pers-maxima.jpg",
-                display=False,
-            )
-
-            # Plot the region of interest of Iproc with over-imposed vertical lines for seeds:
-            if Iproc_RoI is not None:
-                IO.HiC_and_sites(
-                    Iproc_RoI,
-                    LT_MPs_in_RoI,
-                    RoI["genomic"],
-                    resolution,
-                    where="lower",
-                    plot_in_bp=True,
-                    output_folder=output_folder,
-                    display=False,
-                    file_name=f"LT_seeds.jpg",
-                    title=None,
-                )
-                IO.HiC_and_sites(
-                    Iproc_RoI,
-                    UT_MPs_in_RoI,
-                    RoI["genomic"],
-                    resolution,
-                    where="upper",
-                    plot_in_bp=True,
-                    output_folder=output_folder,
-                    display=False,
-                    file_name=f"UT_seeds.jpg",
-                    title=None,
-                )
-
     return result
 
 
 def step_3(
     result: IO.Result,
-    L,
-    U,
-    resolution,
-    genomic_belt,
-    max_width,
-    constrain_height,
-    loc_pers_min,
-    loc_trend_min,
-    Iproc_RoI=None,
-    RoI=None,
-    output_folder=None,
+    L: ss.csr_matrix,
+    U: ss.csr_matrix,
+    resolution: int,
+    genomic_belt: int,
+    max_width: int,
+    loc_pers_min: float,
+    loc_trend_min: float,
     map=map,
     logger=None,
 ) -> IO.Result:
@@ -593,175 +427,32 @@ def step_3(
     for num_cand_stripe, (UT_L_bound, UT_R_bound) in enumerate(zip(UT_L_bounds, UT_R_bounds)):
         stripes[num_cand_stripe].set_horizontal_bounds(UT_L_bound, UT_R_bound)
 
-    if all([param is not None for param in [RoI, output_folder]]):
-
-        logger.bind(step=(3, 1, 3)).info("generating plots")
-        # 3.1.3.1 "Finding HIoIs inside the region (RoI) selected above..."
-
-        ids_LT_MPs_in_RoI, LT_MPs_in_RoI = _find_seeds_in_RoI(LT_MPs, result.roi["matrix"][0], result.roi["matrix"][1])
-        ids_UT_MPs_in_RoI, UT_MPs_in_RoI = _find_seeds_in_RoI(UT_MPs, result.roi["matrix"][0], result.roi["matrix"][1])
-
-        # Left and right boundaries in RoI:
-        LT_L_bounds_in_RoI = np.array(LT_L_bounds)[ids_LT_MPs_in_RoI].tolist()
-        LT_R_bounds_in_RoI = np.array(LT_R_bounds)[ids_LT_MPs_in_RoI].tolist()
-        UT_L_bounds_in_RoI = np.array(UT_L_bounds)[ids_UT_MPs_in_RoI].tolist()
-        UT_R_bounds_in_RoI = np.array(UT_R_bounds)[ids_UT_MPs_in_RoI].tolist()
-
-        # 3.1.3.2 "Plotting pseudo-distributions and sites for the region selected above..."
-        IoIs = [RoI["genomic"][0:2]] + [
-            [LT_L_bound_in_RoI * resolution, (LT_R_bound_in_RoI + 1) * resolution]
-            for (LT_L_bound_in_RoI, LT_R_bound_in_RoI) in zip(LT_L_bounds_in_RoI, LT_R_bounds_in_RoI)
-        ]
-        IO.pseudodistrib_and_HIoIs(
-            LT_pseudo_distrib,
-            IoIs,
-            resolution,
-            colors=["red"] + ["blue"] * len(LT_L_bounds_in_RoI),
-            title=None,
-            output_folder=output_folder,
-            file_name=f"LT_pseudo-distrib_and_h-doms.jpg",
-            display=False,
-        )
-        IoIs = [RoI["genomic"][0:2]] + [
-            [UT_L_bound_in_RoI * resolution, (UT_R_bound_in_RoI + 1) * resolution]
-            for (UT_L_bound_in_RoI, UT_R_bound_in_RoI) in zip(UT_L_bounds_in_RoI, UT_R_bounds_in_RoI)
-        ]
-        IO.pseudodistrib_and_HIoIs(
-            UT_pseudo_distrib,
-            IoIs,
-            resolution,
-            colors=["red"] + ["blue"] * len(UT_L_bounds_in_RoI),
-            title=None,
-            output_folder=output_folder,
-            file_name=f"UT_pseudo-distrib_and_h-doms.jpg",
-            display=False,
-        )
-
-        if Iproc_RoI is not None:
-
-            # Projecting left and right boundaries onto the sub-intervals:
-            LT_bounds_in_RoI_proj = [
-                [max(0, LT_L_bound - RoI["matrix"][0]), min(LT_R_bound - RoI["matrix"][0], Iproc_RoI.shape[0] - 1)]
-                for (LT_L_bound, LT_R_bound) in zip(LT_L_bounds_in_RoI, LT_R_bounds_in_RoI)
-            ]
-            UT_bounds_in_RoI_proj = [
-                [max(0, UT_L_bound - RoI["matrix"][0]), min(UT_R_bound - RoI["matrix"][0], Iproc_RoI.shape[0] - 1)]
-                for (UT_L_bound, UT_R_bound) in zip(UT_L_bounds_in_RoI, UT_R_bounds_in_RoI)
-            ]
-            LT_bounds_in_RoI_proj_gen_coord = [[a[0] * resolution, a[1] * resolution] for a in LT_bounds_in_RoI_proj]
-            UT_bounds_in_RoI_proj_gen_coord = [[a[0] * resolution, a[1] * resolution] for a in UT_bounds_in_RoI_proj]
-
-            # Slices, i.e., intervals determined by a pair of left & right boundaries:
-            LT_slices2keep_proj = [
-                list(range(LT_bound_in_RoI_proj[0], LT_bound_in_RoI_proj[1] + 1))
-                for LT_bound_in_RoI_proj in LT_bounds_in_RoI_proj
-            ]
-            UT_slices2keep_proj = [
-                list(range(UT_bound_in_RoI_proj[0], UT_bound_in_RoI_proj[1] + 1))
-                for UT_bound_in_RoI_proj in UT_bounds_in_RoI_proj
-            ]
-
-            # 3.1.3.3 "Plotting RoI restricted to HIoIs..."
-            # Setting rows/columns not included in proj_LT_ids_2_keep to zero:
-
-            Iproc0_RoI_LT_sliced = np.triu(Iproc_RoI)
-            Iproc0_RoI_UT_sliced = np.tril(Iproc_RoI)
-            for num_slice, LT_slice2keep_proj in enumerate(LT_slices2keep_proj):
-
-                Iproc0_RoI_LT_cur_sliced = np.triu(Iproc_RoI)
-                for idx2keep in LT_slice2keep_proj:
-                    Iproc0_RoI_LT_cur_sliced[idx2keep:, idx2keep] = Iproc_RoI[idx2keep:, idx2keep]
-                    Iproc0_RoI_LT_sliced[idx2keep:, idx2keep] = Iproc_RoI[idx2keep:, idx2keep]
-
-            IO.HiC_and_HIoIs(
-                Iproc0_RoI_LT_sliced,
-                LT_bounds_in_RoI_proj_gen_coord,
-                RoI["genomic"],
-                resolution,
-                title=None,
-                output_folder=output_folder,
-                plot_in_bp=True,
-                where="lower",
-                file_name=f"LT_all_h-doms.jpg",
-                display=False,
-            )
-
-            for num_slice, UT_slice2keep_proj in enumerate(UT_slices2keep_proj):
-
-                Iproc0_RoI_UT_cur_sliced = np.tril(Iproc_RoI)
-                for idx2keep in UT_slice2keep_proj:
-                    Iproc0_RoI_UT_cur_sliced[: idx2keep + 1, idx2keep] = Iproc_RoI[: idx2keep + 1, idx2keep]
-                    Iproc0_RoI_UT_sliced[: idx2keep + 1, idx2keep] = Iproc_RoI[: idx2keep + 1, idx2keep]
-
-            IO.HiC_and_HIoIs(
-                Iproc0_RoI_UT_sliced,
-                UT_bounds_in_RoI_proj_gen_coord,
-                RoI["genomic"],
-                resolution,
-                title=None,
-                output_folder=output_folder,
-                plot_in_bp=True,
-                where="upper",
-                file_name=f"UT_all_h-doms.jpg",
-                display=False,
-            )
-
     logger.bind(step=(3, 1)).info("width estimation took %s", common.pretty_format_elapsed_time(start_time))
 
     logger.bind(step=(3, 2)).info("height estimation")
     start_time = time.time()
 
     logger.bind(step=(3, 2, 1)).info("estimating candidate stripe heights")
-    if be_verbose and all([param is not None for param in [RoI, output_folder]]):
-        LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
-            L,
-            LT_MPs,
-            LT_HIoIs,
-            VIoIs2plot=ids_LT_MPs_in_RoI,
-            max_height=int(genomic_belt / resolution),
-            threshold_cut=loc_trend_min,
-            min_persistence=loc_pers_min,
-            where="lower",
-            output_folder=f"{output_folder}local_pseudodistributions/",
-            map=map,
-        )
-        UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
-            U,
-            UT_MPs,
-            UT_HIoIs,
-            VIoIs2plot=ids_UT_MPs_in_RoI,
-            max_height=int(genomic_belt / resolution),
-            threshold_cut=loc_trend_min,
-            min_persistence=loc_pers_min,
-            where="upper",
-            output_folder=f"{output_folder}local_pseudodistributions/",
-            map=map,
-        )
-    else:
-        LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
-            L,
-            LT_MPs,
-            LT_HIoIs,
-            VIoIs2plot=None,
-            max_height=int(genomic_belt / resolution),
-            threshold_cut=loc_trend_min,
-            min_persistence=loc_pers_min,
-            where="lower",
-            output_folder=None,
-            map=map,
-        )
-        UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
-            U,
-            UT_MPs,
-            UT_HIoIs,
-            VIoIs2plot=None,
-            max_height=int(genomic_belt / resolution),
-            threshold_cut=loc_trend_min,
-            min_persistence=loc_pers_min,
-            where="upper",
-            output_folder=None,
-            map=map,
-        )
+    LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
+        L,
+        LT_MPs,
+        LT_HIoIs,
+        max_height=int(genomic_belt / resolution),
+        threshold_cut=loc_trend_min,
+        min_persistence=loc_pers_min,
+        where="lower",
+        map=map,
+    )
+    UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
+        U,
+        UT_MPs,
+        UT_HIoIs,
+        max_height=int(genomic_belt / resolution),
+        threshold_cut=loc_trend_min,
+        min_persistence=loc_pers_min,
+        where="upper",
+        map=map,
+    )
 
     # List of left or right boundaries:
     LT_U_bounds, LT_D_bounds = map(list, zip(*LT_VIoIs))
@@ -777,202 +468,13 @@ def step_3(
 
     logger.bind(step=(3, 2)).info("height estimation took %s", common.pretty_format_elapsed_time(start_time))
 
-    if RoI is not None:
-        logger.bind(step=(3, 3)).info("selecting candidate stripes overlapping with the region of interest")
-
-        # Restricting to the RoI:
-        LT_HIoIs_in_RoI = np.array(LT_HIoIs)[ids_LT_MPs_in_RoI].tolist()
-        UT_HIoIs_in_RoI = np.array(UT_HIoIs)[ids_UT_MPs_in_RoI].tolist()
-        LT_VIoIs_in_RoI = np.array(LT_VIoIs)[ids_LT_MPs_in_RoI].tolist()
-        UT_VIoIs_in_RoI = np.array(UT_VIoIs)[ids_UT_MPs_in_RoI].tolist()
-        LT_HIoIs_in_RoI_proj = [
-            [LT_HIoI_RoI[0] - RoI["matrix"][0], LT_HIoI_RoI[1] - RoI["matrix"][0]] for LT_HIoI_RoI in LT_HIoIs_in_RoI
-        ]
-        UT_HIoIs_in_RoI_proj = [
-            [UT_HIoI_RoI[0] - RoI["matrix"][0], UT_HIoI_RoI[1] - RoI["matrix"][0]] for UT_HIoI_RoI in UT_HIoIs_in_RoI
-        ]
-        LT_VIoIs_in_RoI_proj = [
-            [LT_VIoI_RoI[0] - RoI["matrix"][0], LT_VIoI_RoI[1] - RoI["matrix"][0]] for LT_VIoI_RoI in LT_VIoIs_in_RoI
-        ]
-        UT_VIoIs_in_RoI_proj = [
-            [UT_VIoI_RoI[0] - RoI["matrix"][0], UT_VIoI_RoI[1] - RoI["matrix"][0]] for UT_VIoI_RoI in UT_VIoIs_in_RoI
-        ]
-
-        if constrain_height:
-            LT_peaks_ids_RoI = [
-                LT_peaks_ids_in_candida_in_RoI
-                for n, LT_peaks_ids_in_candida_in_RoI in enumerate(LT_peaks_ids)
-                if n in ids_LT_MPs_in_RoI
-            ]
-            LT_peaks_ids_RoI_proj = [
-                [
-                    LT_peak_idx_in_candida_in_RoI - RoI["matrix"][0]
-                    for LT_peak_idx_in_candida_in_RoI in LT_peaks_ids_in_candida_in_RoI
-                    if 0 < LT_peak_idx_in_candida_in_RoI - RoI["matrix"][0] < Iproc_RoI.shape[0]
-                ]
-                for LT_peaks_ids_in_candida_in_RoI in LT_peaks_ids_RoI
-            ]
-            UT_peaks_ids_RoI = [
-                UT_peaks_ids_in_candida_in_RoI
-                for n, UT_peaks_ids_in_candida_in_RoI in enumerate(UT_peaks_ids)
-                if n in ids_UT_MPs_in_RoI
-            ]
-            UT_peaks_ids_RoI_proj = [
-                [
-                    UT_peak_idx_in_candida_in_RoI - RoI["matrix"][0]
-                    for UT_peak_idx_in_candida_in_RoI in UT_peaks_ids_in_candida_in_RoI
-                    if 0 < UT_peak_idx_in_candida_in_RoI - RoI["matrix"][0] < Iproc_RoI.shape[0]
-                ]
-                for UT_peaks_ids_in_candida_in_RoI in UT_peaks_ids_RoI
-            ]
-
-        logger.bind(step=(3, 4)).info("generating plots highlighting stripe widths")
-        # Plot of the candidate stripes within the RoI:
-        IO.plot_stripes(
-            Iproc_RoI,
-            LT_HIoIs_in_RoI_proj,
-            LT_VIoIs_in_RoI_proj,
-            [],
-            [],
-            RoI["genomic"],
-            resolution,
-            plot_in_bp=True,
-            output_folder=output_folder,
-            file_name=f"LT_all_candidates.jpg",
-            title=None,
-            display=False,
-        )
-
-        if constrain_height:
-            IO.plot_stripes_and_peaks(
-                Iproc_RoI,
-                LT_HIoIs_in_RoI_proj,
-                LT_VIoIs_in_RoI_proj,
-                [],
-                [],
-                LT_peaks_ids_RoI_proj,
-                [],
-                RoI["genomic"],
-                resolution,
-                plot_in_bp=True,
-                output_folder=output_folder,
-                file_name=f"LT_all_candidates_and_peaks.jpg",
-                title=None,
-                display=False,
-            )
-
-        IO.plot_stripes(
-            Iproc_RoI,
-            [],
-            [],
-            UT_HIoIs_in_RoI_proj,
-            UT_VIoIs_in_RoI_proj,
-            RoI["genomic"],
-            resolution,
-            plot_in_bp=True,
-            output_folder=output_folder,
-            file_name=f"UT_all_candidates.jpg",
-            title=None,
-            display=False,
-        )
-
-        if constrain_height:
-            IO.plot_stripes_and_peaks(
-                Iproc_RoI,
-                [],
-                [],
-                UT_HIoIs_in_RoI_proj,
-                UT_VIoIs_in_RoI_proj,
-                [],
-                UT_peaks_ids_RoI_proj,
-                RoI["genomic"],
-                resolution,
-                plot_in_bp=True,
-                output_folder=output_folder,
-                file_name=f"UT_all_candidates_and_peaks.jpg",
-                title=None,
-                display=False,
-            )
-
-    logger.bind(step=(3, 5)).info("generating plots of stripe heights and widths distributions")
-    LT_widths = [HIoI[1] - HIoI[0] for HIoI in LT_HIoIs]
-    LT_heights = [VIoI[1] - VIoI[0] for VIoI in LT_VIoIs]
-    UT_widths = [HIoI[1] - HIoI[0] for HIoI in UT_HIoIs]
-    UT_heights = [VIoI[1] - VIoI[0] for VIoI in UT_VIoIs]
-    if be_verbose and output_folder is not None:
-        fig, ax = plt.subplots(1, 1)
-        sns.histplot(
-            data=pd.DataFrame(LT_widths),
-            kde=False,
-            legend=False,
-            fill=True,
-            discrete=True,
-            color="#2F539B",
-            edgecolor=None,
-            alpha=1,
-        )
-        plt.xlim(0, max(max(LT_widths), max(UT_widths)) + 1)
-        plt.title("Widths")
-        plt.savefig(f"{output_folder}/LT_histogram_widths.jpg", bbox_inches="tight")
-        plt.close()
-        fig, ax = plt.subplots(1, 1)
-        sns.histplot(
-            data=pd.DataFrame(UT_widths),
-            kde=False,
-            legend=False,
-            fill=True,
-            discrete=True,
-            color="#2F539B",
-            edgecolor=None,
-            alpha=1,
-        )
-        plt.xlim(0, max(max(LT_widths), max(UT_widths)) + 1)
-        plt.title("Widths")
-        plt.savefig(f"{output_folder}/UT_histogram_widths.jpg", bbox_inches="tight")
-        plt.close()
-        fig, ax = plt.subplots(1, 1)
-        sns.histplot(
-            data=pd.DataFrame(LT_heights),
-            kde=False,
-            legend=False,
-            fill=True,
-            discrete=True,
-            color="#2F539B",
-            edgecolor=None,
-            alpha=1,
-        )
-        plt.xlim(0, max(max(LT_widths), max(UT_heights)) + 1)
-        plt.title("Heights")
-        plt.savefig(f"{output_folder}/LT_histogram_heights.jpg", bbox_inches="tight")
-        plt.close()
-        fig, ax = plt.subplots(1, 1)
-        sns.histplot(
-            data=pd.DataFrame(UT_heights),
-            kde=False,
-            legend=False,
-            fill=True,
-            discrete=True,
-            color="#2F539B",
-            edgecolor=None,
-            alpha=1,
-        )
-        plt.xlim(0, max(max(LT_heights), max(UT_heights)) + 1)
-        plt.title("Heights")
-        plt.savefig(f"{output_folder}/UT_histogram_heights.jpg", bbox_inches="tight")
-        plt.close()
-
     return result
 
 
 def step_4(
     result: IO.Result,
-    L,
-    U,
-    resolution=None,
-    thresholds_relative_change=None,
-    Iproc_RoI=None,
-    RoI=None,
-    output_folder=None,
+    L: ss.csr_matrix,
+    U: ss.csr_matrix,
     logger=None,
 ):
     if logger is None:
@@ -982,103 +484,416 @@ def step_4(
         logger.bind(step=(4,)).warning("no candidates found by step 2: returning immediately!")
         return result
 
-    logger.bind(step=(4, 1)).info("computing stripe biologival descriptors")
+    logger.bind(step=(4, 1)).info("computing stripe biological descriptors")
     for LT_candidate_stripe in result.get("stripes", "LT"):
         LT_candidate_stripe.compute_biodescriptors(L)
     for UT_candidate_stripe in result.get("stripes", "UT"):
         UT_candidate_stripe.compute_biodescriptors(U)
 
-    if all(param is not None for param in [resolution, thresholds_relative_change, Iproc_RoI, RoI, output_folder]):
-        logger.bind(step=(4, 2)).info("thresholding")
-
-        # Retrieve data:
-        LT_MPs = [c_s.seed for c_s in result.get("stripes", "LT")]
-        UT_MPs = [c_s.seed for c_s in result.get("stripes", "UT")]
-        LT_HIoIs = [[c_s.left_bound, c_s.right_bound] for c_s in result.get("stripes", "LT")]
-        LT_VIoIs = [[c_s.top_bound, c_s.bottom_bound] for c_s in result.get("stripes", "LT")]
-        UT_HIoIs = [[c_s.left_bound, c_s.right_bound] for c_s in result.get("stripes", "UT")]
-        UT_VIoIs = [[c_s.top_bound, c_s.bottom_bound] for c_s in result.get("stripes", "UT")]
-
-        for threshold in thresholds_relative_change:
-
-            # Filtration:
-            LT_candidates2keep = [
-                index
-                for index, rel_change in enumerate(s.rel_change for s in result.get("stripes", "LT"))
-                if rel_change >= threshold
-            ]
-            UT_candidates2keep = [
-                index
-                for index, rel_change in enumerate(s.rel_change for s in result.get("stripes", "UT"))
-                if rel_change >= threshold
-            ]
-
-            LT_filt_MPs = [LT_MPs[num_cand] for num_cand in LT_candidates2keep]
-            LT_filt_HIoIs = [LT_HIoIs[num_cand] for num_cand in LT_candidates2keep]
-            LT_filt_VIoIs = [LT_VIoIs[num_cand] for num_cand in LT_candidates2keep]
-
-            UT_filt_MPs = [UT_MPs[num_cand] for num_cand in UT_candidates2keep]
-            UT_filt_HIoIs = [UT_HIoIs[num_cand] for num_cand in UT_candidates2keep]
-            UT_filt_VIoIs = [UT_VIoIs[num_cand] for num_cand in UT_candidates2keep]
-
-            # Plotting stripes in range:
-            if RoI is not None:
-                LT_candidates2keep_in_RoI = np.where(
-                    (np.array(LT_filt_MPs) > RoI["matrix"][0]) & (np.array(LT_filt_MPs) < RoI["matrix"][1])
-                )[0]
-                LT_filt_MPs_in_RoI = np.array(LT_filt_MPs)[LT_candidates2keep_in_RoI].tolist()
-                LT_filt_MPs_in_RoI_proj = [a - RoI["matrix"][0] for a in LT_filt_MPs_in_RoI]
-                LT_filt_HIoIs_in_RoI = np.array(LT_filt_HIoIs)[LT_candidates2keep_in_RoI].tolist()
-                LT_filt_HIoIs_in_RoI_proj = [
-                    [a[0] - RoI["matrix"][0], a[1] - RoI["matrix"][2]] for a in LT_filt_HIoIs_in_RoI
-                ]
-                LT_filt_VIoIs_in_RoI = np.array(LT_filt_VIoIs)[LT_candidates2keep_in_RoI].tolist()
-                LT_filt_VIoIs_in_RoI_proj = [
-                    [a[0] - RoI["matrix"][0], a[1] - RoI["matrix"][2]] for a in LT_filt_VIoIs_in_RoI
-                ]
-
-                IO.plot_stripes(
-                    Iproc_RoI,
-                    LT_filt_HIoIs_in_RoI_proj,
-                    LT_filt_VIoIs_in_RoI_proj,
-                    [],
-                    [],
-                    RoI["genomic"],
-                    resolution,
-                    plot_in_bp=True,
-                    output_folder=f"{output_folder}",
-                    file_name=f"LT_{threshold:.2f}.jpg",
-                    title=None,
-                    display=False,
-                )
-
-                UT_candidates2keep_in_RoI = np.where(
-                    (np.array(UT_filt_MPs) > RoI["matrix"][0]) & (np.array(UT_filt_MPs) < RoI["matrix"][1])
-                )[0]
-                UT_filt_MPs_in_RoI = np.array(UT_filt_MPs)[UT_candidates2keep_in_RoI].tolist()
-                UT_filt_MPs_in_RoI_proj = [a - RoI["matrix"][0] for a in UT_filt_MPs_in_RoI]
-                UT_filt_HIoIs_in_RoI = np.array(UT_filt_HIoIs)[UT_candidates2keep_in_RoI].tolist()
-                UT_filt_HIoIs_in_RoI_proj = [
-                    [a[0] - RoI["matrix"][0], a[1] - RoI["matrix"][2]] for a in UT_filt_HIoIs_in_RoI
-                ]
-                UT_filt_VIoIs_in_RoI = np.array(UT_filt_VIoIs)[UT_candidates2keep_in_RoI].tolist()
-                UT_filt_VIoIs_in_RoI_proj = [
-                    [a[0] - RoI["matrix"][0], a[1] - RoI["matrix"][2]] for a in UT_filt_VIoIs_in_RoI
-                ]
-
-                IO.plot_stripes(
-                    Iproc_RoI,
-                    [],
-                    [],
-                    UT_filt_HIoIs_in_RoI_proj,
-                    UT_filt_VIoIs_in_RoI_proj,
-                    RoI["genomic"],
-                    resolution,
-                    plot_in_bp=True,
-                    output_folder=f"{output_folder}",
-                    file_name=f"UT_{threshold:.2f}.jpg",
-                    title=None,
-                    display=False,
-                )
-
     return result
+
+
+def _plot_pseudodistribution(
+    result: IO.Result,
+    resolution: int,
+    matrix: Optional[NDArray],
+    output_folder: pathlib.Path,
+    logger,
+):
+    assert result.roi is not None
+
+    logger.bind(step=(5, 1, 1)).info("plotting pseudo-distributions")
+    start, end = result.roi["genomic"]
+    fig, _ = plot.plot(
+        result,
+        resolution,
+        plot_type="pseudodistribution",
+        start=start,
+        end=end,
+    )
+    fig.savefig(output_folder / "pseudo_distribution.jpg", dpi=256)
+    plt.close(fig)
+
+    if matrix is None:
+        return
+
+    logger.bind(step=(5, 1, 2)).info("plotting processed matrix with highlighted seed(s)")
+    # Plot the region of interest of Iproc with over-imposed vertical lines for seeds:
+    fig, _ = plot.plot(
+        result,
+        resolution,
+        plot_type="matrix_with_seeds",
+        matrix=matrix,
+        start=start,
+        end=end,
+        log_scale=False,
+    )
+    fig.savefig(output_folder / "matrix_with_seeds.jpg", dpi=256)
+    plt.close(fig)
+
+
+def _plot_hic_and_hois(
+    result: IO.Result,
+    resolution: int,
+    matrix: Optional[NDArray],
+    output_folder: pathlib.Path,
+    logger,
+):
+    assert result.roi is not None
+
+    if matrix is None:
+        return
+
+    logger.bind(step=(5, 2, 1)).info("plotting regions overlapping with candidate stripe(s)")
+    start, end = result.roi["genomic"]
+    fig, _ = plot.plot(
+        result,
+        resolution,
+        "matrix_with_stripes_masked",
+        start=start,
+        end=end,
+        matrix=matrix,
+    )
+    fig.savefig(output_folder / "all_domains.jpg", dpi=256)
+    plt.close(fig)
+
+    logger.bind(step=(5, 2, 1)).info("plotting processed matrix with candidate stripe(s) highlighted")
+    fig, _ = plot.plot(
+        result,
+        resolution,
+        "matrix_with_stripes",
+        start=start,
+        end=end,
+        matrix=matrix,
+    )
+    fig.savefig(output_folder / "all_candidates.jpg", dpi=256)
+    plt.close(fig)
+
+
+def _plot_geo_descriptors(
+    result: IO.Result,
+    resolution: int,
+    output_folder: pathlib.Path,
+    logger,
+):
+    logger.bind(step=(5, 3, 1)).info("generating histograms for geo-descriptors")
+    fig, _ = plot.plot(result, resolution, plot_type="geo_descriptors", start=0, end=result.chrom[1])
+    fig.savefig(output_folder / "geo_descriptors.jpg", dpi=256)
+    plt.close(fig)
+
+
+def _marginalize_matrix_lt(
+    matrix: ss.csr_matrix, seed: int, left_bound: int, right_bound: int, max_height: int
+) -> NDArray:
+    i1, i2 = seed, min(seed + max_height, matrix.shape[0])
+    j1, j2 = left_bound, right_bound
+    v = np.asarray(matrix[i1:i2, :].tocsc()[:, j1:j2].sum(axis=1)).flatten()
+    v /= v.max()
+
+    return v
+
+
+def _marginalize_matrix_ut(
+    matrix: ss.csr_matrix, seed: int, left_bound: int, right_bound: int, max_height: int
+) -> NDArray:
+    i1, i2 = max(seed - max_height, 0), seed
+    j1, j2 = left_bound, right_bound
+    y = np.flip(np.asarray(matrix[i1:i2, :].tocsc()[:, j1:j2].sum(axis=1)).flatten())
+    y /= y.max()
+
+    return y
+
+
+def _plot_local_pseudodistributions_helper(args):
+    # TODO matrix should be passed around using shared mem?
+    (
+        i,
+        seed,
+        left_bound,
+        right_bound,
+        matrix,
+        min_persistence,
+        max_height,
+        loc_trend_min,
+        output_folder,
+        location,
+        logger,
+    ) = args
+
+    logger.bind(step=(5, 4, i)).debug("plotting local profile for seed %d (%s)", seed, location)
+
+    if location == "LT":
+        y = _marginalize_matrix_lt(matrix, seed, left_bound, right_bound, max_height)
+    else:
+        assert location == "UT"
+        y = _marginalize_matrix_ut(matrix, seed, left_bound, right_bound, max_height)
+
+    x = np.arange(seed, seed + len(y))
+    y_hat = finders._compute_wQISA_predictions(y, 5)  # Basically: average of a 2-"pixel" neighborhood
+
+    _, _, loc_maxima, _ = TDA.TDA(y, min_persistence=min_persistence)
+    candidate_bound = [max(loc_maxima)]
+
+    if len(loc_maxima) < 2:
+        candidate_bound = np.where(y_hat < loc_trend_min)[0]
+        if len(candidate_bound) == 0:
+            candidate_bound = [len(y_hat) - 1]
+
+    fig, ax = plt.subplots(1, 1)
+    ax.plot(x, y, color="red", linewidth=0.5, linestyle="solid")
+    ax.plot(x, y_hat, color="black", linewidth=0.5, linestyle="solid")
+    ax.plot(
+        [seed + a for a in loc_maxima[:-1]],
+        y[loc_maxima[:-1]],
+        color="blue",
+        marker=".",
+        linestyle="",
+        markersize=8 * 1.5,
+    )
+    ax.vlines(
+        seed + candidate_bound[0],
+        0.0,
+        1.0,
+        color="blue",
+        linewidth=1.0,
+        linestyle="dashed",
+    )
+    ax.set(xlim=(x[0], x[-1]), ylim=(0.0, 1.0))
+    fig.tight_layout()
+    fig.savefig(output_folder / f"{seed}_{location}_local_pseudodistribution.jpg", dpi=256)
+    plt.close(fig)
+
+
+def _plot_local_pseudodistributions(
+    result: IO.Result,
+    matrix_lt: ss.csr_matrix,
+    matrix_ut: ss.csr_matrix,
+    resolution: int,
+    genomic_belt: int,
+    loc_pers_min: float,
+    loc_trend_min: float,
+    output_folder: pathlib.Path,
+    map,
+    logger,
+):
+    start, end = result.roi["genomic"]
+    max_height = int(np.ceil(genomic_belt / resolution))
+
+    df = result.get_stripe_geo_descriptors("LT")
+    df = df[(df["left_bound"] * resolution >= start) & (df["right_bound"] * resolution <= end)]
+
+    logger.bind(step=(5, 4, 0)).info("plotting local profiles for %d LT seed(s)", len(df))
+    list(
+        itertools.filterfalse(
+            None,
+            map(
+                _plot_local_pseudodistributions_helper,
+                zip(
+                    itertools.count(1, 1),
+                    df["seed"],
+                    df["left_bound"],
+                    df["right_bound"],
+                    itertools.repeat(matrix_lt),
+                    itertools.repeat(loc_pers_min),
+                    itertools.repeat(max_height),
+                    itertools.repeat(loc_trend_min),
+                    itertools.repeat(output_folder),
+                    itertools.repeat("LT"),
+                    itertools.repeat(logger),
+                ),
+            ),
+        )
+    )
+
+    offset = len(df) + 1
+    df = result.get_stripe_geo_descriptors("UT")
+    df = df[(df["left_bound"] * resolution >= start) & (df["right_bound"] * resolution <= end)]
+
+    list(
+        itertools.filterfalse(
+            None,
+            map(
+                _plot_local_pseudodistributions_helper,
+                zip(
+                    itertools.count(offset, 1),
+                    df["seed"],
+                    df["left_bound"],
+                    df["right_bound"],
+                    itertools.repeat(matrix_ut),
+                    itertools.repeat(loc_pers_min),
+                    itertools.repeat(max_height),
+                    itertools.repeat(loc_trend_min),
+                    itertools.repeat(output_folder),
+                    itertools.repeat("UT"),
+                    itertools.repeat(logger),
+                ),
+            ),
+        )
+    )
+
+
+def _plot_stripes_helper(args):
+    matrix, result, resolution, start, end, cutoff, output_folder, logger = args
+    logger.debug("plotting stripes with cutoff=%.2f", cutoff)
+
+    fig, _ = plot.plot(
+        result, resolution, "matrix_with_stripes", start=start, end=end, matrix=matrix, relative_change_threshold=cutoff
+    )
+    dest = output_folder / f"stripes_{cutoff:.2g}.jpg"
+    fig.savefig(dest, dpi=256)
+    plt.close(fig)
+
+
+def _get_stripes(result: IO.Result, resolution: int) -> pd.DataFrame:
+    start, end = result.roi["genomic"]
+
+    descriptors_lt = result.get_stripe_geo_descriptors("LT")
+    descriptors_ut = result.get_stripe_geo_descriptors("UT")
+
+    for col in ("seed", "left_bound", "right_bound", "top_bound", "bottom_bound"):
+        descriptors_lt[col] *= resolution
+        descriptors_ut[col] *= resolution
+
+    descriptors_lt["rel_change"] = result.get_stripe_bio_descriptors("LT")["rel_change"].iloc[descriptors_lt.index]
+    descriptors_ut["rel_change"] = result.get_stripe_bio_descriptors("UT")["rel_change"].iloc[descriptors_ut.index]
+
+    df = pd.concat([descriptors_lt, descriptors_ut])
+    return df[df["left_bound"].between(start, end, inclusive="both")]
+
+
+def _plot_stripes(
+    result: IO.Result,
+    resolution: int,
+    matrix: Optional[NDArray],
+    output_folder: pathlib.Path,
+    map,
+    logger,
+):
+    assert result.roi is not None
+
+    if matrix is None:
+        return
+
+    df = _get_stripes(result, resolution)
+
+    cutoffs = {}
+    for cutoff in np.linspace(0, 15, 76):
+        num_stripes = (df["rel_change"] >= cutoff).sum()
+        if num_stripes not in cutoffs:
+            cutoffs[num_stripes] = cutoff
+
+    start, end = result.roi["genomic"]
+
+    list(
+        itertools.filterfalse(
+            None,
+            map(
+                _plot_stripes_helper,
+                zip(
+                    itertools.repeat(matrix),
+                    itertools.repeat(result),
+                    itertools.repeat(resolution),
+                    itertools.repeat(start),
+                    itertools.repeat(end),
+                    cutoffs.values(),
+                    itertools.repeat(output_folder),
+                    itertools.repeat(logger),
+                ),
+            ),
+        ),
+    )
+
+
+def step_5(
+    result: IO.Result,
+    resolution: int,
+    gw_matrix_proc_lt: ss.csr_matrix,
+    gw_matrix_proc_ut: ss.csr_matrix,
+    raw_matrix: NDArray,
+    proc_matrix: Optional[NDArray],
+    genomic_belt: int,
+    loc_pers_min: float,
+    loc_trend_min: float,
+    output_folder: Optional[pathlib.Path],
+    map=map,
+    logger=None,
+):
+    if result.roi is None:
+        return
+
+    if logger is None:
+        logger = structlog.get_logger()
+
+    chrom_name = result.chrom[0]
+    start, end = result.roi["genomic"]
+
+    fig, _, _ = plot.hic_matrix(
+        raw_matrix,
+        (
+            start,
+            end,
+        ),
+        log_scale=False,
+        with_colorbar=True,
+    )
+
+    fig.suptitle(f"{result.chrom[0]}:{start}-{end}")
+    fig.tight_layout()
+    fig.savefig(output_folder / chrom_name / "1_preprocessing" / f"raw_matrix_{start}_{end}.jpg", dpi=256)
+    plt.close(fig)
+
+    fig, _, _ = plot.hic_matrix(
+        proc_matrix,
+        (
+            start,
+            end,
+        ),
+        log_scale=False,
+        with_colorbar=True,
+    )
+
+    fig.suptitle(f"{result.chrom[0]}:{start}-{end}")
+    fig.tight_layout()
+    fig.savefig(output_folder / chrom_name / "1_preprocessing" / f"proc_matrix_{start}_{end}.jpg", dpi=256)
+    plt.close(fig)
+
+    _plot_pseudodistribution(
+        result,
+        resolution,
+        proc_matrix,
+        output_folder / chrom_name / "2_TDA",
+        logger,
+    )
+    _plot_hic_and_hois(
+        result,
+        resolution,
+        proc_matrix,
+        output_folder / chrom_name / "3_shape_analysis",
+        logger,
+    )
+    _plot_geo_descriptors(
+        result,
+        resolution,
+        output_folder / chrom_name / "3_shape_analysis",
+        logger,
+    )
+    _plot_local_pseudodistributions(
+        result,
+        gw_matrix_proc_lt,
+        gw_matrix_proc_ut,
+        resolution,
+        genomic_belt,
+        loc_pers_min,
+        loc_trend_min,
+        output_folder / chrom_name / "3_shape_analysis" / "local_pseudodistributions",
+        map,
+        logger,
+    )
+    _plot_stripes(
+        result,
+        resolution,
+        proc_matrix,
+        output_folder / chrom_name / "4_biological_analysis",
+        map,
+        logger,
+    )
