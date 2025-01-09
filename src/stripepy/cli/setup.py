@@ -246,6 +246,12 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         "Existing files will be overwritten.",
     )
     sc.add_argument(
+        "--include-private",
+        action="store_true",
+        default=False,
+        help="Include datasets used for internal testing.",
+    )
+    sc.add_argument(
         "--max-size",
         type=_positive_float,
         default=512.0,

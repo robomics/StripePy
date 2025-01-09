@@ -100,19 +100,21 @@ def _list_datasets():
     sys.stdout.write("\n")
 
 
-def _get_random_dataset(max_size: float) -> Tuple[str, Dict[str, str]]:
-    dsets = _get_datasets(max_size, include_private=False)
+def _get_random_dataset(max_size: float, include_private: bool) -> Tuple[str, Dict[str, str]]:
+    dsets = _get_datasets(max_size, include_private)
     assert len(dsets) > 0
 
     key = random.sample(list(dsets.keys()), 1)[0]
     return key, dsets[key]
 
 
-def _lookup_dataset(name: Union[str, None], assembly: Union[str, None], max_size: float) -> Tuple[str, Dict[str, str]]:
+def _lookup_dataset(
+    name: Union[str, None], assembly: Union[str, None], max_size: float, include_private: bool
+) -> Tuple[str, Dict[str, str]]:
     if name is not None:
         max_size = math.inf
         try:
-            return name, _get_datasets(max_size, include_private=True)[name]
+            return name, _get_datasets(max_size, include_private)[name]
         except KeyError as e:
             raise RuntimeError(
                 f'unable to find dataset "{name}". Please make sure the provided dataset is present in the list produced by stripepy download --list-only.'
@@ -121,7 +123,7 @@ def _lookup_dataset(name: Union[str, None], assembly: Union[str, None], max_size
     assert assembly is not None
     assert max_size >= 0
 
-    dsets = {k: v for k, v in _get_datasets(max_size, include_private=True).items() if v["assembly"] == assembly}
+    dsets = {k: v for k, v in _get_datasets(max_size, include_private).items() if v["assembly"] == assembly}
     if len(dsets) == 0:
         raise RuntimeError(
             f'unable to find a dataset using "{assembly}" as reference genome. Please make sure such dataset exists in the list produced by stripepy download --list-only.'
@@ -269,6 +271,7 @@ def run(
     list_only: bool,
     unit_test: bool,
     end2end_test: bool,
+    include_private: bool,
     force: bool,
 ):
     t0 = time.time()
@@ -287,9 +290,9 @@ def run(
     do_random_sample = name is None and assembly is None
 
     if do_random_sample:
-        dset_name, config = _get_random_dataset(max_size)
+        dset_name, config = _get_random_dataset(max_size, include_private)
     else:
-        dset_name, config = _lookup_dataset(name, assembly, max_size)
+        dset_name, config = _lookup_dataset(name, assembly, max_size, include_private)
 
     if output_path is None:
         if "filename" in config:
