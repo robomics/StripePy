@@ -14,10 +14,10 @@ import time
 import urllib.request
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
-import alive_progress as ap
 import structlog
 
 from stripepy.utils.common import pretty_format_elapsed_time
+from stripepy.utils.progress_bar import initialize_progress_bar
 
 
 @functools.cache
@@ -130,7 +130,7 @@ def _hash_file(path: pathlib.Path, chunk_size=16 << 20) -> str:
     file_size = path.stat().st_size
     disable_bar = not sys.stderr.isatty() or file_size < (256 << 20)
 
-    with ap.alive_bar(
+    with initialize_progress_bar(
         total=file_size,
         disable=disable_bar,
         enrich_print=False,
@@ -185,7 +185,7 @@ def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
 
         disable_bar = not sys.stderr.isatty() or size is None
 
-        with ap.alive_bar(
+        with initialize_progress_bar(
             total=size,
             manual=True,
             disable=disable_bar,
@@ -265,19 +265,19 @@ def run(
     unit_test: bool,
     end2end_test: bool,
     force: bool,
-):
+) -> int:
     t0 = time.time()
     if list_only:
         _list_datasets()
-        return
+        return 0
 
     if unit_test:
         _download_data_for_unit_tests()
-        return
+        return 0
 
     if end2end_test:
         _download_data_for_end2end_tests()
-        return
+        return 0
 
     do_random_sample = name is None and assembly is None
 
@@ -303,3 +303,5 @@ def run(
     logger.info(
         f"file size: %.2fMB. Elapsed time: %s", dest.stat().st_size / (1024 << 10), pretty_format_elapsed_time(t0)
     )
+
+    return 0

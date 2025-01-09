@@ -8,7 +8,6 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 import h5py
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.sparse as ss
@@ -500,6 +499,7 @@ def _plot_pseudodistribution(
     output_folder: pathlib.Path,
     logger,
 ):
+    plt = common._import_pyplot()
     assert result.roi is not None
 
     logger.bind(step=(5, 1, 1)).info("plotting pseudo-distributions")
@@ -539,6 +539,7 @@ def _plot_hic_and_hois(
     output_folder: pathlib.Path,
     logger,
 ):
+    plt = common._import_pyplot()
     assert result.roi is not None
 
     if matrix is None:
@@ -576,6 +577,7 @@ def _plot_geo_descriptors(
     output_folder: pathlib.Path,
     logger,
 ):
+    plt = common._import_pyplot()
     logger.bind(step=(5, 3, 1)).info("generating histograms for geo-descriptors")
     fig, _ = plot.plot(result, resolution, plot_type="geo_descriptors", start=0, end=result.chrom[1])
     fig.savefig(output_folder / "geo_descriptors.jpg", dpi=256)
@@ -619,7 +621,7 @@ def _plot_local_pseudodistributions_helper(args):
         location,
         logger,
     ) = args
-
+    plt = common._import_pyplot()
     logger.bind(step=(5, 4, i)).debug("plotting local profile for seed %d (%s)", seed, location)
 
     if location == "LT":
@@ -733,6 +735,7 @@ def _plot_local_pseudodistributions(
 
 
 def _plot_stripes_helper(args):
+    plt = common._import_pyplot()
     matrix, result, resolution, start, end, cutoff, output_folder, logger = args
     logger.debug("plotting stripes with cutoff=%.2f", cutoff)
 
@@ -820,6 +823,8 @@ def step_5(
 ):
     if result.roi is None:
         return
+
+    plt = common._import_pyplot()
 
     if logger is None:
         logger = structlog.get_logger()

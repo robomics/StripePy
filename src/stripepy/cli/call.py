@@ -10,13 +10,13 @@ import sys
 import time
 from typing import Any, Dict, List, Tuple
 
-import alive_progress as ap
 import numpy as np
 import pandas as pd
 import structlog
 
 from stripepy import IO, others, stripepy
-from stripepy.utils.common import pretty_format_elapsed_time
+from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
+from stripepy.utils.progress_bar import initialize_progress_bar
 
 
 def _generate_metadata_attribute(configs_input: Dict[str, Any], configs_thresholds: Dict[str, Any]) -> Dict[str, Any]:
@@ -54,7 +54,7 @@ def _plan(chromosomes: Dict[str, int], min_size: int, logger=None) -> List[Tuple
 
 
 def _generate_empty_result(chrom: str, chrom_size: int, resolution: int) -> IO.Result:
-    result = IO.Result(chrom)
+    result = IO.Result(chrom, chrom_size)
     result.set_min_persistence(0)
 
     num_bins = (chrom_size + resolution - 1) // resolution
@@ -122,12 +122,16 @@ def _compute_progress_bar_weights(chrom_sizes: Dict[str, int], include_plotting:
     return df.set_index(["chrom"])
 
 
-def _init_mpl_backend():
+def _init_mpl_backend(skip: bool):
+    if skip:
+        return
+
     try:
         import matplotlib
 
         matplotlib.use("Agg")
     except ImportError:
+        structlog.get_logger().warning("failed to initialize matplotlib backend")
         pass
 
 
@@ -136,11 +140,15 @@ def run(
     configs_thresholds: Dict[str, Any],
     configs_output: Dict[str, Any],
     configs_other: Dict[str, Any],
-):
+) -> int:
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
 
     _write_param_summary(configs_input, configs_thresholds, configs_output, configs_other)
+
+    if configs_input["roi"] is not None:
+        # Raise an error immediately if --roi was passed and matplotlib is not available
+        _import_matplotlib()
 
     # Data loading:
     f = others.open_matrix_file_checked(configs_input["contact_map"], configs_input["resolution"])
@@ -163,7 +171,13 @@ def run(
         # Set up the process pool when appropriate
         if configs_other["nproc"] > 1:
             main_logger.debug("initializing a pool of %d processes...", configs_other["nproc"])
-            pool = ctx.enter_context(mp.Pool(processes=configs_other["nproc"], initializer=_init_mpl_backend))
+            pool = ctx.enter_context(
+                mp.Pool(
+                    processes=configs_other["nproc"],
+                    initializer=_init_mpl_backend,
+                    initargs=(configs_input["roi"] is None,),
+                )
+            )
         else:
             pool = None
 
@@ -172,7 +186,7 @@ def run(
             f.chromosomes(), include_plotting=configs_input["roi"] is not None, nproc=configs_other["nproc"]
         )
         progress_bar = ctx.enter_context(
-            ap.alive_bar(
+            initialize_progress_bar(
                 total=sum(f.chromosomes().values()),
                 manual=True,
                 disable=disable_bar,
@@ -323,3 +337,5 @@ def run(
     main_logger.info(
         "processed %d chromosomes in %s", len(f.chromosomes()), pretty_format_elapsed_time(start_global_time)
     )
+
+    return 0

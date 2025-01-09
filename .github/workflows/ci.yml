@@ -88,13 +88,39 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
-      - name: Install package
-        run: pip install --verbose '.[test]'
+      - name: Install package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          python -m venv venv
+          python -m venv venv-core
+
+          venv/bin/pip install '.[all,test]'
+          venv-core/bin/pip install '.' pytest pytest-cov
+
+          echo "STRIPEPY_ROOT=venv/bin" >> "$GITHUB_ENV"
+          echo "STRIPEPY_CORE_ROOT=venv-core/bin" >> "$GITHUB_ENV"
+
+      - name: Install package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python -m venv venv
+          python -m venv venv-core
+
+          venv/Scripts/pip install '.[all,test]'
+          venv-core/Scripts/pip install '.' pytest pytest-cov
+
+          echo "STRIPEPY_ROOT=venv/Scripts" >> "$GITHUB_ENV"
+          echo "STRIPEPY_CORE_ROOT=venv-core/Scripts" >> "$GITHUB_ENV"
 
       - name: Run simple CLI tests
         run: |
-          stripepy --help
-          stripepy --version
+          "$STRIPEPY_ROOT/stripepy" --help
+          "$STRIPEPY_ROOT/stripepy" --version
+
+      - name: Run simple CLI tests (core)
+        run: |
+          "$STRIPEPY_CORE_ROOT/stripepy" --help
+          "$STRIPEPY_CORE_ROOT/stripepy" --version
 
       - name: Restore test dataset
         uses: actions/cache/restore@v4
@@ -106,7 +132,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          python -m pytest \
+          "$STRIPEPY_ROOT/python" -m pytest \
             --cov=stripepy \
             --verbose \
             --cov-report=xml \
@@ -124,11 +150,33 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
 
+      - name: Run unit tests (core)
+        run: |
+          rm -f coverage.xml
+
+          "$STRIPEPY_CORE_ROOT/python" -m pytest \
+            --cov=stripepy \
+            --verbose \
+            --cov-report=xml \
+            --cov-report=term \
+            test/ \
+            -m unit
+
+      - name: Upload unit test coverage report to Codecov (core)
+        uses: codecov/codecov-action@v5
+        with:
+          flags: "tests | unit | python-${{ matrix.python_version }} | core"
+          disable_search: true
+          files: coverage.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+
       - name: Run integration tests
         run: |
           rm -f coverage.xml
 
-          python -m pytest \
+          "$STRIPEPY_ROOT/python" -m pytest \
             --cov=stripepy \
             --verbose \
             --cov-report=xml \
@@ -140,6 +188,28 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           flags: "tests | integration | python-${{ matrix.python_version }}"
+          disable_search: true
+          files: coverage.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+
+      - name: Run integration tests (core)
+        run: |
+          rm -f coverage.xml
+
+          "$STRIPEPY_CORE_ROOT/python" -m pytest \
+            --cov=stripepy \
+            --verbose \
+            --cov-report=xml \
+            --cov-report=term \
+            test/ \
+            -m end2end
+
+      - name: Upload end2end test coverage report to Codecov (core)
+        uses: codecov/codecov-action@v5
+        with:
+          flags: "tests | integration | python-${{ matrix.python_version }} | core"
           disable_search: true
           files: coverage.xml
           fail_ci_if_error: true

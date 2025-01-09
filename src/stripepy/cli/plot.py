@@ -8,14 +8,20 @@ import time
 from typing import Dict, Optional, Tuple
 
 import hictkpy
-import matplotlib.pyplot as plt
 import numpy as np
 import structlog
 from numpy.typing import NDArray
 
 import stripepy.plot
 from stripepy.IO import Result, ResultFile
-from stripepy.utils.common import pretty_format_elapsed_time
+from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    from stripepy.utils.common import _DummyPyplot
+
+    plt = _DummyPyplot()
 
 
 def _generate_random_region(
@@ -318,9 +324,18 @@ def _plot_stripe_dimension_distribution(
     return fig
 
 
-def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwargs):
+def run(
+    plot_type: str,
+    output_name: pathlib.Path,
+    dpi: int,
+    force: bool,
+    **kwargs,
+) -> int:
     logger = structlog.get_logger()
     t0 = time.time()
+
+    # Raise an error immediately if matplotlib is not available
+    _import_matplotlib()
 
     if output_name.exists():
         if force:
@@ -365,3 +380,5 @@ def run(plot_type: str, output_name: pathlib.Path, dpi: int, force: bool, **kwar
 
     logger.info("DONE!")
     logger.info("plotting took %s seconds", pretty_format_elapsed_time(t0))
+
+    return 0

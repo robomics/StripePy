@@ -28,7 +28,7 @@ ARG install_dir='/opt/stripepy'
 COPY . "$src_dir/"
 
 RUN python3 -m venv "$install_dir" \
-&& "$install_dir/bin/pip" install "$src_dir" -v --no-compile
+&& "$install_dir/bin/pip" install "$src_dir[all]" -v --no-compile
 
 
 ARG BASE_IMAGE
