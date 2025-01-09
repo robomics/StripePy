@@ -402,34 +402,44 @@ def step_3(
     LT_bounded_mPs = np.concatenate(LT_bounded_mPs, dtype=int)
     UT_bounded_mPs = np.concatenate(UT_bounded_mPs, dtype=int)
 
-    # List of pairs (pair = left and right boundaries):
-    # Choose the variable criterion between max_ascent and max_perc_descent
-    # ---> When variable criterion is set to max_ascent, set the variable max_ascent
-    # ---> When variable criterion is set to max_perc_descent, set the variable max_perc_descent
+    # DataFrame with the left and right boundaries for each seed site
     LT_HIoIs = finders.find_HIoIs(
-        LT_pseudo_distrib, LT_MPs, LT_bounded_mPs, int(max_width / (2 * resolution)) + 1, map=map
+        pseudodistribution=LT_pseudo_distrib,
+        seed_sites=LT_MPs,
+        seed_site_bounds=LT_bounded_mPs,
+        max_width=int(max_width / (2 * resolution)) + 1,
+        map_=map,
+        logger=logger,
     )
     UT_HIoIs = finders.find_HIoIs(
-        UT_pseudo_distrib, UT_MPs, UT_bounded_mPs, int(max_width / (2 * resolution)) + 1, map=map
+        pseudodistribution=UT_pseudo_distrib,
+        seed_sites=UT_MPs,
+        seed_site_bounds=UT_bounded_mPs,
+        max_width=int(max_width / (2 * resolution)) + 1,
+        map_=map,
+        logger=logger,
     )
-
-    # List of left or right boundaries:
-    LT_L_bounds, LT_R_bounds = map(list, zip(*LT_HIoIs))
-    UT_L_bounds, UT_R_bounds = map(list, zip(*UT_HIoIs))
 
     logger.bind(step=(3, 1, 2)).info("updating candidate stripes with width information")
     stripes = result.get("stripes", "LT")
-    for num_cand_stripe, (LT_L_bound, LT_R_bound) in enumerate(zip(LT_L_bounds, LT_R_bounds)):
-        stripes[num_cand_stripe].set_horizontal_bounds(LT_L_bound, LT_R_bound)
+    LT_HIoIs.apply(
+        lambda seed: stripes[seed.name].set_horizontal_bounds(seed["left_bound"], seed["right_bound"]),
+        axis="columns",
+    )
 
     stripes = result.get("stripes", "UT")
-    for num_cand_stripe, (UT_L_bound, UT_R_bound) in enumerate(zip(UT_L_bounds, UT_R_bounds)):
-        stripes[num_cand_stripe].set_horizontal_bounds(UT_L_bound, UT_R_bound)
+    UT_HIoIs.apply(
+        lambda seed: stripes[seed.name].set_horizontal_bounds(seed["left_bound"], seed["right_bound"]),
+        axis="columns",
+    )
 
     logger.bind(step=(3, 1)).info("width estimation took %s", common.pretty_format_elapsed_time(start_time))
 
     logger.bind(step=(3, 2)).info("height estimation")
     start_time = time.time()
+
+    LT_HIoIs = LT_HIoIs.to_numpy()  # TODO remove
+    UT_HIoIs = UT_HIoIs.to_numpy()  # TODO remove
 
     logger.bind(step=(3, 2, 1)).info("estimating candidate stripe heights")
     LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
