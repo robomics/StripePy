@@ -12,7 +12,7 @@ import sys
 import tempfile
 import time
 import urllib.request
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 import alive_progress as ap
 import structlog
@@ -109,7 +109,7 @@ def _get_random_dataset(max_size: float, include_private: bool) -> Tuple[str, Di
 
 
 def _lookup_dataset(
-    name: Union[str, None], assembly: Union[str, None], max_size: float, include_private: bool
+    name: Optional[str], assembly: Optional[str], max_size: float, include_private: bool
 ) -> Tuple[str, Dict[str, str]]:
     if name is not None:
         max_size = math.inf
@@ -264,9 +264,9 @@ def _download_data_for_end2end_tests():
 
 
 def run(
-    name: Union[str, None],
-    output_path: Union[pathlib.Path, None],
-    assembly: Union[str, None],
+    name: Optional[str],
+    output_path: Optional[pathlib.Path],
+    assembly: Optional[str],
     max_size: float,
     list_only: bool,
     unit_test: bool,
