@@ -37,7 +37,7 @@ class TestStripePyCall:
         resolution = 10_000
 
         chrom_sizes = hictkpy.MultiResFile(testfile).chromosomes()
-        chrom_size_cutoff = sum(chrom_sizes.values()) // len(chrom_sizes)
+        chrom_size_cutoff = chrom_sizes["chr7"] - 1
 
         args = [
             "call",
@@ -70,7 +70,7 @@ class TestStripePyCall:
         resolution = 10_000
 
         chrom_sizes = hictkpy.MultiResFile(testfile).chromosomes()
-        chrom_size_cutoff = max(chrom_sizes.values()) - 1
+        chrom_size_cutoff = chrom_sizes["chr1"] - 1
 
         args = [
             "call",
@@ -101,4 +101,6 @@ class TestStripePyCall:
         outfile = pathlib.Path(tmpdir) / testfile.stem / str(resolution) / "results.hdf5"
 
         assert outfile.is_file()
-        compare_result_files(result_file, outfile, [tuple(chrom_sizes.keys())[0]])
+        compare_result_files(
+            result_file, outfile, [chrom for chrom, size in chrom_sizes.items() if size >= chrom_size_cutoff]
+        )
