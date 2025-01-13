@@ -31,7 +31,7 @@ def sort_based_on_arg0(*vectors: Sequence) -> Tuple[NDArray]:
     if len(vectors[0]) == 0:
         return tuple((np.array(v) for v in vectors))  # noqa
 
-    permutation = np.argsort(vectors[0])
+    permutation = np.argsort(vectors[0], stable=True)
 
     return tuple((np.array(v)[permutation] for v in vectors))  # noqa
 

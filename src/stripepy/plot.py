@@ -521,10 +521,10 @@ def _fetch_persistence_maximum_points(result: Result, resolution: int, start: in
 
     min_persistence = result.min_persistence
     lt_idx, lt_seeds = fetch(
-        np.sort(TDA(pd_lt, min_persistence=min_persistence)[2]), start // resolution, end // resolution
+        np.sort(TDA(pd_lt, min_persistence=min_persistence)[2], stable=True), start // resolution, end // resolution
     )
     ut_idx, ut_seeds = fetch(
-        np.sort(TDA(pd_ut, min_persistence=min_persistence)[2]), start // resolution, end // resolution
+        np.sort(TDA(pd_ut, min_persistence=min_persistence)[2], stable=True), start // resolution, end // resolution
     )
 
     return {
