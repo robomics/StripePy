@@ -139,7 +139,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
 
-      - name: Upload unit test coverage report to Codecov
+      - name: Upload unit test coverage report to Codecov (core)
         if: matrix.minimal_install != 'true'
         uses: codecov/codecov-action@v5
         with:
