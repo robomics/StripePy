@@ -15,6 +15,9 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  contents: read
+
 env:
   TEST_MCOOL_NAME: 4DNFI9GMP2J8.mcool
   TEST_MCOOL_URL: "https://zenodo.org/records/14616548/files/4DNFI9GMP2J8.stripepy.mcool?download=1"

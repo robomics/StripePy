@@ -39,6 +39,10 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  attestations: write
+  contents: read
+
 jobs:
   build-package:
     name: Build package distribution

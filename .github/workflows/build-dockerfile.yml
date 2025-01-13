@@ -43,6 +43,9 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  contents: read
+
 jobs:
   cache-test-datasets:
     name: Cache test dataset
@@ -53,8 +56,8 @@ jobs:
     needs: [cache-test-datasets]
     runs-on: ubuntu-latest
     permissions:
-      contents: "read"
-      packages: "write"
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
