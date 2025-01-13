@@ -742,7 +742,7 @@ def _plot_stripes_helper(args):
     fig, _ = plot.plot(
         result, resolution, "matrix_with_stripes", start=start, end=end, matrix=matrix, relative_change_threshold=cutoff
     )
-    dest = output_folder / f"stripes_{cutoff:.2g}.jpg"
+    dest = output_folder / f"stripes_{cutoff:.2f}.jpg"
     fig.savefig(dest, dpi=256)
     plt.close(fig)
 
