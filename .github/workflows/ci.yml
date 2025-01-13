@@ -82,12 +82,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Generate dependency file
+        run: |
+          echo 'os=${{ matrix.os }}' > dep-file.txt
+          echo 'python_version=${{ matrix.python_version }}' >> dep-file.txt
+          echo 'minimal_install=${{ matrix.minimal_install }}' >> dep-file.txt
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python_version }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            dep-file.txt
 
       - name: Install package
         run: |
