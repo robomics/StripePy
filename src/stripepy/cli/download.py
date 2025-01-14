@@ -229,7 +229,7 @@ def _download_multiple(names: Sequence[str], output_paths: Sequence[pathlib.Path
 
     for name, output_path in zip(names, output_paths):
         t0 = time.time()
-        dset_name, config = _lookup_dataset(name, None, math.inf)
+        dset_name, config = _lookup_dataset(name, None, math.inf, include_private=True)
 
         if output_path.exists():
             logger.info('found existing file "%s"', output_path)
