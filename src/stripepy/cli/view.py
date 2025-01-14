@@ -6,7 +6,7 @@ import pathlib
 import re
 import sys
 import warnings
-from typing import Union
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -44,7 +44,7 @@ def _read_stripes(f: ResultFile, chrom: str) -> pd.DataFrame:
 
 
 def _stripes_to_bedpe(
-    df: pd.DataFrame, chrom: str, size: int, resolution: int, transpose_policy: Union[str, None]
+    df: pd.DataFrame, chrom: str, size: int, resolution: int, transpose_policy: Optional[str]
 ) -> pd.DataFrame:
     num_stripes = len(df)
 
@@ -90,7 +90,7 @@ def _dump_stripes(f: ResultFile, chrom: str, size: int, resolution: int, cutoff:
 def run(
     h5_file: pathlib.Path,
     relative_change_threshold: float,
-    transform: Union[str, None],
+    transform: Optional[str] = None,
 ) -> int:
     with ResultFile(h5_file) as f:
         for chrom, size in f.chromosomes.items():
