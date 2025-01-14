@@ -419,7 +419,6 @@ def step_3(
         seed_sites=LT_MPs,
         seed_site_bounds=LT_bounded_mPs,
         max_width=int(max_width / (2 * resolution)) + 1,
-        map_=map,
         logger=logger,
     )
     UT_HIoIs = finders.find_HIoIs(
@@ -427,7 +426,6 @@ def step_3(
         seed_sites=UT_MPs,
         seed_site_bounds=UT_bounded_mPs,
         max_width=int(max_width / (2 * resolution)) + 1,
-        map_=map,
         logger=logger,
     )
 

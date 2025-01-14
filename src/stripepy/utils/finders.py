@@ -136,7 +136,6 @@ def find_HIoIs(
     seed_sites: npt.NDArray[int],
     seed_site_bounds: npt.NDArray[int],
     max_width: int,
-    map_=map,
     logger=None,
 ) -> pd.DataFrame:
     """
@@ -147,7 +146,6 @@ def find_HIoIs(
                                 (*) seed_site_bounds[i] is the left boundary
                                 (*) seed_site_bounds[i+1] is the right boundary
     :param max_width:           maximum width allowed
-    :param map_:                 alternative implementation of the built-in map function. Can be used to e.g. run this step in parallel by passing multiprocessing.Pool().map.
     :return:
     HIoIs                       a pd.DataFrame the list of left and right boundary for each seed site
     """
@@ -163,7 +161,7 @@ def find_HIoIs(
         for num_MP, seed_site in enumerate(seed_sites)
     )
 
-    tasks = map_(partial(find_horizontal_domain, pseudodistribution, max_width=max_width), params)
+    tasks = map(partial(find_horizontal_domain, pseudodistribution, max_width=max_width), params)
     # This efficiently constructs a 2D numpy with shape (N, 2) from a list of 2-element tuples, where N is the number of seed sites.
     # The first and second columns contains the left and right boundaries of the horizontal domains, respectively.
     HIoIs = np.fromiter(itertools.chain.from_iterable(tasks), count=2 * len(seed_sites), dtype=int).reshape(-1, 2)
