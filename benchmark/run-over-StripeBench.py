@@ -158,7 +158,7 @@ def run_stripepy(
     try:
         sp.check_call(args)
     except sp.CalledProcessError as e:
-        if "unrecognized arguments: --output-folder" not in e:
+        if "unrecognized arguments: --output-file" not in e:
             raise
         i = args.index("--output-file")
         args[i] = "--output-folder"
