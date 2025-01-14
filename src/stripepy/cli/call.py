@@ -340,15 +340,13 @@ def run(
                 start_time = time.time()
                 logger = logger.bind(step=(5,))
                 logger.info("generating plots")
+                query = f"{chrom_name}:{result.roi['genomic'][0]}-{result.roi['genomic'][1]}"
                 stripepy.step_5(
                     result,
                     resolution,
                     LT_Iproc,
                     UT_Iproc,
-                    f.fetch(
-                        f"{chrom_name}:{result.roi['genomic'][0]}-{result.roi['genomic'][1]}",
-                        normalization=normalization,
-                    ).to_numpy("full"),
+                    f.fetch(query, normalization=normalization).to_numpy("full"),
                     Iproc_RoI,
                     genomic_belt,
                     loc_pers_min,
