@@ -6,6 +6,7 @@ import contextlib
 import json
 import multiprocessing as mp
 import pathlib
+import shutil
 import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -139,14 +140,20 @@ def _init_mpl_backend(skip: bool):
         pass
 
 
-def _remove_existing_output_files(output_file: pathlib.Path, plot_dir: Optional[pathlib.Path]):
+def _remove_existing_output_files(
+    output_file: pathlib.Path, plot_dir: Optional[pathlib.Path], chromosomes: Dict[str, int]
+):
+    logger = structlog.get_logger()
+    logger.debug("removing %s...", output_file)
     output_file.unlink(missing_ok=True)
     if plot_dir is not None:
         for path in plot_dir.glob("*"):
-            if path.is_dir():
-                path.rmdir()
-            else:
-                path.unlink()
+            if path.stem in chromosomes:
+                logger.debug("removing %s...", path)
+                if path.is_dir():
+                    shutil.rmtree(path)
+                else:
+                    path.unlink()
 
 
 def run(
@@ -181,7 +188,7 @@ def run(
     f = others.open_matrix_file_checked(contact_map, resolution)
 
     if force:
-        _remove_existing_output_files(output_file, plot_dir)
+        _remove_existing_output_files(output_file, plot_dir, f.chromosomes())
 
     with contextlib.ExitStack() as ctx:
         main_logger = structlog.get_logger()
