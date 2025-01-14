@@ -3,26 +3,13 @@
 # SPDX-License-Identifier: MIT
 
 import pathlib
-import re
 import sys
-import warnings
 from typing import Union
 
 import numpy as np
 import pandas as pd
 
 from stripepy.IO import ResultFile
-
-
-def _normalize_df(df: pd.DataFrame) -> pd.DataFrame:
-    new_cols = []
-    for col in df.columns:
-        new_cols.append(re.sub(r"\W+", "_", col.lower()))
-
-    df.columns = new_cols
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        return df.convert_dtypes()
 
 
 def _read_stripes(f: ResultFile, chrom: str) -> pd.DataFrame:
@@ -92,8 +79,12 @@ def run(
     relative_change_threshold: float,
     transform: Union[str, None],
 ) -> int:
-    with ResultFile(h5_file) as f:
-        for chrom, size in f.chromosomes.items():
-            _dump_stripes(f, chrom, size, f.resolution, relative_change_threshold, transform)
+    try:
+        with ResultFile(h5_file) as f:
+            for chrom, size in f.chromosomes.items():
+                _dump_stripes(f, chrom, size, f.resolution, relative_change_threshold, transform)
+    except BrokenPipeError:
+        if sys.stdout.isatty():
+            raise
 
     return 0

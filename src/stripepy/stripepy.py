@@ -144,33 +144,6 @@ def _compute_global_pseudodistribution(T: ss.csr_matrix, smooth: bool = True) ->
     return pseudo_dist
 
 
-def _store_results(
-    hf: h5py._hl.group.Group,
-    pd: NDArray[np.float64],
-    min_points: List[int],
-    pers_of_min_points: List[float],
-    max_points: List[int],
-    pers_of_max_points: List[float],
-    min_persistence: float,
-):
-    hf.create_dataset("pseudo-distribution", data=np.array(pd), compression="gzip", compression_opts=4, shuffle=True)
-    hf.create_dataset(
-        "minima_pts_and_persistence",
-        data=np.array([min_points, pers_of_min_points]),
-        compression="gzip",
-        compression_opts=4,
-        shuffle=True,
-    )
-    hf.create_dataset(
-        "maxima_pts_and_persistence",
-        data=np.array([max_points, pers_of_max_points]),
-        compression="gzip",
-        compression_opts=4,
-        shuffle=True,
-    )
-    hf.parent.attrs["min_persistence_used"] = min_persistence
-
-
 def _check_neighborhood(
     values: NDArray[np.float64], min_value: float = 0.1, neighborhood_size: int = 10, threshold_percentage: float = 0.85
 ) -> List[int]:

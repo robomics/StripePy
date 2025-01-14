@@ -73,7 +73,7 @@ def _fetch_random_region(
     if logger is None:
         logger = structlog.get_logger()
 
-    for attempt in range(10):
+    for _ in range(10):
         chrom, start_pos, end_pos = _generate_random_region(
             f.chromosomes(include_ALL=False), f.resolution(), region_size
         )
@@ -133,14 +133,14 @@ def _parse_ucsc_region(
 
 
 def _validate_hdf5_result(
-    hf: hictkpy.File,
-    rf: ResultFile,
+    path_to_result_file: pathlib.Path,
+    resolution: int,
 ):
-    if hf.resolution() != rf.resolution:
-        raise RuntimeError(f'File "{hf.uri()}" and "{rf.path}" have different resolutions')
-
-    if hf.chromosomes(include_ALL=False) != rf.chromosomes:
-        raise RuntimeError(f'File "{hf.uri()}" and "{rf.path}" have different chromosomes')
+    with ResultFile(path_to_result_file) as rf:
+        if rf.resolution != resolution:
+            raise RuntimeError(
+                f'File "{rf.path}" has an unexpected resolution: expected {resolution}, found {rf.resolution}'
+            )
 
 
 def _plot_hic_matrix(
@@ -188,6 +188,8 @@ def _plot_hic_matrix_with_seeds(
     if logger is None:
         logger = structlog.get_logger()
 
+    _validate_hdf5_result(stripepy_hdf5, resolution)
+
     chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
 
     with ResultFile(stripepy_hdf5) as h5:
@@ -224,6 +226,8 @@ def _plot_hic_matrix_with_stripes(
 ) -> plt.Figure:
     if logger is None:
         logger = structlog.get_logger()
+
+    _validate_hdf5_result(stripepy_hdf5, resolution)
 
     if relative_change_threshold is None:
         relative_change_threshold = 0.0
