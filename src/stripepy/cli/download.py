@@ -24,7 +24,7 @@ from stripepy.utils.progress_bar import initialize_progress_bar
 def _get_datasets(max_size: float, include_private: bool) -> Dict[str, Dict[str, str]]:
     assert not math.isnan(max_size)
 
-    record_id = "14638947"
+    record_id = "14643417"
 
     datasets = {
         "4DNFI3RFZLZ5": {
@@ -68,7 +68,7 @@ def _get_datasets(max_size: float, include_private: bool) -> Dict[str, Dict[str,
         },
         "__results_v2": {
             "url": f"https://zenodo.org/records/{record_id}/files/results_4DNFI9GMP2J8_v2.hdf5?download=1",
-            "md5": "5679919b4a2eaaca685db5bd0db59c80",
+            "md5": "496fb92c1565c83b323e77d6d51ac321",
             "filename": "results_4DNFI9GMP2J8_v2.hdf5",
             "assembly": "hg38",
             "format": "stripepy",
