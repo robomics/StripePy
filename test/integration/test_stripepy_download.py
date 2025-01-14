@@ -35,18 +35,18 @@ class TestStripePyDownload:
     def test_download_by_name(tmpdir):
         dest = pathlib.Path(tmpdir) / "out"
 
-        args = ["download", "--name", "__results_v1", "--output", str(dest)]
+        args = ["download", "--name", "__results_v1", "--output", str(dest), "--include-private"]
         main(args)
 
         assert dest.is_file()
 
-        assert _hash_file(dest) == "172872e8de9f35909f87ff33c185a07b"
+        assert _hash_file(dest) == "8f4566c438b2b8a449393fb3b8fc2636"
 
     @staticmethod
     def test_download_random(tmpdir):
         dest = pathlib.Path(tmpdir) / "out"
 
-        args = ["download", "--max-size", "2", "--output", str(dest)]
+        args = ["download", "--max-size", "2", "--output", str(dest), "--include-private"]
         main(args)
 
         assert dest.is_file()
