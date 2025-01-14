@@ -38,7 +38,7 @@ def _read_stripes(f: ResultFile, chrom: str) -> pd.DataFrame:
         df1 = pd.concat([geo_lt, bio_lt], axis="columns")
         df2 = pd.concat([geo_ut, bio_ut], axis="columns")
 
-        return pd.concat([df1, df2]).set_index("seed").sort_index()
+        return pd.concat([df1, df2]).set_index("seed").sort_index(kind="stable")
     except Exception as e:
         raise RuntimeError(f'failed to read stripes for chromosome "{chrom}": {e}')
 
