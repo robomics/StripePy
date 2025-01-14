@@ -19,7 +19,7 @@ def _setup_matplotlib(subcommand: str, **kwargs):
     if subcommand not in {"call", "plot"}:
         return
 
-    if subcommand == "call" and kwargs["configs_input"]["roi"] is None:
+    if subcommand == "call" and "roi" not in kwargs:
         return
 
     try:
@@ -321,7 +321,7 @@ def main(args: Union[List[str], None] = None):
         _setup_matplotlib(subcommand, **args)
 
         if subcommand == "call":
-            _setup_logger(verbosity.upper(), matrix_file=args["configs_input"]["contact_map"])
+            _setup_logger(verbosity.upper(), matrix_file=args["contact_map"])
             return call.run(**args)
         if subcommand == "download":
             _setup_logger(verbosity.upper())
