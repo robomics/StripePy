@@ -20,7 +20,7 @@ from .regressions import _compute_wQISA_predictions
 
 def find_horizontal_domain(
     profile: npt.NDArray[float],
-    coarse_h_domain: Tuple[int, int, int],
+    params: Tuple[int, int, int, float],
     max_width: int = 1e9,
 ) -> Tuple[int, int]:
     """
@@ -31,14 +31,14 @@ def find_horizontal_domain(
     """
 
     # Unpacking:
-    MP, L_mP, R_mP = coarse_h_domain
+    MP, L_mP, R_mP, max_profile_value = params
 
     # Left and sides of candidate:
     L_interval = np.flip(profile[L_mP : MP + 1])
     R_interval = profile[MP : R_mP + 1]
 
     # LEFT INTERVAL
-    L_interval_shifted = np.append(L_interval[1:], [max(profile) + 1], axis=0)
+    L_interval_shifted = np.append(L_interval[1:], [max_profile_value + 1], axis=0)
     L_bound = np.where(L_interval - L_interval_shifted < 0)[0][0] + 1
     # L_interval_restr = L_interval[:L_bound]
     # L_interval_shifted_restr = L_interval_shifted[:L_bound]
@@ -46,7 +46,7 @@ def find_horizontal_domain(
     L_bound = np.minimum(L_bound, max_width)
 
     # RIGHT INTERVAL
-    R_interval_shifted = np.append(R_interval[1:], [max(profile) + 1], axis=0)
+    R_interval_shifted = np.append(R_interval[1:], [max_profile_value + 1], axis=0)
     R_bound = np.where(R_interval - R_interval_shifted < 0)[0][0] + 1
     # R_interval_restr = R_interval[:R_bound]
     # R_interval_shifted_restr = R_interval_shifted[:R_bound]
@@ -157,8 +157,9 @@ def find_HIoIs(
     if logger is None:
         logger = structlog.get_logger()
 
+    max_pseudodistribution_value = pseudodistribution.max()
     params = (
-        (seed_site, seed_site_bounds[num_MP], seed_site_bounds[num_MP + 1])
+        (seed_site, seed_site_bounds[num_MP], seed_site_bounds[num_MP + 1], max_pseudodistribution_value)
         for num_MP, seed_site in enumerate(seed_sites)
     )
 
