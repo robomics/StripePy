@@ -211,6 +211,9 @@ def run(
             ),
         )
 
+        if normalization is None:
+            normalization = "NONE"
+
         # Set up the process pool when appropriate
         if nproc > 1:
             main_logger.debug("initializing a pool of %d processes...", nproc)

@@ -98,7 +98,7 @@ def _fetch_random_region(
 def _fetch_matrix(
     path: pathlib.Path,
     resolution: int,
-    normalization: str,
+    normalization: Optional[str],
     region: Optional[str],
     logger=None,
 ) -> Tuple[str, int, int, NDArray]:
@@ -106,6 +106,9 @@ def _fetch_matrix(
         logger = structlog.get_logger()
 
     f = hictkpy.MultiResFile(path)[resolution]
+
+    if normalization is None:
+        normalization = "NONE"
 
     if region is None:
         return _fetch_random_region(f, normalization)
@@ -146,15 +149,18 @@ def _validate_hdf5_result(
 def _plot_hic_matrix(
     contact_map: pathlib.Path,
     resolution: int,
-    region: Optional[str],
     cmap: str,
-    normalization: str,
     log_scale: bool,
+    region: Optional[str] = None,
+    normalization: Optional[str] = None,
     logger=None,
     **kwargs,
 ) -> plt.Figure:
     if logger is None:
         logger = structlog.get_logger()
+
+    if normalization is None:
+        normalization = "NONE"
 
     chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
 
@@ -178,10 +184,10 @@ def _plot_hic_matrix_with_seeds(
     contact_map: pathlib.Path,
     stripepy_hdf5: pathlib.Path,
     resolution: int,
-    region: Optional[str],
     cmap: str,
-    normalization: str,
     log_scale: bool,
+    region: Optional[str] = None,
+    normalization: Optional[str] = None,
     logger=None,
     **kwargs,
 ) -> plt.Figure:
@@ -212,13 +218,13 @@ def _plot_hic_matrix_with_stripes(
     contact_map: pathlib.Path,
     stripepy_hdf5: pathlib.Path,
     resolution: int,
-    relative_change_threshold: Optional[float],
-    region: Optional[str],
     cmap: str,
-    normalization: str,
     override_height: bool,
     mask_regions: bool,
     log_scale: bool,
+    region: Optional[str] = None,
+    relative_change_threshold: Optional[float] = None,
+    normalization: Optional[str] = None,
     logger=None,
     **kwargs,
 ) -> plt.Figure:
@@ -287,7 +293,7 @@ def _plot_pseudodistribution(
 
 def _plot_stripe_dimension_distribution(
     stripepy_hdf5: pathlib.Path,
-    region: Optional[str],
+    region: Optional[str] = None,
     logger=None,
     **kwargs,
 ) -> plt.Figure:
