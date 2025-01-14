@@ -264,15 +264,15 @@ def _download_data_for_end2end_tests():
 
 
 def run(
-    name: Optional[str],
-    output_path: Optional[pathlib.Path],
-    assembly: Optional[str],
     max_size: float,
     list_only: bool,
     unit_test: bool,
     end2end_test: bool,
     include_private: bool,
     force: bool,
+    name: Optional[str] = None,
+    output_path: Optional[pathlib.Path] = None,
+    assembly: Optional[str] = None,
 ) -> int:
     t0 = time.time()
     if list_only:
