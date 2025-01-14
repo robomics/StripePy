@@ -120,7 +120,9 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArr
     return I_RoI
 
 
-def _compute_global_pseudodistribution(T: ss.csr_matrix, smooth: bool = True) -> NDArray[float]:
+def _compute_global_pseudodistribution(
+    T: ss.csr_matrix, smooth: bool = True, decimal_places: int = 10
+) -> NDArray[float]:
     """
     Given a sparse matrix T, marginalize it, scale the marginal so that maximum is 1, and then smooth it.
 
@@ -130,10 +132,13 @@ def _compute_global_pseudodistribution(T: ss.csr_matrix, smooth: bool = True) ->
         the sparse matrix to be processed
     smooth: bool
         if set to True, smoothing is applied to the pseudo-distribution (default value is True)
+    decimal_places: int
+        the number of decimal places to truncate the pseudo-distribution to.
+        Pass -1 to not truncate the pseudo-distribution values
 
     Returns
     -------
-    NDArray[np.float64]
+    NDArray[float]
         a vector with the re-scaled and smoothed marginals.
     """
 
@@ -141,6 +146,12 @@ def _compute_global_pseudodistribution(T: ss.csr_matrix, smooth: bool = True) ->
     pseudo_dist /= np.max(pseudo_dist)  # scaling
     if smooth:
         pseudo_dist = np.maximum(regressions._compute_wQISA_predictions(pseudo_dist, 11), pseudo_dist)  # smoothing
+
+    if decimal_places >= 0:
+        # We need to truncate FP numbers to ensure that later steps generate consistent results
+        # even in the presence to very minor numeric differences on different platforms.
+        return common.truncate_np(pseudo_dist, decimal_places)
+
     return pseudo_dist
 
 
@@ -290,10 +301,10 @@ def step_2(
     # so that each maximum is still paired to its minimum.
 
     # Maximum and minimum points sorted w.r.t. coordinates (NOTATION: cs = coordinate-sorted):
-    LT_mPs, LT_pers_of_mPs = common.sort_based_on_arg0(LT_ps_mPs, pers_of_LT_ps_mPs)
-    LT_MPs, LT_pers_of_MPs = common.sort_based_on_arg0(LT_ps_MPs, pers_of_LT_ps_MPs)
-    UT_mPs, UT_pers_of_mPs = common.sort_based_on_arg0(UT_ps_mPs, pers_of_UT_ps_mPs)
-    UT_MPs, UT_pers_of_MPs = common.sort_based_on_arg0(UT_ps_MPs, pers_of_UT_ps_MPs)
+    LT_mPs, LT_pers_of_mPs = common.sort_values(LT_ps_mPs, pers_of_LT_ps_mPs)
+    LT_MPs, LT_pers_of_MPs = common.sort_values(LT_ps_MPs, pers_of_LT_ps_MPs)
+    UT_mPs, UT_pers_of_mPs = common.sort_values(UT_ps_mPs, pers_of_UT_ps_mPs)
+    UT_MPs, UT_pers_of_MPs = common.sort_values(UT_ps_MPs, pers_of_UT_ps_MPs)
 
     logger.bind(step=(2, 2, 3)).info("removing seeds overlapping sparse regions")
     LT_mask = _check_neighborhood(_compute_global_pseudodistribution(L, smooth=False))
