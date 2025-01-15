@@ -570,7 +570,7 @@ class ResultFile(object):
             if field.startswith("persistence"):
                 data = data[1, :]
             elif field.endswith("points"):
-                data = data[0, :]
+                data = data[0, :].astype(int)
             return pd.DataFrame({field: data})
 
         df = pd.DataFrame(data=self._h5[path], columns=self._h5[path].attrs["col_names"])
