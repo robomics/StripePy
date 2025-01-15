@@ -5,7 +5,7 @@
 import itertools
 import time
 from functools import partial
-from typing import List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -13,8 +13,8 @@ import pandas as pd
 import scipy.sparse as ss
 import structlog
 
-from . import TDA
 from .common import pretty_format_elapsed_time
+from .persistence1d import PersistenceTable
 from .regressions import _compute_wQISA_predictions
 
 
@@ -56,79 +56,106 @@ def find_horizontal_domain(
     return max(MP - L_bound, 0), min(MP + R_bound, len(profile))
 
 
-def find_lower_v_domain(I, threshold_cut, max_height, min_persistence, it) -> Tuple[List, Optional[List]]:
+def _extract_standardized_local_1d_pseudodistribution(
+    matrix: ss.csr_matrix, max_height: int, seed_site: int, left_bound: int, right_bound: int, location: str
+) -> npt.NDArray[float]:
+    # assert location in {"lower", "upper"}
 
-    # For each slice (hosting a seed site):
-    n, seed_site, HIoI = it
+    if location == "lower":
+        i0, i1 = seed_site, min(seed_site + max_height, matrix.shape[0])
+    else:
+        i0, i1 = max(seed_site - max_height, 0), seed_site
 
-    # Standardized Local 1D pseudo-distribution for current HIoI:
-    rows = slice(seed_site, min(seed_site + max_height, I.shape[0]))
-    cols = slice(HIoI[0], HIoI[1])
-    I_nb = I[rows, :].tocsc()[:, cols].toarray()
+    j0, j1 = left_bound, right_bound
+    submatrix = matrix[i0:i1, :].tocsc()[:, j0:j1]
 
-    Y = np.sum(I_nb, axis=1)
-    Y /= max(Y)
+    y = submatrix.sum(axis=1)
+    if isinstance(y, np.matrix):
+        y = y.A1
 
-    # Lower boundary:
-    Y_hat = _compute_wQISA_predictions(Y, 5)  # Basically: average of a 2-"pixel" neighborhood
+    y /= y.max()
+    if location == "lower":
+        return y
 
-    # Peaks:
+    return np.flip(y)
+
+
+def _find_v_domain_helper(
+    profile: npt.NDArray[float], threshold_cut: float, min_persistence: Optional[float]
+) -> Tuple[int, Optional[npt.NDArray[int]]]:
+    # TODO rename and document
     if min_persistence is None:
-        candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
-        if len(candida_bound) == 0:
-            candida_bound = [len(Y_hat) - 1]
+        max_points = tuple()
+    else:
+        max_points = (
+            PersistenceTable.calculate_persistence(profile, min_persistence=min_persistence)
+            .max.sort_values(kind="stable")
+            .index.to_numpy()
+        )
 
-        # Vertical domain + no peak:
-        return [seed_site, seed_site + candida_bound[0]], None
+    if len(max_points) > 1:
+        return max_points.max(), max_points[:-1]  # drop global maximum
 
-    _, _, loc_Maxima, loc_pers_of_Maxima = TDA.TDA(Y, min_persistence=min_persistence)
-    candida_bound = [max(loc_Maxima)]
+    approximated_profile = _compute_wQISA_predictions(profile, 5)
+    candida_bound = int(np.argmax(approximated_profile < threshold_cut))
+    if approximated_profile[candida_bound] >= threshold_cut:
+        candida_bound = len(profile) - 1
 
-    # Consider as min_persistence is set to None:
-    if len(loc_Maxima) < 2:
-        candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
-        if len(candida_bound) == 0:
-            candida_bound = [len(Y_hat) - 1]
-
-    # Vertical domain + peaks:
-    return [seed_site, seed_site + candida_bound[0]], list(np.array(loc_Maxima[:-1]) + seed_site)
+    return candida_bound, None
 
 
-def find_upper_v_domain(I, threshold_cut, max_height, min_persistence, it) -> Tuple[List, Optional[List]]:
-
+def _find_lower_v_domain(
+    matrix: ss.csr_matrix,
+    threshold_cut: float,
+    max_height: int,
+    min_persistence: float,
+    return_maxima: bool,
+    it: Tuple[int, int, int],
+) -> Dict[str, Any]:
     # For each slice (hosting a seed site):
-    n, seed_site, HIoI = it
+    seed_site, left_bound, right_bound = it
 
-    # Standardized Local 1D pseudo-distribution for current HIoI:
-    rows = slice(max(seed_site - max_height, 0), seed_site)
-    cols = slice(HIoI[0], HIoI[1])
-    I_nb = I[rows, :].tocsc()[:, cols].toarray()
-    Y = np.flip(np.sum(I_nb, axis=1))
-    Y /= max(Y)
+    profile = _extract_standardized_local_1d_pseudodistribution(
+        matrix, max_height, seed_site, left_bound, right_bound, "lower"
+    )
+    candidate_bound, local_maxima = _find_v_domain_helper(profile, threshold_cut, min_persistence)
 
-    # Upper boundary:
-    Y_hat = _compute_wQISA_predictions(Y, 5)
+    res = {"top_bound": seed_site, "bottom_bound": seed_site + candidate_bound}
 
-    # Peaks:
-    if min_persistence is None:
-        candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
-        if len(candida_bound) == 0:
-            candida_bound = [len(Y_hat) - 1]
+    if not return_maxima or local_maxima is None:
+        return res
 
-        # Vertical domain + no peak:
-        return [seed_site - candida_bound[0], seed_site], None
+    local_maxima += seed_site
+    res["maxima"] = local_maxima
+    return res
 
-    _, _, loc_Maxima, loc_pers_of_Maxima = TDA.TDA(Y, min_persistence=min_persistence)
-    candida_bound = [max(loc_Maxima)]
 
-    # Consider as min_persistence is set to None:
-    if len(loc_Maxima) < 2:
-        candida_bound = np.where(np.array(Y_hat) < threshold_cut)[0]
-        if len(candida_bound) == 0:
-            candida_bound = [len(Y_hat) - 1]
+def _find_upper_v_domain(
+    matrix: ss.csr_matrix,
+    threshold_cut: float,
+    max_height: int,
+    min_persistence: float,
+    return_maxima: bool,
+    it: Tuple[int, int, int],
+) -> Dict[str, Any]:
+    # For each slice (hosting a seed site):
+    seed_site, left_bound, right_bound = it
 
-    # Vertical domain + peaks:
-    return [seed_site - candida_bound[0], seed_site], list(seed_site - np.array(loc_Maxima[:-1]))
+    profile = _extract_standardized_local_1d_pseudodistribution(
+        matrix, max_height, seed_site, left_bound, right_bound, "upper"
+    )
+    candidate_bound, local_maxima = _find_v_domain_helper(profile, threshold_cut, min_persistence)
+
+    res = {"top_bound": seed_site - candidate_bound, "bottom_bound": seed_site}
+
+    if not return_maxima or local_maxima is None:
+        return res
+
+    local_maxima *= -1
+    local_maxima += seed_site
+
+    res["maxima"] = local_maxima
+    return res
 
 
 def find_HIoIs(
@@ -178,36 +205,46 @@ def find_HIoIs(
 
 
 def find_VIoIs(
-    I,
-    seed_sites,
-    HIoIs,
-    max_height,
-    threshold_cut=0.1,
-    min_persistence=0.20,
-    where="lower",
-    map=map,
-):
+    I: ss.csr_matrix,
+    seed_sites: npt.NDArray[int],
+    HIoIs: pd.DataFrame,
+    max_height: int,
+    threshold_cut: float,
+    min_persistence: float,
+    location: str,
+    return_maxima: bool = False,
+    map_=map,
+    logger=None,
+) -> pd.DataFrame:
+    assert len(seed_sites) == len(HIoIs)
+
+    t0 = time.time()
+    if logger is None:
+        logger = structlog.get_logger()
+
+    if location == "lower":
+        finder = _find_lower_v_domain
+    elif location == "upper":
+        finder = _find_upper_v_domain
+    else:
+        raise ValueError("where should be lower or upper")
 
     # Triplets to use in multiprocessing:
-    iterable_input = [(n, seed_site, HIoI) for n, (seed_site, HIoI) in enumerate(zip(seed_sites, HIoIs))]
+    params = (
+        (seed_site, left_bound, right_bound)
+        for seed_site, (left_bound, right_bound) in zip(seed_sites, HIoIs.itertuples(index=False))
+    )
 
-    # Lower-triangular part of the Hi-C matrix:
-    if where == "lower":
-        Vdomains_and_peaks = map(
-            partial(find_lower_v_domain, I, threshold_cut, max_height, min_persistence),
-            iterable_input,
-        )
+    tasks = map_(
+        partial(finder, I, threshold_cut, max_height, min_persistence, return_maxima),
+        params,
+    )
 
-        VIoIs, peak_locs = list(zip(*Vdomains_and_peaks))
+    df = pd.DataFrame.from_records(
+        data=tasks,
+        nrows=len(seed_sites),
+    )
 
-    # Upper-triangular part of the Hi-C matrix:
-    elif where == "upper":
-        # HIoIs = pool.map(partial(find_h_domain, pd), iterable_input)
-        Vdomains_and_peaks = map(
-            partial(find_upper_v_domain, I, threshold_cut, max_height, min_persistence),
-            iterable_input,
-        )
+    logger.debug("find_VIoIs took %s", pretty_format_elapsed_time(t0))
 
-        VIoIs, peak_locs = list(zip(*Vdomains_and_peaks))
-
-    return VIoIs, peak_locs
+    return df

@@ -4,40 +4,10 @@
 
 import decimal
 import time
-from typing import Optional, Sequence, Tuple
+from typing import Optional
 
 import numpy as np
-import pandas as pd
 from numpy.typing import NDArray
-
-
-def sort_values(*vectors: Sequence) -> Tuple[NDArray]:
-    """
-    Sort two or more sequences of objects as if each sequence was a column in a
-    table and the table was being sorted row-by-row based on values from all columns.
-
-    Parameters
-    ----------
-    vectors: two or more sequences to be sorted
-
-    Returns
-    -------
-    Tuple[NDArray]
-        the sorted sequences as numpy.ndarray
-    """
-    if len(vectors) < 2:
-        raise ValueError("please specify at least two sequences")
-
-    for v in vectors[1:]:
-        assert len(vectors[0]) == len(v)
-
-    if len(vectors[0]) == 0:
-        return tuple((np.array(v) for v in vectors))  # noqa
-
-    df = pd.DataFrame({i: v for i, v in enumerate(vectors)})
-    df.sort_values(by=df.columns.tolist(), inplace=True, kind="stable")
-
-    return tuple(df[col].to_numpy() for col in df.columns)  # noqa
 
 
 def pretty_format_elapsed_time(t0: float, t1: Optional[float] = None) -> str:

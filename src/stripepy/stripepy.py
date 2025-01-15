@@ -15,7 +15,8 @@ import structlog
 from numpy.typing import NDArray
 
 from . import IO, plot
-from .utils import TDA, common, finders, regressions, stripe
+from .utils import common, finders, regressions, stripe
+from .utils.persistence1d import PersistenceTable
 
 
 def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
@@ -183,51 +184,76 @@ def _store_results(
 
 
 def _check_neighborhood(
-    values: NDArray[np.float64], min_value: float = 0.1, neighborhood_size: int = 10, threshold_percentage: float = 0.85
-) -> List[int]:
+    values: NDArray[float],
+    min_value: float = 0.1,
+    neighborhood_size: int = 10,
+    threshold_percentage: float = 0.85,
+) -> NDArray[bool]:
     # TODO rea1991 Change neighborhood size from "matrix" to "genomic" (eg, default of 1 Mb)
     assert 0 <= min_value
     assert 1 <= neighborhood_size <= len(values)
     assert 0 <= threshold_percentage <= 1
 
-    mask = [0] * len(values)
+    if len(values) < neighborhood_size * 2:
+        return np.full_like(values, False, dtype=bool)
+
+    mask = np.full_like(values, True, dtype=bool)
+    mask[:neighborhood_size] = False
+    mask[-neighborhood_size:] = False
+
     for i in range(neighborhood_size, len(values) - neighborhood_size):
         neighborhood = values[i - neighborhood_size : i + neighborhood_size + 1]
-        ratio_above_min_value = sum(1 for value in neighborhood if value >= min_value) / len(neighborhood)
+        ratio_above_min_value = (neighborhood >= min_value).sum() / len(neighborhood)
 
-        if ratio_above_min_value >= threshold_percentage:
-            mask[i] = 1
+        if ratio_above_min_value < threshold_percentage:
+            mask[i] = False
     return mask
 
 
 def _filter_extrema_by_sparseness(
-    ps_mPs: NDArray[int],
-    pers_of_ps_mPs: NDArray[float],
-    ps_MPs: NDArray[int],
-    pers_of_ps_MPs: NDArray[float],
-    mask: NDArray[int],
-) -> Tuple[NDArray[int], NDArray[float], NDArray[int], NDArray[float]]:
-    ps_mPs_2, pers_of_ps_mPs_2, ps_MPs_2, pers_of_ps_MPs_2 = [], [], [], []
+    matrix: ss.csr_matrix,
+    min_points: pd.Series,
+    max_points: pd.Series,
+    location: str,
+    logger=None,
+) -> Tuple[pd.Series, pd.Series]:
+    # The following asserts are disabled for performance reasons
+    # assert matrix.shape[0] == matrix.shape[1]
+    # assert len(min_points) + 1 == len(max_points)
+    # assert min_points.index.is_monotonic_increasing
+    # assert min_points.index.max() < matrix.shape[0]
+    # assert max_points.index.is_monotonic_increasing
+    # assert max_points.index.max() < matrix.shape[0]
 
-    for i in range(len(ps_MPs)):
-        if mask[ps_MPs[i]] == 1:
-            ps_MPs_2.append(ps_MPs[i])
-            pers_of_ps_MPs_2.append(pers_of_ps_MPs[i])
-
-            # Last maximum point is not paired with a minimum point by construction:
-            if i < len(ps_MPs) - 1:
-                ps_mPs_2.append(ps_mPs[i])
-                pers_of_ps_mPs_2.append(pers_of_ps_mPs[i])
+    points_to_keep = np.where(_check_neighborhood(_compute_global_pseudodistribution(matrix, smooth=False)))[0]
+    mask = np.isin(max_points.index.to_numpy(), points_to_keep, assume_unique=True)
+    max_points_filtered = max_points[mask]
+    min_points_filtered = min_points[mask[:-1]]
 
     # If last maximum point was discarded, we need to remove the minimum point before it:
-    if len(ps_mPs_2) == len(ps_MPs_2) and len(ps_mPs_2) > 0:
-        ps_mPs_2.pop()
-        pers_of_ps_mPs_2.pop()
+    if len(min_points_filtered) > 0 and len(min_points_filtered) == len(max_points_filtered):
+        min_points_filtered = min_points_filtered.iloc[:-1]
 
-    return np.array(ps_mPs_2), np.array(pers_of_ps_mPs_2), np.array(ps_MPs_2), np.array(pers_of_ps_MPs_2)
+    if logger is None:
+        logger = structlog.get_logger()
+
+    if location == "LT":
+        location = "lower triangular part"
+    else:
+        assert location == "UT"
+        location = "upper triangular part"
+
+    if len(max_points_filtered) == len(max_points):
+        logger.bind(step=(2, 2, 3)).info("%s: no change in the number of seed sites", location)
+    else:
+        logger.bind(step=(2, 2, 3)).info(
+            "%s: number of seed sites reduced from %d to %d", location, len(max_points), len(max_points_filtered)
+        )
+
+    return min_points_filtered, max_points_filtered
 
 
-def step_1(I, genomic_belt, resolution, RoI=None, output_folder=None, logger=None):
+def step_1(I, genomic_belt, resolution, RoI=None, logger=None):
     if logger is None:
         logger = structlog.get_logger()
 
@@ -274,82 +300,59 @@ def step_2(
     )
     logger.bind(step=(2, 2, 0)).info("all maxima and their persistence")
 
-    # NOTATION: mPs = minimum points, MPs = maximum Points, ps = persistence-sorted
-    # NB: MPs are the actual sites of interest, i.e., the sites hosting linear patterns
-
     # All local minimum and maximum points:
-    all_LT_ps_mPs, all_pers_of_LT_ps_mPs, all_LT_ps_MPs, all_pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=0)
-    all_UT_ps_mPs, all_pers_of_UT_ps_mPs, all_UT_ps_MPs, all_pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=0)
+    persistence = {}
 
-    result.set("all_minimum_points", all_LT_ps_mPs, "LT")
-    result.set("all_maximum_points", all_LT_ps_MPs, "LT")
-    result.set("persistence_of_all_minimum_points", all_pers_of_LT_ps_mPs, "LT")
-    result.set("persistence_of_all_maximum_points", all_pers_of_LT_ps_MPs, "LT")
-    result.set("all_minimum_points", all_UT_ps_mPs, "UT")
-    result.set("all_maximum_points", all_UT_ps_MPs, "UT")
-    result.set("persistence_of_all_minimum_points", all_pers_of_UT_ps_mPs, "UT")
-    result.set("persistence_of_all_maximum_points", all_pers_of_UT_ps_MPs, "UT")
+    logger.bind(step=(2, 2, 1)).info("computing persistence for the lower triangular part")
+    persistence["LT"] = PersistenceTable.calculate_persistence(LT_pd, min_persistence=0, sort_by="persistence")
 
-    logger.bind(step=(2, 2, 1)).info("lower triangular part")
-    LT_ps_mPs, pers_of_LT_ps_mPs, LT_ps_MPs, pers_of_LT_ps_MPs = TDA.TDA(LT_pd, min_persistence=min_persistence)
+    logger.bind(step=(2, 2, 2)).info("computing persistence for the upper triangular part")
+    persistence["UT"] = PersistenceTable.calculate_persistence(UT_pd, min_persistence=0, sort_by="persistence")
 
-    logger.bind(step=(2, 2, 2)).info("upper triangular part")
-    # Here, LT_ps_mPs means that the lower-triangular minimum points are sorted w.r.t. persistence
-    # (NOTATION: ps = persistence-sorted)
-    UT_ps_mPs, pers_of_UT_ps_mPs, UT_ps_MPs, pers_of_UT_ps_MPs = TDA.TDA(UT_pd, min_persistence=min_persistence)
-    # NB: Maxima are sorted w.r.t. their persistence... and this sorting is applied to minima too,
-    # so that each maximum is still paired to its minimum.
+    for location, data in persistence.items():
+        # TODO refactor setter to accept PersistenceTable objects directly
+        result.set("all_minimum_points", data.min.index.to_numpy(copy=True), location)
+        result.set("all_maximum_points", data.max.index.to_numpy(copy=True), location)
+        result.set("persistence_of_all_minimum_points", data.min.to_numpy(copy=True), location)
+        result.set("persistence_of_all_maximum_points", data.max.to_numpy(copy=True), location)
 
-    # Maximum and minimum points sorted w.r.t. coordinates (NOTATION: cs = coordinate-sorted):
-    LT_mPs, LT_pers_of_mPs = common.sort_values(LT_ps_mPs, pers_of_LT_ps_mPs)
-    LT_MPs, LT_pers_of_MPs = common.sort_values(LT_ps_MPs, pers_of_LT_ps_MPs)
-    UT_mPs, UT_pers_of_mPs = common.sort_values(UT_ps_mPs, pers_of_UT_ps_mPs)
-    UT_MPs, UT_pers_of_MPs = common.sort_values(UT_ps_MPs, pers_of_UT_ps_MPs)
+        # TODO log
+        persistence[location].filter(min_persistence, method="greater")
+        persistence[location].sort(by="position")
 
     logger.bind(step=(2, 2, 3)).info("removing seeds overlapping sparse regions")
-    LT_mask = _check_neighborhood(_compute_global_pseudodistribution(L, smooth=False))
-    UT_mask = _check_neighborhood(_compute_global_pseudodistribution(U, smooth=False))
-    x = _filter_extrema_by_sparseness(LT_mPs, LT_pers_of_mPs, LT_MPs, LT_pers_of_MPs, LT_mask)
-    LT_mPs, LT_pers_of_mPs, LT_MPs, LT_pers_of_MPs = x
-    x = _filter_extrema_by_sparseness(UT_mPs, UT_pers_of_mPs, UT_MPs, UT_pers_of_MPs, UT_mask)
-    UT_mPs, UT_pers_of_mPs, UT_MPs, UT_pers_of_MPs = x
-    if len(LT_MPs) < len(LT_ps_MPs):
-        logger.bind(step=(2, 2, 3)).info(
-            "lower triangular part: number of seed sites reduced from %d to %d", len(LT_ps_MPs), len(LT_MPs)
+    for matrix, location in zip((L, U), ("LT", "UT")):
+        data = _filter_extrema_by_sparseness(
+            matrix=matrix,
+            min_points=persistence[location].min,
+            max_points=persistence[location].max,
+            location=location,
+            logger=logger,
         )
-    if len(UT_MPs) < len(UT_ps_MPs):
-        logger.bind(step=(2, 2, 3)).info(
-            "upper triangular part: number of seed sites reduced from %d to %d", len(UT_ps_MPs), len(UT_MPs)
+        persistence[location] = PersistenceTable(
+            pers_of_min_points=data[0], pers_of_max_points=data[1], level_sets="upper"
         )
-    if len(LT_MPs) == len(LT_ps_MPs) and len(UT_MPs) == len(UT_ps_MPs):
-        logger.bind(step=(2, 2, 3)).info("no change in the number of seed sites")
-
-    result.set("persistent_minimum_points", LT_mPs, "LT")
-    result.set("persistent_maximum_points", LT_MPs, "LT")
-    result.set("persistence_of_minimum_points", LT_pers_of_mPs, "LT")
-    result.set("persistence_of_maximum_points", LT_pers_of_MPs, "LT")
-
-    result.set("persistent_minimum_points", UT_mPs, "UT")
-    result.set("persistent_maximum_points", UT_MPs, "UT")
-    result.set("persistence_of_minimum_points", UT_pers_of_mPs, "UT")
-    result.set("persistence_of_maximum_points", UT_pers_of_MPs, "UT")
+        result.set("persistent_minimum_points", persistence[location].min.index.to_numpy(), location)
+        result.set("persistent_maximum_points", persistence[location].max.index.to_numpy(), location)
+        result.set("persistence_of_minimum_points", persistence[location].min.to_numpy(), location)
+        result.set("persistence_of_maximum_points", persistence[location].max.to_numpy(), location)
 
     # If no candidates are found in the lower- or upper-triangular maps, exit:
-    if len(LT_MPs) == 0 or len(UT_MPs) == 0:
+    if len(persistence["LT"].max) == 0 or len(persistence["UT"].max) == 0:
         return result
 
     logger.bind(step=(2, 3, 1)).info("lower-triangular part: generating list of candidate stripes...")
     stripes = [
-        stripe.Stripe(seed=LT_MP, top_pers=LT_pers_of_MP, where="lower_triangular")
-        for LT_MP, LT_pers_of_MP in zip(LT_MPs, LT_pers_of_MPs)
+        stripe.Stripe(seed=x, top_pers=pers, where="lower_triangular")  # noqa
+        for x, pers in persistence["LT"].max.items()
     ]
     logger.bind(step=(2, 3, 1)).info("lower-triangular part: generated %d candidate stripes", len(stripes))
     result.set("stripes", stripes, "LT")
 
     logger.bind(step=(2, 3, 2)).info("upper-triangular part: generating list of candidate stripes...")
     stripes = [
-        stripe.Stripe(seed=UT_MP, top_pers=UT_pers_of_MP, where="upper_triangular")
-        for UT_MP, UT_pers_of_MP in zip(UT_MPs, UT_pers_of_MPs)
+        stripe.Stripe(seed=x, top_pers=pers, where="upper_triangular")  # noqa
+        for x, pers in persistence["UT"].max.items()
     ]
     logger.bind(step=(2, 3, 2)).info("upper-triangular part: generated %d candidate stripes", len(stripes))
     result.set("stripes", stripes, "UT")
@@ -393,6 +396,7 @@ def step_3(
     # the global minimum (if any) that is to the left of the leftmost persistent maximum
     # AND
     # the global minimum (if any) that is to the right of the rightmost persistent maximum
+    # TODO this can be simplified a lot
     LT_L_nb = np.arange(0, LT_MPs[0])
     LT_R_nb = np.arange(LT_MPs[-1], L.shape[0])
     UT_L_nb = np.arange(0, UT_MPs[0])
@@ -447,42 +451,42 @@ def step_3(
     logger.bind(step=(3, 2)).info("height estimation")
     start_time = time.time()
 
-    LT_HIoIs = LT_HIoIs.to_numpy()  # TODO remove
-    UT_HIoIs = UT_HIoIs.to_numpy()  # TODO remove
-
     logger.bind(step=(3, 2, 1)).info("estimating candidate stripe heights")
-    LT_VIoIs, LT_peaks_ids = finders.find_VIoIs(
+    LT_VIoIs = finders.find_VIoIs(
         L,
         LT_MPs,
         LT_HIoIs,
         max_height=int(genomic_belt / resolution),
         threshold_cut=loc_trend_min,
         min_persistence=loc_pers_min,
-        where="lower",
-        map=map,
+        location="lower",
+        map_=map,
+        logger=logger,
     )
-    UT_VIoIs, UT_peaks_ids = finders.find_VIoIs(
+    UT_VIoIs = finders.find_VIoIs(
         U,
         UT_MPs,
         UT_HIoIs,
         max_height=int(genomic_belt / resolution),
         threshold_cut=loc_trend_min,
         min_persistence=loc_pers_min,
-        where="upper",
-        map=map,
+        location="upper",
+        map_=map,
+        logger=logger,
     )
 
-    # List of left or right boundaries:
-    LT_U_bounds, LT_D_bounds = map(list, zip(*LT_VIoIs))
-    UT_U_bounds, UT_D_bounds = map(list, zip(*UT_VIoIs))
-
     logger.bind(step=(3, 1, 2)).info("updating candidate stripes with height information")
-    lt_stripes = result.get("stripes", "LT")
-    for num_cand_stripe, (LT_U_bound, LT_D_bound) in enumerate(zip(LT_U_bounds, LT_D_bounds)):
-        lt_stripes[num_cand_stripe].set_vertical_bounds(LT_U_bound, LT_D_bound)
-    ut_stripes = result.get("stripes", "UT")
-    for num_cand_stripe, (UT_U_bound, UT_D_bound) in enumerate(zip(UT_U_bounds, UT_D_bounds)):
-        ut_stripes[num_cand_stripe].set_vertical_bounds(UT_U_bound, UT_D_bound)
+    stripes = result.get("stripes", "LT")
+    LT_VIoIs[["top_bound", "bottom_bound"]].apply(
+        lambda seed: stripes[seed.name].set_vertical_bounds(seed["top_bound"], seed["bottom_bound"]),
+        axis="columns",
+    )
+
+    stripes = result.get("stripes", "UT")
+    UT_VIoIs[["top_bound", "bottom_bound"]].apply(
+        lambda seed: stripes[seed.name].set_vertical_bounds(seed["top_bound"], seed["bottom_bound"]),
+        axis="columns",
+    )
 
     logger.bind(step=(3, 2)).info("height estimation took %s", common.pretty_format_elapsed_time(start_time))
 
@@ -652,8 +656,10 @@ def _plot_local_pseudodistributions_helper(args):
     x = np.arange(seed, seed + len(y))
     y_hat = finders._compute_wQISA_predictions(y, 5)  # Basically: average of a 2-"pixel" neighborhood
 
-    _, _, loc_maxima, _ = TDA.TDA(y, min_persistence=min_persistence)
-    candidate_bound = [max(loc_maxima)]
+    loc_maxima = PersistenceTable.calculate_persistence(
+        y, min_persistence=min_persistence, sort_by="persistence"
+    ).max.index.to_numpy()
+    candidate_bound = [loc_maxima.max()]
 
     if len(loc_maxima) < 2:
         candidate_bound = np.where(y_hat < loc_trend_min)[0]
