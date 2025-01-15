@@ -697,6 +697,8 @@ def _plot_local_pseudodistributions(
     map,
     logger,
 ):
+    output_folder.mkdir()
+
     start, end = result.roi["genomic"]
     max_height = int(np.ceil(genomic_belt / resolution))
 
@@ -836,12 +838,11 @@ def step_5(
     genomic_belt: int,
     loc_pers_min: float,
     loc_trend_min: float,
-    output_folder: Optional[pathlib.Path],
+    output_folder: pathlib.Path,
     map=map,
     logger=None,
 ):
-    if result.roi is None:
-        return
+    assert result.roi is not None
 
     plt = common._import_pyplot()
 
@@ -850,6 +851,10 @@ def step_5(
 
     chrom_name, chrom_size = result.chrom
     start, end = result.roi["genomic"]
+
+    for directory in ("1_preprocessing", "2_TDA", "3_shape_analysis", "4_biological_analysis"):
+        (output_folder / chrom_name / directory).mkdir(parents=True, exist_ok=True)
+
     dummy_result = IO.Result(chrom_name, chrom_size)
 
     matrix_output_paths = (
