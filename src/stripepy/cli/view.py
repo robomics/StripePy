@@ -4,7 +4,8 @@
 
 import pathlib
 import sys
-from typing import Union
+import warnings
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -25,13 +26,13 @@ def _read_stripes(f: ResultFile, chrom: str) -> pd.DataFrame:
         df1 = pd.concat([geo_lt, bio_lt], axis="columns")
         df2 = pd.concat([geo_ut, bio_ut], axis="columns")
 
-        return pd.concat([df1, df2]).set_index("seed").sort_index()
+        return pd.concat([df1, df2]).set_index("seed").sort_index(kind="stable")
     except Exception as e:
         raise RuntimeError(f'failed to read stripes for chromosome "{chrom}": {e}')
 
 
 def _stripes_to_bedpe(
-    df: pd.DataFrame, chrom: str, size: int, resolution: int, transpose_policy: Union[str, None]
+    df: pd.DataFrame, chrom: str, size: int, resolution: int, transpose_policy: Optional[str]
 ) -> pd.DataFrame:
     num_stripes = len(df)
 
@@ -77,7 +78,7 @@ def _dump_stripes(f: ResultFile, chrom: str, size: int, resolution: int, cutoff:
 def run(
     h5_file: pathlib.Path,
     relative_change_threshold: float,
-    transform: Union[str, None],
+    transform: Optional[str] = None,
 ) -> int:
     try:
         with ResultFile(h5_file) as f:
