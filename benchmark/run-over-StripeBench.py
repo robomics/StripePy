@@ -56,8 +56,7 @@ def make_cli():
     cli.add_argument(
         "stripebench-path",
         type=_input_dir_checked,
-        help="Path to the StripeBench dataset, which can be downloaded from XX.",
-        # TODO complete when benchmark is online
+        help="Path to the StripeBench dataset, which can be downloaded from Zenodo (DOI: 10.5281/zenodo.14448328).",
     )
 
     cli.add_argument(
