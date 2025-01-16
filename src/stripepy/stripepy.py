@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import functools
 import itertools
 import pathlib
 import time
@@ -496,10 +497,23 @@ def step_3(
     return result
 
 
+def _step4_helper(it: Tuple[ss.csr_matrix, Sequence[stripe.Stripe]], window: int) -> List[stripe.Stripe]:
+    assert window >= 0
+    matrix, stripes = it
+
+    for stripe in stripes:
+        stripe.compute_biodescriptors(matrix, window=window)
+
+    return list(stripes)
+
+
 def step_4(
     result: IO.Result,
     L: ss.csr_matrix,
     U: ss.csr_matrix,
+    window: int = 3,
+    num_chunks: int = 1,
+    map_=map,
     logger=None,
 ):
     if logger is None:
@@ -509,11 +523,44 @@ def step_4(
         logger.bind(step=(4,)).warning("no candidates found by step 2: returning immediately!")
         return result
 
+    def preproc_matrix(
+        matrix: ss.csr_matrix, stripes: Sequence[stripe.Stripe], no_op: bool
+    ) -> Union[ss.csr_matrix, ss.csc_matrix]:
+        if no_op:
+            return matrix
+
+        idx = []
+        for stripe in stripes:
+            i0 = max(0, stripe.left_bound - window)
+            i1 = min(stripe.right_bound + window + 1, matrix.shape[0])
+            idx.extend(range(i0, i1 + 1))
+
+        return common.zero_columns(matrix, idx)
+
     logger.bind(step=(4, 1)).info("computing stripe biological descriptors")
-    for LT_candidate_stripe in result.get("stripes", "LT"):
-        LT_candidate_stripe.compute_biodescriptors(L)
-    for UT_candidate_stripe in result.get("stripes", "UT"):
-        UT_candidate_stripe.compute_biodescriptors(U)
+
+    lt_stripes = result.get("stripes", "LT")
+    ut_stripes = result.get("stripes", "UT")
+
+    num_chunks_lt = min(num_chunks, (len(lt_stripes) + 99) // 100)
+    num_chunks_ut = min(num_chunks, (len(ut_stripes) + 99) // 100)
+
+    chunks_lt = (
+        (preproc_matrix(L, stripes, no_op=num_chunks_lt < 2), stripes)
+        for stripes in np.array_split(lt_stripes, num_chunks_lt)
+    )
+    chunks_ut = (
+        (preproc_matrix(U, stripes, no_op=num_chunks_ut < 2), stripes)
+        for stripes in np.array_split(ut_stripes, num_chunks_ut)
+    )
+
+    tasks = map_(functools.partial(_step4_helper, window=window), itertools.chain(chunks_lt, chunks_ut))
+
+    lt_stripes = list(itertools.chain.from_iterable(itertools.islice(tasks, num_chunks_lt)))
+    ut_stripes = list(itertools.chain.from_iterable(tasks))
+
+    result.set("stripes", lt_stripes, "LT", force=True)
+    result.set("stripes", ut_stripes, "UT", force=True)
 
     return result
 

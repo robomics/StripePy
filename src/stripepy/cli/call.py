@@ -297,6 +297,8 @@ def run(
                 result,
                 LT_Iproc,
                 UT_Iproc,
+                num_chunks=configs_other["nproc"],
+                map_=pool.map if pool is not None else map,
                 logger=logger,
             )
 

@@ -250,7 +250,13 @@ class Result(object):
 
         self._min_persistence = min_persistence
 
-    def set(self, name: str, data: Union[Sequence[int], Sequence[float], Sequence[Stripe]], location: str):
+    def set(
+        self,
+        name: str,
+        data: Union[Sequence[int], Sequence[float], Sequence[Stripe]],
+        location: str,
+        force: bool = False,
+    ):
         """
         Set the attribute corresponding to the given attribute name and location.
 
@@ -274,6 +280,8 @@ class Result(object):
             data to be registered with the Result instance
         location: str
             location of the attribute to be registered. Should be "LT" or "UT"
+        force: bool
+            force overwrite existing values
         """
         if location not in {"LT", "UT"}:
             raise ValueError("Location should be UT or LT")
@@ -284,7 +292,7 @@ class Result(object):
                 f"No attribute named \"{name}\". Valid attributes are: {', '.join(self._valid_attributes)}"
             )
 
-        if getattr(self, attr_name) is not None:
+        if not force and getattr(self, attr_name) is not None:
             raise RuntimeError(f'Attribute "{name}" for {location} has already been set')
 
         setattr(self, attr_name, np.array(data))
