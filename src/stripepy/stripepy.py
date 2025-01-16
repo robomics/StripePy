@@ -370,7 +370,7 @@ def step_3(
     max_width: int,
     loc_pers_min: float,
     loc_trend_min: float,
-    map=map,
+    map_=map,
     num_chunks: int = 1,
     logger=None,
 ) -> IO.Result:
@@ -462,7 +462,7 @@ def step_3(
         threshold_cut=loc_trend_min,
         min_persistence=loc_pers_min,
         location="lower",
-        map_=map,
+        map_=map_,
         num_chunks=num_chunks,
         logger=logger,
     )
@@ -474,7 +474,7 @@ def step_3(
         threshold_cut=loc_trend_min,
         min_persistence=loc_pers_min,
         location="upper",
-        map_=map,
+        map_=map_,
         num_chunks=num_chunks,
         logger=logger,
     )
@@ -893,7 +893,7 @@ def step_5(
     loc_pers_min: float,
     loc_trend_min: float,
     output_folder: Optional[pathlib.Path],
-    map=map,
+    map_=map,
     logger=None,
 ):
     if result.roi is None:
@@ -958,7 +958,7 @@ def step_5(
         loc_pers_min,
         loc_trend_min,
         output_folder / chrom_name / "3_shape_analysis" / "local_pseudodistributions",
-        map,
+        map_,
         logger,
     )
     _plot_stripes(
@@ -966,6 +966,6 @@ def step_5(
         resolution,
         proc_matrix,
         output_folder / chrom_name / "4_biological_analysis",
-        map,
+        map_,
         logger,
     )

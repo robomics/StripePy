@@ -281,7 +281,7 @@ def run(
                 configs_thresholds["max_width"],
                 configs_thresholds["loc_pers_min"],
                 configs_thresholds["loc_trend_min"],
-                map=pool.map if pool is not None else map,
+                map_=pool.map if pool is not None else map,
                 num_chunks=configs_other["nproc"],
                 logger=logger,
             )
@@ -329,7 +329,7 @@ def run(
                     configs_thresholds["loc_pers_min"],
                     configs_thresholds["loc_trend_min"],
                     configs_output["output_folder"] / "plots",
-                    map=pool.map if pool is not None else map,
+                    map_=pool.map if pool is not None else map,
                     logger=logger,
                 )
 
