@@ -5,7 +5,7 @@
 import itertools
 import time
 from functools import partial
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -13,7 +13,7 @@ import pandas as pd
 import scipy.sparse as ss
 import structlog
 
-from .common import pretty_format_elapsed_time
+from .common import pretty_format_elapsed_time, split_df, zero_columns
 from .persistence1d import PersistenceTable
 from .regressions import _compute_wQISA_predictions
 
@@ -57,9 +57,14 @@ def find_horizontal_domain(
 
 
 def _extract_standardized_local_1d_pseudodistribution(
-    matrix: ss.csr_matrix, max_height: int, seed_site: int, left_bound: int, right_bound: int, location: str
+    matrix: Union[ss.csr_matrix, ss.csc_matrix],
+    seed_site: int,
+    left_bound: int,
+    right_bound: int,
+    max_height: int,
+    location: str,
 ) -> npt.NDArray[float]:
-    # assert location in {"lower", "upper"}
+    # assert left_bound <= seed_site <= right_bound
 
     if location == "lower":
         i0, i1 = seed_site, min(seed_site + max_height, matrix.shape[0])
@@ -67,7 +72,19 @@ def _extract_standardized_local_1d_pseudodistribution(
         i0, i1 = max(seed_site - max_height, 0), seed_site
 
     j0, j1 = left_bound, right_bound
-    submatrix = matrix[i0:i1, :].tocsc()[:, j0:j1]
+    if isinstance(matrix, ss.csc_matrix):
+        submatrix = matrix[:, j0:j1].tocsr()[i0:i1, :].tocsc()
+    elif isinstance(matrix, ss.csr_matrix):
+        submatrix = matrix[i0:i1, :].tocsc()[:, j0:j1]
+    else:
+        return _extract_standardized_local_1d_pseudodistribution(
+            matrix=matrix.tocsr(),
+            seed_site=seed_site,
+            left_bound=left_bound,
+            right_bound=right_bound,
+            max_height=max_height,
+            location=location,
+        )
 
     y = submatrix.sum(axis=1)
     if isinstance(y, np.matrix):
@@ -77,6 +94,7 @@ def _extract_standardized_local_1d_pseudodistribution(
     if location == "lower":
         return y
 
+    # assert location == "upper"
     return np.flip(y)
 
 
@@ -106,17 +124,18 @@ def _find_v_domain_helper(
 
 def _find_lower_v_domain(
     matrix: ss.csr_matrix,
+    seed_site: int,
+    left_bound: int,
+    right_bound: int,
     threshold_cut: float,
     max_height: int,
     min_persistence: float,
     return_maxima: bool,
-    it: Tuple[int, int, int],
 ) -> Dict[str, Any]:
-    # For each slice (hosting a seed site):
-    seed_site, left_bound, right_bound = it
+    # assert left_bound <= seed_site <= right_bound
 
     profile = _extract_standardized_local_1d_pseudodistribution(
-        matrix, max_height, seed_site, left_bound, right_bound, "lower"
+        matrix, seed_site, left_bound, right_bound, max_height, "lower"
     )
     candidate_bound, local_maxima = _find_v_domain_helper(profile, threshold_cut, min_persistence)
 
@@ -132,17 +151,17 @@ def _find_lower_v_domain(
 
 def _find_upper_v_domain(
     matrix: ss.csr_matrix,
+    seed_site: int,
+    left_bound: int,
+    right_bound: int,
     threshold_cut: float,
     max_height: int,
     min_persistence: float,
     return_maxima: bool,
-    it: Tuple[int, int, int],
 ) -> Dict[str, Any]:
-    # For each slice (hosting a seed site):
-    seed_site, left_bound, right_bound = it
-
+    # assert left_bound <= seed_site <= right_bound
     profile = _extract_standardized_local_1d_pseudodistribution(
-        matrix, max_height, seed_site, left_bound, right_bound, "upper"
+        matrix, seed_site, left_bound, right_bound, max_height, "upper"
     )
     candidate_bound, local_maxima = _find_v_domain_helper(profile, threshold_cut, min_persistence)
 
@@ -156,6 +175,50 @@ def _find_upper_v_domain(
 
     res["maxima"] = local_maxima
     return res
+
+
+def _find_v_domains(
+    it: Tuple[Union[ss.csr_matrix, ss.csc_matrix], pd.DataFrame],
+    threshold: float,
+    max_height: int,
+    min_persistence: float,
+    return_maxima: bool,
+    location: str,
+) -> List[Dict[str, Any]]:
+    matrix, df = it
+
+    if location == "lower":
+        finder = _find_lower_v_domain
+    elif location == "upper":
+        finder = _find_upper_v_domain
+    else:
+        raise ValueError("where should be lower or upper")
+
+    results = []
+    cols = ["seed_site", "left_bound", "right_bound"]
+    for seed_site, left_bound, right_bound in df[cols].itertuples(index=False):
+        results.append(
+            finder(
+                matrix=matrix,
+                seed_site=seed_site,
+                left_bound=left_bound,
+                right_bound=right_bound,
+                threshold_cut=threshold,
+                max_height=max_height,
+                min_persistence=min_persistence,
+                return_maxima=return_maxima,
+            )
+        )
+
+    return results
+
+
+def _preproc_matrix_for_find_viois(matrix: ss.csr_matrix, sites: pd.DataFrame) -> Union[ss.csr_matrix, ss.csc_matrix]:
+    idx = []
+    for left_bound, right_bound in sites[["left_bound", "right_bound"]].itertuples(index=False):
+        idx.extend(range(left_bound, right_bound + 1))
+
+    return zero_columns(matrix, idx)
 
 
 def find_HIoIs(
@@ -214,36 +277,53 @@ def find_VIoIs(
     location: str,
     return_maxima: bool = False,
     map_=map,
+    num_chunks: int = 1,
     logger=None,
 ) -> pd.DataFrame:
+    assert num_chunks > 0
+    assert len(seed_sites) > 0
     assert len(seed_sites) == len(HIoIs)
 
     t0 = time.time()
     if logger is None:
         logger = structlog.get_logger()
 
-    if location == "lower":
-        finder = _find_lower_v_domain
-    elif location == "upper":
-        finder = _find_upper_v_domain
-    else:
-        raise ValueError("where should be lower or upper")
+    df = pd.concat([pd.DataFrame({"seed_site": seed_sites}), HIoIs], axis="columns")
 
-    # Triplets to use in multiprocessing:
-    params = (
-        (seed_site, left_bound, right_bound)
-        for seed_site, (left_bound, right_bound) in zip(seed_sites, HIoIs.itertuples(index=False))
+    num_chunks = min(num_chunks, (len(df) + 199) // 200)
+
+    if num_chunks == 1:
+        map_ = map
+
+    chunks = (
+        (
+            _preproc_matrix_for_find_viois(
+                matrix=I,
+                sites=dff,
+            ),
+            dff,
+        )
+        for dff in split_df(df, num_chunks)
     )
 
     tasks = map_(
-        partial(finder, I, threshold_cut, max_height, min_persistence, return_maxima),
-        params,
+        partial(
+            _find_v_domains,
+            threshold=threshold_cut,
+            max_height=max_height,
+            min_persistence=min_persistence,
+            return_maxima=return_maxima,
+            location=location,
+        ),
+        chunks,
     )
 
     df = pd.DataFrame.from_records(
-        data=tasks,
+        data=itertools.chain.from_iterable(tasks),
         nrows=len(seed_sites),
     )
+
+    assert len(df) == len(seed_sites)
 
     logger.debug("find_VIoIs took %s", pretty_format_elapsed_time(t0))
 

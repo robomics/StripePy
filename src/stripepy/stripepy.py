@@ -5,7 +5,7 @@
 import itertools
 import pathlib
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import h5py
 import numpy as np
@@ -370,6 +370,7 @@ def step_3(
     loc_pers_min: float,
     loc_trend_min: float,
     map=map,
+    num_chunks: int = 1,
     logger=None,
 ) -> IO.Result:
     if logger is None:
@@ -461,6 +462,7 @@ def step_3(
         min_persistence=loc_pers_min,
         location="lower",
         map_=map,
+        num_chunks=num_chunks,
         logger=logger,
     )
     UT_VIoIs = finders.find_VIoIs(
@@ -472,6 +474,7 @@ def step_3(
         min_persistence=loc_pers_min,
         location="upper",
         map_=map,
+        num_chunks=num_chunks,
         logger=logger,
     )
 

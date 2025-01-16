@@ -4,9 +4,11 @@
 
 import decimal
 import time
-from typing import Optional
+from typing import List, Optional, Sequence
 
 import numpy as np
+import pandas as pd
+import scipy.sparse as ss
 from numpy.typing import NDArray
 
 
@@ -71,6 +73,46 @@ def truncate_np(v: NDArray[float], places: int) -> NDArray[float]:
         context.rounding = decimal.ROUND_DOWN
         exponent = decimal.Decimal(str(10**-places))
         return np.array([float(decimal.Decimal(str(n)).quantize(exponent)) for n in v], dtype=float)
+
+
+def split_df(df: pd.DataFrame, num_chunks: int) -> List[pd.DataFrame]:
+    assert num_chunks > 0
+
+    offsets = np.round(np.linspace(0, len(df), num_chunks + 1)).astype(int)
+    chunks = []
+    for i in range(1, len(offsets)):
+        i0 = offsets[i - 1]
+        i1 = offsets[i]
+        chunks.append(df.iloc[i0:i1])
+
+    # assert len(chunks) == num_chunks
+    # assert sum((len(dff) for dff in chunks)) == len(df)
+
+    return chunks
+
+
+def _complement_indices(indices: Sequence[int], max_idx: int, min_idx: int = 0) -> NDArray[int]:
+    return np.setdiff1d(np.arange(min_idx, max_idx), indices)
+
+
+def zero_rows(matrix: ss.csr_matrix, rows_whitelist: Sequence[int]) -> ss.csr_matrix:
+    """
+    https://stackoverflow.com/a/43114513
+    """
+    indices = _complement_indices(rows_whitelist, matrix.shape[0])
+    diag = ss.eye(matrix.shape[0]).tolil()
+    diag[indices, indices] = 0
+    return diag.dot(matrix).tocsr()
+
+
+def zero_columns(matrix: ss.csr_matrix, columns_whitelist: Sequence[int]) -> ss.csc_matrix:
+    """
+    https://stackoverflow.com/a/43114513
+    """
+    indices = _complement_indices(columns_whitelist, matrix.shape[0])
+    diag = ss.eye(matrix.shape[0]).tolil()
+    diag[indices, indices] = 0
+    return matrix.dot(diag).tocsc()
 
 
 def _import_matplotlib():

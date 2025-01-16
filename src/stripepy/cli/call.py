@@ -282,6 +282,7 @@ def run(
                 configs_thresholds["loc_pers_min"],
                 configs_thresholds["loc_trend_min"],
                 map=pool.map if pool is not None else map,
+                num_chunks=configs_other["nproc"],
                 logger=logger,
             )
 
