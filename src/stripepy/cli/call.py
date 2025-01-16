@@ -13,11 +13,87 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import scipy.sparse as ss
 import structlog
 
 from stripepy import IO, others, stripepy
 from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
+from stripepy.utils.multiprocess_sparse_matrix import (
+    SharedCSCMatrix,
+    SharedCSRMatrix,
+    get_shared_state,
+    set_shared_state,
+    unset_shared_state,
+)
 from stripepy.utils.progress_bar import initialize_progress_bar
+
+
+def _init_mpl_backend(skip: bool):
+    if skip:
+        return
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+    except ImportError:
+        structlog.get_logger().warning("failed to initialize matplotlib backend")
+        pass
+
+
+def _init_shared_state(
+    lower_triangular_matrix: Optional[SharedCSCMatrix],
+    upper_triangular_matrix: Optional[SharedCSCMatrix],
+    init_mpl: bool,
+):
+    if lower_triangular_matrix is not None:
+        assert upper_triangular_matrix is not None
+        set_shared_state(lower_triangular_matrix, upper_triangular_matrix)
+
+    _init_mpl_backend(skip=not init_mpl)
+
+
+class ProcesPoolWrapper(object):
+    def __init__(
+        self, nproc: int, lt_matrix: Optional[ss.csr_matrix], ut_matrix: Optional[ss.csr_matrix], init_mpl: bool
+    ):
+        if nproc > 1:
+            assert lt_matrix is not None
+            assert ut_matrix is not None
+            self._lt_matrix = SharedCSRMatrix(lt_matrix)
+            self._ut_matrix = SharedCSRMatrix(ut_matrix)
+            self._pool = mp.Pool(
+                processes=nproc,
+                initializer=_init_shared_state,
+                initargs=(self._lt_matrix, self._ut_matrix, init_mpl),
+            )
+            set_shared_state(self._lt_matrix, self._ut_matrix)
+        else:
+            self._pool = None
+            self._lt_matrix = None
+            self._ut_matrix = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._pool is None:
+            return False
+
+        self._pool.close()
+        self._pool.join()
+
+        unset_shared_state()
+
+    @property
+    def map(self):
+        if self._pool is None:
+            return map
+        return self._pool.map
+
+    @property
+    def ready(self):
+        return self._pool is not None
 
 
 def _generate_metadata_attribute(
@@ -127,19 +203,6 @@ def _compute_progress_bar_weights(chrom_sizes: Dict[str, int], include_plotting:
     return df.set_index(["chrom"])
 
 
-def _init_mpl_backend(skip: bool):
-    if skip:
-        return
-
-    try:
-        import matplotlib
-
-        matplotlib.use("Agg")
-    except ImportError:
-        structlog.get_logger().warning("failed to initialize matplotlib backend")
-        pass
-
-
 def _remove_existing_output_files(
     output_file: pathlib.Path, plot_dir: Optional[pathlib.Path], chromosomes: Dict[str, int]
 ):
@@ -214,19 +277,6 @@ def run(
         if normalization is None:
             normalization = "NONE"
 
-        # Set up the process pool when appropriate
-        if nproc > 1:
-            main_logger.debug("initializing a pool of %d processes...", nproc)
-            pool = ctx.enter_context(
-                mp.Pool(
-                    processes=nproc,
-                    initializer=_init_mpl_backend,
-                    initargs=(roi is None,),
-                )
-            )
-        else:
-            pool = None
-
         disable_bar = not sys.stderr.isatty()
         progress_weights_df = _compute_progress_bar_weights(
             f.chromosomes(), include_plotting=roi is not None, nproc=nproc
@@ -300,70 +350,75 @@ def run(
             if RoI is not None:
                 result.set_roi(RoI)
 
-            logger = logger.bind(step=(3,))
-            logger.info("shape analysis")
-            start_time = time.time()
-            result = stripepy.step_3(
-                result,
-                LT_Iproc,
-                UT_Iproc,
-                resolution,
-                genomic_belt,
-                max_width,
-                loc_pers_min,
-                loc_trend_min,
-                map_=pool.map if pool is not None else map,
-                num_chunks=nproc,
-                logger=logger,
-            )
+            with ProcesPoolWrapper(nproc, LT_Iproc, UT_Iproc, init_mpl=roi is not None) as pool:
+                if pool.ready:
+                    LT_Iproc = get_shared_state("lower").get()
+                    UT_Iproc = get_shared_state("upper").get()
 
-            progress_bar(progress_weights["step_3"])
-            logger.info("shape analysis took %s", pretty_format_elapsed_time(start_time))
-
-            logger = logger.bind(step=(4,))
-            logger.info("statistical analysis and post-processing")
-            start_time = time.time()
-
-            result = stripepy.step_4(
-                result,
-                LT_Iproc,
-                UT_Iproc,
-                num_chunks=nproc,
-                map_=pool.map if pool is not None else map,
-                logger=logger,
-            )
-
-            progress_bar(progress_weights["step_4"])
-            logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))
-
-            logger = main_logger.bind(chrom=chrom_name)
-            logger.info('writing results to file "%s"', h5.path)
-            h5.write_descriptors(result)
-            progress_bar(progress_weights["output"])
-            logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
-
-            if result.roi is not None:
+                logger = logger.bind(step=(3,))
+                logger.info("shape analysis")
                 start_time = time.time()
-                logger = logger.bind(step=(5,))
-                logger.info("generating plots")
-                query = f"{chrom_name}:{result.roi['genomic'][0]}-{result.roi['genomic'][1]}"
-                stripepy.step_5(
+                result = stripepy.step_3(
                     result,
+                    None if pool.ready else LT_Iproc,
+                    None if pool.ready else UT_Iproc,
                     resolution,
-                    LT_Iproc,
-                    UT_Iproc,
-                    f.fetch(query, normalization=normalization).to_numpy("full"),
-                    Iproc_RoI,
                     genomic_belt,
+                    max_width,
                     loc_pers_min,
                     loc_trend_min,
-                    plot_dir,
-                    map_=pool.map if pool is not None else map,
+                    map_=pool.map,
+                    num_chunks=nproc,
                     logger=logger,
                 )
 
-                progress_bar(progress_weights["step_5"])
-                logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
+                progress_bar(progress_weights["step_3"])
+                logger.info("shape analysis took %s", pretty_format_elapsed_time(start_time))
+
+                logger = logger.bind(step=(4,))
+                logger.info("statistical analysis and post-processing")
+                start_time = time.time()
+
+                result = stripepy.step_4(
+                    result,
+                    None if pool.ready else LT_Iproc,
+                    None if pool.ready else UT_Iproc,
+                    num_chunks=nproc,
+                    map_=pool.map,
+                    logger=logger,
+                )
+
+                progress_bar(progress_weights["step_4"])
+                logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))
+
+                logger = main_logger.bind(chrom=chrom_name)
+                logger.info('writing results to file "%s"', h5.path)
+                h5.write_descriptors(result)
+                progress_bar(progress_weights["output"])
+                logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
+
+                if result.roi is not None:
+                    start_time = time.time()
+                    logger = logger.bind(step=(5,))
+                    logger.info("generating plots")
+                    query = f"{chrom_name}:{result.roi['genomic'][0]}-{result.roi['genomic'][1]}"
+                    stripepy.step_5(
+                        result,
+                        resolution,
+                        LT_Iproc,
+                        UT_Iproc,
+                        f.fetch(query, normalization=normalization).to_numpy("full"),
+                        Iproc_RoI,
+                        genomic_belt,
+                        loc_pers_min,
+                        loc_trend_min,
+                        plot_dir,
+                        map_=pool.map,
+                        logger=logger,
+                    )
+
+                    progress_bar(progress_weights["step_5"])
+                    logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
 
     main_logger.info("DONE!")
     main_logger.info(

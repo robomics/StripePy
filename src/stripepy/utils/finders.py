@@ -14,6 +14,7 @@ import scipy.sparse as ss
 import structlog
 
 from .common import pretty_format_elapsed_time, split_df, zero_columns
+from .multiprocess_sparse_matrix import get_shared_state
 from .persistence1d import PersistenceTable
 from .regressions import _compute_wQISA_predictions
 
@@ -194,6 +195,9 @@ def _find_v_domains(
     else:
         raise ValueError("where should be lower or upper")
 
+    if matrix is None:
+        matrix = get_shared_state(location).get()
+
     results = []
     cols = ["seed_site", "left_bound", "right_bound"]
     for seed_site, left_bound, right_bound in df[cols].itertuples(index=False):
@@ -268,7 +272,7 @@ def find_HIoIs(
 
 
 def find_VIoIs(
-    I: ss.csr_matrix,
+    I: Optional[ss.csr_matrix],
     seed_sites: npt.NDArray[int],
     HIoIs: pd.DataFrame,
     max_height: int,
@@ -295,16 +299,7 @@ def find_VIoIs(
     if num_chunks == 1:
         map_ = map
 
-    chunks = (
-        (
-            _preproc_matrix_for_find_viois(
-                matrix=I,
-                sites=dff,
-            ),
-            dff,
-        )
-        for dff in split_df(df, num_chunks)
-    )
+    chunks = zip(itertools.repeat(I), split_df(df, num_chunks))
 
     tasks = map_(
         partial(

@@ -6,9 +6,8 @@ import functools
 import itertools
 import pathlib
 import time
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple
 
-import h5py
 import numpy as np
 import pandas as pd
 import scipy.sparse as ss
@@ -17,6 +16,7 @@ from numpy.typing import NDArray
 
 from . import IO, plot
 from .utils import common, finders, regressions, stripe
+from .utils.multiprocess_sparse_matrix import get_shared_state
 from .utils.persistence1d import PersistenceTable
 
 
@@ -336,8 +336,8 @@ def step_2(
 
 def step_3(
     result: IO.Result,
-    L: ss.csr_matrix,
-    U: ss.csr_matrix,
+    L: Optional[ss.csr_matrix],
+    U: Optional[ss.csr_matrix],
     resolution: int,
     genomic_belt: int,
     max_width: int,
@@ -353,6 +353,11 @@ def step_3(
     if result.empty:
         logger.bind(step=(3,)).warning("no candidates found by step 2: returning immediately!")
         return result
+
+    use_shared_matrices = L is None
+    if use_shared_matrices:
+        L = get_shared_state("lower").get()
+        U = get_shared_state("upper").get()
 
     # Retrieve data:
     LT_mPs = result.get("persistent_minimum_points", "LT")
@@ -428,7 +433,7 @@ def step_3(
 
     logger.bind(step=(3, 2, 1)).info("estimating candidate stripe heights")
     LT_VIoIs = finders.find_VIoIs(
-        L,
+        None if use_shared_matrices else L,
         LT_MPs,
         LT_HIoIs,
         max_height=int(genomic_belt / resolution),
@@ -440,7 +445,7 @@ def step_3(
         logger=logger,
     )
     UT_VIoIs = finders.find_VIoIs(
-        U,
+        None if use_shared_matrices else U,
         UT_MPs,
         UT_HIoIs,
         max_height=int(genomic_belt / resolution),
@@ -470,9 +475,12 @@ def step_3(
     return result
 
 
-def _step4_helper(it: Tuple[ss.csr_matrix, Sequence[stripe.Stripe]], window: int) -> List[stripe.Stripe]:
+def _step4_helper(it: Tuple[Optional[ss.csr_matrix], Sequence[stripe.Stripe], str], window: int) -> List[stripe.Stripe]:
     assert window >= 0
-    matrix, stripes = it
+    matrix, stripes, location = it
+
+    if matrix is None:
+        matrix = get_shared_state(location).get()
 
     for stripe in stripes:
         stripe.compute_biodescriptors(matrix, window=window)
@@ -482,8 +490,8 @@ def _step4_helper(it: Tuple[ss.csr_matrix, Sequence[stripe.Stripe]], window: int
 
 def step_4(
     result: IO.Result,
-    L: ss.csr_matrix,
-    U: ss.csr_matrix,
+    L: Optional[ss.csr_matrix],
+    U: Optional[ss.csr_matrix],
     window: int = 3,
     num_chunks: int = 1,
     map_=map,
@@ -496,20 +504,6 @@ def step_4(
         logger.bind(step=(4,)).warning("no candidates found by step 2: returning immediately!")
         return result
 
-    def preproc_matrix(
-        matrix: ss.csr_matrix, stripes: Sequence[stripe.Stripe], no_op: bool
-    ) -> Union[ss.csr_matrix, ss.csc_matrix]:
-        if no_op:
-            return matrix
-
-        idx = []
-        for stripe in stripes:
-            i0 = max(0, stripe.left_bound - window)
-            i1 = min(stripe.right_bound + window + 1, matrix.shape[0])
-            idx.extend(range(i0, i1 + 1))
-
-        return common.zero_columns(matrix, idx)
-
     logger.bind(step=(4, 1)).info("computing stripe biological descriptors")
 
     lt_stripes = result.get("stripes", "LT")
@@ -518,14 +512,8 @@ def step_4(
     num_chunks_lt = min(num_chunks, (len(lt_stripes) + 99) // 100)
     num_chunks_ut = min(num_chunks, (len(ut_stripes) + 99) // 100)
 
-    chunks_lt = (
-        (preproc_matrix(L, stripes, no_op=num_chunks_lt < 2), stripes)
-        for stripes in np.array_split(lt_stripes, num_chunks_lt)
-    )
-    chunks_ut = (
-        (preproc_matrix(U, stripes, no_op=num_chunks_ut < 2), stripes)
-        for stripes in np.array_split(ut_stripes, num_chunks_ut)
-    )
+    chunks_lt = ((L, stripes, "lower") for stripes in np.array_split(lt_stripes, num_chunks_lt))
+    chunks_ut = ((U, stripes, "upper") for stripes in np.array_split(ut_stripes, num_chunks_ut))
 
     tasks = map_(functools.partial(_step4_helper, window=window), itertools.chain(chunks_lt, chunks_ut))
 
