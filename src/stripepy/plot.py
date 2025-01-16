@@ -544,27 +544,6 @@ def _fetch_persistence_maximum_points(result: Result, resolution: int, start: in
     }
 
 
-def _fetch_geo_descriptors(
-    result: Result,
-    resolution: int,
-    left_bound: int,
-    right_bound: int,
-    location: str,
-) -> pd.DataFrame:
-    assert location in {"LT", "UT"}
-    assert left_bound >= 0
-    assert right_bound >= left_bound
-
-    df = result.get_stripe_geo_descriptors(location)
-
-    for col in df.columns:
-        if col == "top_persistence":
-            continue
-        df[col] = np.minimum(df[col] * resolution, result.chrom[1])
-
-    return df[df["seed"].between(left_bound, right_bound, inclusive="both")]
-
-
 def _plot_pseudodistribution(
     result: Result, resolution: int, start: int, end: int, title: Optional[str]
 ) -> Tuple[plt.Figure, npt.NDArray[plt.Axes]]:

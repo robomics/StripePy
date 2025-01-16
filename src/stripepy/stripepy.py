@@ -157,33 +157,6 @@ def _compute_global_pseudodistribution(
     return pseudo_dist
 
 
-def _store_results(
-    hf: h5py._hl.group.Group,
-    pd: NDArray[np.float64],
-    min_points: List[int],
-    pers_of_min_points: List[float],
-    max_points: List[int],
-    pers_of_max_points: List[float],
-    min_persistence: float,
-):
-    hf.create_dataset("pseudo-distribution", data=np.array(pd), compression="gzip", compression_opts=4, shuffle=True)
-    hf.create_dataset(
-        "minima_pts_and_persistence",
-        data=np.array([min_points, pers_of_min_points]),
-        compression="gzip",
-        compression_opts=4,
-        shuffle=True,
-    )
-    hf.create_dataset(
-        "maxima_pts_and_persistence",
-        data=np.array([max_points, pers_of_max_points]),
-        compression="gzip",
-        compression_opts=4,
-        shuffle=True,
-    )
-    hf.parent.attrs["min_persistence_used"] = min_persistence
-
-
 def _check_neighborhood(
     values: NDArray[float],
     min_value: float = 0.1,
@@ -192,7 +165,7 @@ def _check_neighborhood(
 ) -> NDArray[bool]:
     # TODO rea1991 Change neighborhood size from "matrix" to "genomic" (eg, default of 1 Mb)
     assert 0 <= min_value
-    assert 1 <= neighborhood_size <= len(values)
+    assert 0 < neighborhood_size
     assert 0 <= threshold_percentage <= 1
 
     if len(values) < neighborhood_size * 2:
@@ -753,6 +726,8 @@ def _plot_local_pseudodistributions(
     map,
     logger,
 ):
+    output_folder.mkdir()
+
     start, end = result.roi["genomic"]
     max_height = int(np.ceil(genomic_belt / resolution))
 
@@ -896,8 +871,7 @@ def step_5(
     map_=map,
     logger=None,
 ):
-    if result.roi is None:
-        return
+    assert result.roi is not None
 
     plt = common._import_pyplot()
 
@@ -906,6 +880,10 @@ def step_5(
 
     chrom_name, chrom_size = result.chrom
     start, end = result.roi["genomic"]
+
+    for directory in ("1_preprocessing", "2_TDA", "3_shape_analysis", "4_biological_analysis"):
+        (output_folder / chrom_name / directory).mkdir(parents=True, exist_ok=True)
+
     dummy_result = IO.Result(chrom_name, chrom_size)
 
     matrix_output_paths = (
