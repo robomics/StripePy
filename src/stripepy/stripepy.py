@@ -445,8 +445,8 @@ def _step4_helper(stripe: stripe.Stripe, matrix: Optional[ss.csr_matrix], window
 
 def step_4(
     result: IO.Result,
-    L: Optional[ss.csr_matrix],
-    U: Optional[ss.csr_matrix],
+    matrix: Optional[ss.csr_matrix],
+    location: str,
     window: int = 3,
     map_=map,
     logger=None,
@@ -454,20 +454,18 @@ def step_4(
     if logger is None:
         logger = structlog.get_logger()
 
+    logger = logger.bind(location="LT" if location == "lower" else "UT")
+
     if result.empty:
         logger.bind(step=(4,)).warning("no candidates found by step 2: returning immediately!")
         return result
 
     logger.bind(step=(4, 1)).info("computing stripe biological descriptors")
 
-    lt_stripes = result.get("stripes", "LT")
-    ut_stripes = result.get("stripes", "UT")
+    stripes = result.get("stripes", location)
+    tasks = map_(functools.partial(_step4_helper, matrix=matrix, window=window, location=location), stripes)
 
-    lt_stripes = list(map_(functools.partial(_step4_helper, matrix=L, window=window, location="lower"), lt_stripes))
-    ut_stripes = list(map_(functools.partial(_step4_helper, matrix=U, window=window, location="lower"), ut_stripes))
-
-    result.set("stripes", lt_stripes, "LT", force=True)
-    result.set("stripes", ut_stripes, "UT", force=True)
+    result.set("stripes", list(tasks), location, force=True)
 
     return result
 

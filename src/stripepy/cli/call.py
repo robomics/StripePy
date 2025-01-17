@@ -341,7 +341,6 @@ def run(
             )
         )
 
-        # Lopping over all chromosomes:
         for chrom_name, chrom_size, skip in _plan(f.chromosomes(include_ALL=False), min_chrom_size):
             progress_weights = progress_weights_df.loc[chrom_name, :].to_dict()
 
@@ -414,9 +413,6 @@ def run(
                 progress_bar(progress_weights["step_2"])
                 logger.info("topological data analysis took %s", pretty_format_elapsed_time(start_time))
 
-                if RoI is not None:
-                    result.set_roi(RoI)
-
                 logger = logger.bind(step=(3,))
                 logger.info("shape analysis")
                 start_time = time.time()
@@ -456,7 +452,15 @@ def run(
                 result = stripepy.step_4(
                     result,
                     LT_Iproc,
+                    location="lower",
+                    map_=pool.map,
+                    logger=logger,
+                )
+
+                result = stripepy.step_4(
+                    result,
                     UT_Iproc,
+                    location="upper",
                     map_=pool.map,
                     logger=logger,
                 )
@@ -470,7 +474,8 @@ def run(
                 progress_bar(progress_weights["output"])
                 logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
 
-                if result.roi is not None:
+                if RoI is not None:
+                    result.set_roi(RoI)
                     start_time = time.time()
                     logger = logger.bind(step=(5,))
                     logger.info("generating plots")
