@@ -66,10 +66,9 @@ def _band_extraction(matrix: ss.csr_matrix, resolution: int, genomic_belt: int) 
     # assert ss.tril(matrix, k=-1).count_nonzero() == 0
 
     matrix_belt = genomic_belt // resolution
-    if matrix_belt < matrix.shape[0]:
-        matrix -= ss.triu(matrix, k=matrix_belt, format="csr")
-
-    return matrix
+    if matrix_belt >= matrix.shape[0]:
+        return matrix
+    return ss.tril(matrix, k=matrix_belt, format="csr")
 
 
 def _extract_RoIs(ut_matrix: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArray[float]]:
@@ -247,8 +246,8 @@ def step_1(
 
     logger.bind(step=(1, 1)).info("focusing on a neighborhood of the main diagonal")
     Iproc = _band_extraction(I, resolution, genomic_belt)
-    nnz0 = I.count_nonzero()
-    nnz1 = Iproc.count_nonzero()
+    nnz0 = I.nnz
+    nnz1 = Iproc.nnz
     delta = nnz0 - nnz1
     logger.bind(step=(1, 1)).info("removed %.2f%% of the non-zero entries (%d/%d)", (delta / nnz0) * 100, delta, nnz0)
 

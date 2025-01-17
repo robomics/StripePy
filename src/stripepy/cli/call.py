@@ -9,7 +9,7 @@ import pathlib
 import shutil
 import sys
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,11 @@ def _init_shared_state(
 
 class ProcesPoolWrapper(object):
     def __init__(
-        self, nproc: int, lt_matrix: Optional[ss.csr_matrix], ut_matrix: Optional[ss.csr_matrix], init_mpl: bool
+        self,
+        nproc: int,
+        lt_matrix: Union[ss.csc_matrix, ss.csr_matrix, None],
+        ut_matrix: Union[ss.csc_matrix, ss.csr_matrix, None],
+        init_mpl: bool,
     ):
         self._pool = None
         self._lt_matrix = None
@@ -62,8 +66,8 @@ class ProcesPoolWrapper(object):
         if nproc > 1:
             assert lt_matrix is not None
             assert ut_matrix is not None
-            self._lt_matrix = SharedCSRMatrix(lt_matrix)
-            self._ut_matrix = SharedCSRMatrix(ut_matrix)
+            self._lt_matrix = SharedSparseMatrix(lt_matrix)
+            self._ut_matrix = SharedSparseMatrix(ut_matrix)
             set_shared_state(self._lt_matrix, self._ut_matrix)
 
             self._pool = concurrent.futures.ProcessPoolExecutor(  # noqa
@@ -372,6 +376,7 @@ def run(
                 RoI=RoI,
                 logger=logger,
             )
+            del I
 
             with ProcesPoolWrapper(nproc, LT_Iproc, UT_Iproc, init_mpl=roi is not None) as pool:
                 if pool.ready:
