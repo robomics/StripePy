@@ -228,7 +228,7 @@ def _filter_extrema_by_sparseness(
 
 
 def _complement_persistent_minimum_points(
-    pseudodistribution: NDArray[float], persistent_minimum_points: NDArray[int]
+    pseudodistribution: NDArray[float], persistent_minimum_points: NDArray[int], persistent_maximum_points: NDArray[int]
 ) -> NDArray[int]:
     """
     TODO
@@ -237,14 +237,11 @@ def _complement_persistent_minimum_points(
     # AND
     # the global minimum (if any) that is to the right of the rightmost persistent maximum
     """
+    assert len(persistent_maximum_points) > 0
     assert len(pseudodistribution) != 0
 
-    if len(persistent_minimum_points) > 0:
-        i0 = persistent_minimum_points[0]
-        i1 = persistent_minimum_points[-1]
-    else:
-        i0 = 0
-        i1 = len(pseudodistribution)
+    i0 = persistent_maximum_points[0]
+    i1 = persistent_maximum_points[-1]
 
     if i0 != 0:
         left_bound = np.argmin(pseudodistribution[:i0])
@@ -260,11 +257,9 @@ def _complement_persistent_minimum_points(
     if len(persistent_minimum_points) == 0:
         return np.array([left_bound, right_bound], dtype=int)
 
-    chunks = [persistent_minimum_points]
-    if left_bound != persistent_minimum_points[0]:
-        chunks.insert(0, [left_bound])
-    if right_bound != persistent_minimum_points[-1]:
-        chunks.append([right_bound])
+    # Persistent minimum points are always between two maxima, thus the left and right bounds should never be the same as the first and last min points
+    assert left_bound != persistent_minimum_points[0]
+    assert right_bound != persistent_minimum_points[-1]
 
     return np.concatenate([[left_bound], persistent_minimum_points, [right_bound]], dtype=int)
 
@@ -413,8 +408,12 @@ def step_3(
     logger.bind(step=(3, 1)).info("width estimation")
     logger.bind(step=(3, 1, 1)).info("estimating candidate stripe widths")
 
-    LT_bounded_mPs = _complement_persistent_minimum_points(LT_pseudo_distrib, LT_mPs)
-    UT_bounded_mPs = _complement_persistent_minimum_points(UT_pseudo_distrib, UT_mPs)
+    LT_bounded_mPs = _complement_persistent_minimum_points(
+        LT_pseudo_distrib, persistent_minimum_points=LT_mPs, persistent_maximum_points=LT_MPs
+    )
+    UT_bounded_mPs = _complement_persistent_minimum_points(
+        UT_pseudo_distrib, persistent_minimum_points=UT_mPs, persistent_maximum_points=UT_MPs
+    )
 
     # DataFrame with the left and right boundaries for each seed site
     LT_HIoIs = finders.find_HIoIs(
