@@ -227,6 +227,48 @@ def _filter_extrema_by_sparseness(
     return min_points_filtered, max_points_filtered
 
 
+def _complement_persistent_minimum_points(
+    pseudodistribution: NDArray[float], persistent_minimum_points: NDArray[int]
+) -> NDArray[int]:
+    """
+    TODO
+    # Complement mPs with:
+    # the global minimum (if any) that is to the left of the leftmost persistent maximum
+    # AND
+    # the global minimum (if any) that is to the right of the rightmost persistent maximum
+    """
+    assert len(pseudodistribution) != 0
+
+    if len(persistent_minimum_points) > 0:
+        i0 = persistent_minimum_points[0]
+        i1 = persistent_minimum_points[-1]
+    else:
+        i0 = 0
+        i1 = len(pseudodistribution)
+
+    if i0 != 0:
+        left_bound = np.argmin(pseudodistribution[:i0])
+    else:
+        left_bound = 0
+
+    if i1 != len(pseudodistribution):
+        right_bound = i1 + np.argmin(pseudodistribution[i1:])
+    else:
+        right_bound = len(pseudodistribution)
+
+    # We need to check that the list of minimum points are not empty, otherwise np.concatenate will create an array with dtype=float
+    if len(persistent_minimum_points) == 0:
+        return np.array([left_bound, right_bound], dtype=int)
+
+    chunks = [persistent_minimum_points]
+    if left_bound != persistent_minimum_points[0]:
+        chunks.insert(0, [left_bound])
+    if right_bound != persistent_minimum_points[-1]:
+        chunks.append([right_bound])
+
+    return np.concatenate([[left_bound], persistent_minimum_points, [right_bound]], dtype=int)
+
+
 def step_1(I, genomic_belt, resolution, RoI=None, logger=None):
     if logger is None:
         logger = structlog.get_logger()
@@ -371,30 +413,8 @@ def step_3(
     logger.bind(step=(3, 1)).info("width estimation")
     logger.bind(step=(3, 1, 1)).info("estimating candidate stripe widths")
 
-    # Complement mPs with:
-    # the global minimum (if any) that is to the left of the leftmost persistent maximum
-    # AND
-    # the global minimum (if any) that is to the right of the rightmost persistent maximum
-    # TODO this can be simplified a lot
-    LT_L_nb = np.arange(0, LT_MPs[0])
-    LT_R_nb = np.arange(LT_MPs[-1], L.shape[0])
-    UT_L_nb = np.arange(0, UT_MPs[0])
-    UT_R_nb = np.arange(UT_MPs[-1], U.shape[0])
-    LT_L_mP = np.argmin(LT_pseudo_distrib[LT_L_nb]) if len(LT_L_nb) > 0 else -1
-    LT_R_mP = LT_MPs[-1] + np.argmin(LT_pseudo_distrib[LT_R_nb]) if len(LT_R_nb) > 0 else -1
-    UT_L_mP = np.argmin(UT_pseudo_distrib[UT_L_nb]) if len(UT_L_nb) > 0 else -1
-    UT_R_mP = UT_MPs[-1] + np.argmin(UT_pseudo_distrib[UT_R_nb]) if len(UT_R_nb) > 0 else -1
-
-    LT_bounded_mPs = [(max(LT_L_mP, 0),), (max(LT_R_mP, L.shape[0]),)]
-    UT_bounded_mPs = [(max(UT_L_mP, 0),), (max(UT_R_mP, U.shape[0]),)]
-    # We need to check that the list of minimum points are not empty, otherwise np.concatenate will create an array with dtype=float
-    if len(LT_mPs) != 0:
-        LT_bounded_mPs.insert(1, LT_mPs)
-    if len(UT_mPs) != 0:
-        UT_bounded_mPs.insert(1, UT_mPs)
-
-    LT_bounded_mPs = np.concatenate(LT_bounded_mPs, dtype=int)
-    UT_bounded_mPs = np.concatenate(UT_bounded_mPs, dtype=int)
+    LT_bounded_mPs = _complement_persistent_minimum_points(LT_pseudo_distrib, LT_mPs)
+    UT_bounded_mPs = _complement_persistent_minimum_points(UT_pseudo_distrib, UT_mPs)
 
     # DataFrame with the left and right boundaries for each seed site
     LT_HIoIs = finders.find_HIoIs(
