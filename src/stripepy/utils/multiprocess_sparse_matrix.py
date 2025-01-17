@@ -84,11 +84,11 @@ def unset_shared_state():
 
 
 def get_shared_state(key: str):
-    if key == "lower":
+    if key in {"lower", "LT"}:
         global _lower_triangular_matrix
         return _lower_triangular_matrix
 
-    if key == "upper":
+    if key in {"upper", "UT"}:
         global _upper_triangular_matrix
         return _upper_triangular_matrix
 

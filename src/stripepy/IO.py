@@ -281,7 +281,11 @@ class Result(object):
         force: bool
             force overwrite existing values
         """
-        if location not in {"LT", "UT"}:
+        if location == "lower":
+            location = "LT"
+        elif location == "upper":
+            location = "UT"
+        elif location not in {"LT", "UT"}:
             raise ValueError("Location should be UT or LT")
 
         attr_name = f"_{location.lower()}_{name}"

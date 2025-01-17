@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
+import concurrent.futures
 import contextlib
 import json
-import multiprocessing as mp
 import pathlib
 import shutil
 import sys
@@ -21,7 +21,6 @@ from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
 from stripepy.utils.multiprocess_sparse_matrix import (
     SharedCSCMatrix,
     SharedCSRMatrix,
-    get_shared_state,
     set_shared_state,
     unset_shared_state,
 )
@@ -57,21 +56,22 @@ class ProcesPoolWrapper(object):
     def __init__(
         self, nproc: int, lt_matrix: Optional[ss.csr_matrix], ut_matrix: Optional[ss.csr_matrix], init_mpl: bool
     ):
+        self._pool = None
+        self._lt_matrix = None
+        self._ut_matrix = None
+
         if nproc > 1:
             assert lt_matrix is not None
             assert ut_matrix is not None
             self._lt_matrix = SharedCSRMatrix(lt_matrix)
             self._ut_matrix = SharedCSRMatrix(ut_matrix)
-            self._pool = mp.Pool(
-                processes=nproc,
+            set_shared_state(self._lt_matrix, self._ut_matrix)
+
+            self._pool = concurrent.futures.ProcessPoolExecutor(  # noqa
+                max_workers=nproc,
                 initializer=_init_shared_state,
                 initargs=(self._lt_matrix, self._ut_matrix, init_mpl),
             )
-            set_shared_state(self._lt_matrix, self._ut_matrix)
-        else:
-            self._pool = None
-            self._lt_matrix = None
-            self._ut_matrix = None
 
     def __enter__(self):
         return self
@@ -80,16 +80,31 @@ class ProcesPoolWrapper(object):
         if self._pool is None:
             return False
 
-        self._pool.close()
-        self._pool.join()
+        if exc_type is not None:
+            structlog.get_logger().debug("shutting down process pool due to the following exception: %s", exc_val)
 
+        self._pool.shutdown(wait=True, cancel_futures=True)
+        self._lt_matrix = None
+        self._ut_matrix = None
         unset_shared_state()
+        return False
 
     @property
     def map(self):
         if self._pool is None:
             return map
         return self._pool.map
+
+    def submit(self, fx, *args, **kwargs) -> concurrent.futures.Future:
+        if self._pool is None:
+            fut = concurrent.futures.Future()
+            try:
+                fut.set_result(fx(*args, **kwargs))
+            except Exception as e:
+                fut.set_exception(e)
+            return fut
+
+        return self._pool.submit(fx, *args, **kwargs)
 
     @property
     def ready(self):
@@ -219,6 +234,36 @@ def _remove_existing_output_files(
                     path.unlink()
 
 
+def _merge_results(futures) -> IO.Result:
+    keys = (
+        "all_minimum_points",
+        "all_maximum_points",
+        "persistence_of_all_minimum_points",
+        "persistence_of_all_maximum_points",
+        "persistent_minimum_points",
+        "persistent_maximum_points",
+        "persistence_of_minimum_points",
+        "persistence_of_maximum_points",
+        "pseudodistribution",
+        "stripes",
+    )
+
+    results = {}
+    i = 0
+    for i, fut in enumerate(futures, 1):
+        location, result = fut.result(timeout=2)
+        results[location] = result
+
+    assert len(results) == i
+
+    result1, result2 = results["lower"], results["upper"]
+
+    for key in keys:
+        result1.set(key, result2.get(key, "UT"), "UT")
+
+    return result1
+
+
 def run(
     contact_map: pathlib.Path,
     resolution: int,
@@ -330,38 +375,55 @@ def run(
                 RoI=RoI,
                 logger=logger,
             )
-            progress_bar(progress_weights["step_1"])
-            logger.info("preprocessing took %s", pretty_format_elapsed_time(start_time))
-
-            logger = logger.bind(step=(2,))
-            logger.info("topological data analysis")
-            start_time = time.time()
-            result = stripepy.step_2(
-                chrom_name,
-                f.chromosomes().get(chrom_name),
-                LT_Iproc,
-                UT_Iproc,
-                glob_pers_min,
-                logger=logger,
-            )
-            progress_bar(progress_weights["step_2"])
-            logger.info("topological data analysis took %s", pretty_format_elapsed_time(start_time))
-
-            if RoI is not None:
-                result.set_roi(RoI)
 
             with ProcesPoolWrapper(nproc, LT_Iproc, UT_Iproc, init_mpl=roi is not None) as pool:
                 if pool.ready:
-                    LT_Iproc = get_shared_state("lower").get()
-                    UT_Iproc = get_shared_state("upper").get()
+                    # matrices are stored in the shared global state
+                    LT_Iproc = None
+                    UT_Iproc = None
+
+                progress_bar(progress_weights["step_1"])
+                logger.info("preprocessing took %s", pretty_format_elapsed_time(start_time))
+
+                logger = logger.bind(step=(2,))
+                logger.info("topological data analysis")
+                start_time = time.time()
+
+                task1 = pool.submit(
+                    stripepy.step_2,
+                    chrom_name=chrom_name,
+                    chrom_size=f.chromosomes().get(chrom_name),
+                    matrix=LT_Iproc,
+                    min_persistence=glob_pers_min,
+                    location="lower",
+                    logger=logger,
+                )
+
+                task2 = pool.submit(
+                    stripepy.step_2,
+                    chrom_name=chrom_name,
+                    chrom_size=f.chromosomes().get(chrom_name),
+                    matrix=UT_Iproc,
+                    min_persistence=glob_pers_min,
+                    location="upper",
+                    logger=logger,
+                )
+
+                result = _merge_results((task1, task2))
+
+                progress_bar(progress_weights["step_2"])
+                logger.info("topological data analysis took %s", pretty_format_elapsed_time(start_time))
+
+                if RoI is not None:
+                    result.set_roi(RoI)
 
                 logger = logger.bind(step=(3,))
                 logger.info("shape analysis")
                 start_time = time.time()
                 result = stripepy.step_3(
                     result,
-                    None if pool.ready else LT_Iproc,
-                    None if pool.ready else UT_Iproc,
+                    LT_Iproc,
+                    UT_Iproc,
                     resolution,
                     genomic_belt,
                     max_width,
@@ -380,8 +442,8 @@ def run(
 
                 result = stripepy.step_4(
                     result,
-                    None if pool.ready else LT_Iproc,
-                    None if pool.ready else UT_Iproc,
+                    LT_Iproc,
+                    UT_Iproc,
                     map_=pool.map,
                     logger=logger,
                 )

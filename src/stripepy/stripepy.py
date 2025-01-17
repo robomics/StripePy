@@ -211,17 +211,14 @@ def _filter_extrema_by_sparseness(
     if logger is None:
         logger = structlog.get_logger()
 
-    if location == "LT":
-        location = "lower triangular part"
-    else:
-        assert location == "UT"
-        location = "upper triangular part"
-
     if len(max_points_filtered) == len(max_points):
-        logger.bind(step=(2, 2, 3)).info("%s: no change in the number of seed sites", location)
+        logger.bind(step=(2, 2, 3)).info("%s triangular part: no change in the number of seed sites", location)
     else:
         logger.bind(step=(2, 2, 3)).info(
-            "%s: number of seed sites reduced from %d to %d", location, len(max_points), len(max_points_filtered)
+            "%s triangular part: number of seed sites reduced from %d to %d",
+            location,
+            len(max_points),
+            len(max_points_filtered),
         )
 
     return min_points_filtered, max_points_filtered
@@ -287,24 +284,28 @@ def step_1(I, genomic_belt, resolution, RoI=None, logger=None):
 def step_2(
     chrom_name: str,
     chrom_size: int,
-    L: ss.csr_matrix,
-    U: ss.csr_matrix,
+    matrix: Optional[ss.csr_matrix],
     min_persistence: float,
+    location: str,
     logger=None,
-) -> IO.Result:
+) -> Tuple[str, IO.Result]:
+    assert location in {"lower", "upper"}
+
     if logger is None:
         logger = structlog.get_logger()
 
-    logger.bind(step=(2, 1, 0)).info("computing global 1D pseudo-distributions...")
-    LT_pd = _compute_global_pseudodistribution(L, smooth=True)
-    UT_pd = _compute_global_pseudodistribution(U, smooth=True)
+    logger = logger.bind(location="LT" if location == "lower" else "UT")
+
+    if matrix is None:
+        matrix = get_shared_state(location).get()
 
     result = IO.Result(chrom_name, chrom_size)
 
-    result.set_min_persistence(min_persistence)
+    logger.bind(step=(2, 1, 0)).info("computing global 1D pseudo-distributions...")
+    pseudodistribution = _compute_global_pseudodistribution(matrix, smooth=True)
 
-    result.set("pseudodistribution", LT_pd, "LT")
-    result.set("pseudodistribution", UT_pd, "UT")
+    result.set_min_persistence(min_persistence)
+    result.set("pseudodistribution", pseudodistribution, location)
 
     logger.bind(step=(2, 2, 0)).info(
         "detection of persistent maxima and corresponding minima for lower- and upper-triangular matrices..."
@@ -312,63 +313,41 @@ def step_2(
     logger.bind(step=(2, 2, 0)).info("all maxima and their persistence")
 
     # All local minimum and maximum points:
-    persistence = {}
+    logger.bind(step=(2, 2, 1)).info(f"computing persistence for the {location} triangular part")
+    persistence = PersistenceTable.calculate_persistence(pseudodistribution, min_persistence=0, sort_by="persistence")
+    result.set("all_minimum_points", persistence.min.index.to_numpy(copy=True), location)
+    result.set("all_maximum_points", persistence.max.index.to_numpy(copy=True), location)
+    result.set("persistence_of_all_minimum_points", persistence.min.to_numpy(copy=True), location)
+    result.set("persistence_of_all_maximum_points", persistence.max.to_numpy(copy=True), location)
 
-    logger.bind(step=(2, 2, 1)).info("computing persistence for the lower triangular part")
-    persistence["LT"] = PersistenceTable.calculate_persistence(LT_pd, min_persistence=0, sort_by="persistence")
-
-    logger.bind(step=(2, 2, 2)).info("computing persistence for the upper triangular part")
-    persistence["UT"] = PersistenceTable.calculate_persistence(UT_pd, min_persistence=0, sort_by="persistence")
-
-    for location, data in persistence.items():
-        # TODO refactor setter to accept PersistenceTable objects directly
-        result.set("all_minimum_points", data.min.index.to_numpy(copy=True), location)
-        result.set("all_maximum_points", data.max.index.to_numpy(copy=True), location)
-        result.set("persistence_of_all_minimum_points", data.min.to_numpy(copy=True), location)
-        result.set("persistence_of_all_maximum_points", data.max.to_numpy(copy=True), location)
-
-        # TODO log
-        persistence[location].filter(min_persistence, method="greater")
-        persistence[location].sort(by="position")
+    logger.bind(step=(2, 2, 2)).info(f"filtering low persistence values for the {location} triangular part")
+    persistence.filter(min_persistence, method="greater")
+    persistence.sort(by="position")
 
     logger.bind(step=(2, 2, 3)).info("removing seeds overlapping sparse regions")
-    for matrix, location in zip((L, U), ("LT", "UT")):
-        data = _filter_extrema_by_sparseness(
-            matrix=matrix,
-            min_points=persistence[location].min,
-            max_points=persistence[location].max,
-            location=location,
-            logger=logger,
-        )
-        persistence[location] = PersistenceTable(
-            pers_of_min_points=data[0], pers_of_max_points=data[1], level_sets="upper"
-        )
-        result.set("persistent_minimum_points", persistence[location].min.index.to_numpy(), location)
-        result.set("persistent_maximum_points", persistence[location].max.index.to_numpy(), location)
-        result.set("persistence_of_minimum_points", persistence[location].min.to_numpy(), location)
-        result.set("persistence_of_maximum_points", persistence[location].max.to_numpy(), location)
+    data = _filter_extrema_by_sparseness(
+        matrix=matrix,
+        min_points=persistence.min,
+        max_points=persistence.max,
+        location=location,
+        logger=logger,
+    )
+    persistence = PersistenceTable(pers_of_min_points=data[0], pers_of_max_points=data[1], level_sets="upper")
+    result.set("persistent_minimum_points", persistence.min.index.to_numpy(), location)
+    result.set("persistent_maximum_points", persistence.max.index.to_numpy(), location)
+    result.set("persistence_of_minimum_points", persistence.min.to_numpy(), location)
+    result.set("persistence_of_maximum_points", persistence.max.to_numpy(), location)
 
-    # If no candidates are found in the lower- or upper-triangular maps, exit:
-    if len(persistence["LT"].max) == 0 or len(persistence["UT"].max) == 0:
-        return result
+    if len(persistence.max) == 0:
+        return location, result
 
-    logger.bind(step=(2, 3, 1)).info("lower-triangular part: generating list of candidate stripes...")
-    stripes = [
-        stripe.Stripe(seed=x, top_pers=pers, where="lower_triangular")  # noqa
-        for x, pers in persistence["LT"].max.items()
-    ]
-    logger.bind(step=(2, 3, 1)).info("lower-triangular part: generated %d candidate stripes", len(stripes))
-    result.set("stripes", stripes, "LT")
+    logger.bind(step=(2, 3, 1)).info(f"{location}-triangular part: generating list of candidate stripes...")
+    where = f"{location}_triangular"
+    stripes = [stripe.Stripe(seed=x, top_pers=pers, where=where) for x, pers in persistence.max.items()]  # noqa
+    logger.bind(step=(2, 3, 1)).info(f"{location}-triangular part: generated %d candidate stripes", len(stripes))
+    result.set("stripes", stripes, location)
 
-    logger.bind(step=(2, 3, 2)).info("upper-triangular part: generating list of candidate stripes...")
-    stripes = [
-        stripe.Stripe(seed=x, top_pers=pers, where="upper_triangular")  # noqa
-        for x, pers in persistence["UT"].max.items()
-    ]
-    logger.bind(step=(2, 3, 2)).info("upper-triangular part: generated %d candidate stripes", len(stripes))
-    result.set("stripes", stripes, "UT")
-
-    return result
+    return location, result
 
 
 def step_3(
@@ -646,7 +625,6 @@ def _marginalize_matrix_ut(
 
 
 def _plot_local_pseudodistributions_helper(args):
-    # TODO matrix should be passed around using shared mem?
     (
         i,
         seed,
@@ -660,6 +638,10 @@ def _plot_local_pseudodistributions_helper(args):
         location,
         logger,
     ) = args
+
+    if matrix is None:
+        matrix = get_shared_state(location).get()
+
     plt = common._import_pyplot()
     logger.bind(step=(5, 4, i)).debug("plotting local profile for seed %d (%s)", seed, location)
 
@@ -709,8 +691,8 @@ def _plot_local_pseudodistributions_helper(args):
 
 def _plot_local_pseudodistributions(
     result: IO.Result,
-    matrix_lt: ss.csr_matrix,
-    matrix_ut: ss.csr_matrix,
+    matrix_lt: Optional[ss.csr_matrix],
+    matrix_ut: Optional[ss.csr_matrix],
     resolution: int,
     genomic_belt: int,
     loc_pers_min: float,
@@ -853,8 +835,8 @@ def _plot_stripes(
 def step_5(
     result: IO.Result,
     resolution: int,
-    gw_matrix_proc_lt: ss.csr_matrix,
-    gw_matrix_proc_ut: ss.csr_matrix,
+    gw_matrix_proc_lt: Optional[ss.csr_matrix],
+    gw_matrix_proc_ut: Optional[ss.csr_matrix],
     raw_matrix: NDArray,
     proc_matrix: Optional[NDArray],
     genomic_belt: int,
