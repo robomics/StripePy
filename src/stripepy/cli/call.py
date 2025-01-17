@@ -19,8 +19,7 @@ import structlog
 from stripepy import IO, others, stripepy
 from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
 from stripepy.utils.multiprocess_sparse_matrix import (
-    SharedCSCMatrix,
-    SharedCSRMatrix,
+    SharedSparseMatrix,
     set_shared_state,
     unset_shared_state,
 )
@@ -41,8 +40,8 @@ def _init_mpl_backend(skip: bool):
 
 
 def _init_shared_state(
-    lower_triangular_matrix: Optional[SharedCSCMatrix],
-    upper_triangular_matrix: Optional[SharedCSCMatrix],
+    lower_triangular_matrix: Optional[SharedSparseMatrix],
+    upper_triangular_matrix: Optional[SharedSparseMatrix],
     init_mpl: bool,
 ):
     if lower_triangular_matrix is not None:

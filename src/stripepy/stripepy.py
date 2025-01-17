@@ -72,7 +72,7 @@ def _band_extraction(matrix: ss.csr_matrix, resolution: int, genomic_belt: int) 
     return matrix
 
 
-def _extract_RoIs(ut_matrix: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArray]:
+def _extract_RoIs(ut_matrix: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArray[float]]:
     """
     Extract a region of interest (ROI) from the sparse matrix I
 
@@ -239,7 +239,9 @@ def _complement_persistent_minimum_points(
     return np.concatenate([[left_bound], persistent_minimum_points, [right_bound]], dtype=int)
 
 
-def step_1(I: ss.csr_matrix, genomic_belt: int, resolution: int, RoI: Optional[Dict] = None, logger=None):
+def step_1(
+    I: ss.csr_matrix, genomic_belt: int, resolution: int, RoI: Optional[Dict] = None, logger=None
+) -> Tuple[ss.csc_matrix, ss.csr_matrix, Optional[NDArray[float]]]:
     if logger is None:
         logger = structlog.get_logger()
 
@@ -258,7 +260,7 @@ def step_1(I: ss.csr_matrix, genomic_belt: int, resolution: int, RoI: Optional[D
     logger.bind(step=(1, 3)).info("projecting interactions onto [1, 0]")
     Iproc /= Iproc.max()
 
-    return Iproc.T.tocsr(), Iproc, RoiI
+    return Iproc.T, Iproc, RoiI  # noqa
 
 
 def step_2(

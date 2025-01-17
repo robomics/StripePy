@@ -64,9 +64,20 @@ class SharedCSCMatrix(object):
         )
 
 
-def set_shared_state(
-    lt_matrix: Union[SharedCSRMatrix, SharedCSCMatrix], ut_matrix: Union[SharedCSRMatrix, SharedCSCMatrix]
-):
+class SharedSparseMatrix(object):
+    def __init__(self, m):
+        if isinstance(m, ss.csr_matrix):
+            self._m = SharedCSRMatrix(m)
+        elif isinstance(m, ss.csc_matrix):
+            self._m = SharedCSCMatrix(m)
+        else:
+            self._m = SharedSparseMatrix(ss.csr_matrix(m))
+
+    def get(self) -> Union[ss.csr_matrix, ss.csc_matrix]:
+        return self._m.get()
+
+
+def set_shared_state(lt_matrix: SharedSparseMatrix, ut_matrix: SharedSparseMatrix):
     global _lower_triangular_matrix
     global _upper_triangular_matrix
 

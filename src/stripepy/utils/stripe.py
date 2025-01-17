@@ -136,17 +136,21 @@ class Stripe(object):
 
         return int(round(cfx1 * self._top_bound + cfx2 * self._bottom_bound))
 
-    def _slice_matrix(self, I: ss.csr_matrix) -> NDArray:
+    def _slice_matrix(self, I: Union[ss.csr_matrix, ss.csc_matrix]) -> NDArray:
         convex_comb = self._compute_convex_comp()
 
+        # TODO do we have an off by one error here?
         if self.lower_triangular:
-            rows = slice(convex_comb, self._bottom_bound)
-            cols = slice(self._left_bound, self._right_bound)
-            return I[rows, :].tocsc()[:, cols].toarray()
+            i0, i1 = convex_comb, self._bottom_bound
+            j0, j1 = self._left_bound, self._right_bound
+        else:
+            i0, i1 = self._top_bound, convex_comb
+            j0, j1 = self._left_bound, self._right_bound
 
-        rows = slice(self._top_bound, convex_comb)
-        cols = slice(self._left_bound, self._right_bound)
-        return I[rows, :].tocsc()[:, cols].toarray()
+        if isinstance(I, ss.csr_matrix):
+            return I[i0:i1, :].tocsc()[:, j0:j1].toarray()
+
+        return I[:, j0:j1].tocsr()[i0:i1, :].toarray()
 
     @staticmethod
     def _compute_inner_descriptors(I: NDArray) -> Tuple[NDArray[float], float, float]:
