@@ -6,7 +6,7 @@ import functools
 import itertools
 import pathlib
 import time
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -41,70 +41,45 @@ def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
     return Iproc
 
 
-def _band_extraction(I: ss.csr_matrix, resolution: int, genomic_belt: int) -> Tuple[ss.csr_matrix, ss.csr_matrix]:
+def _band_extraction(matrix: ss.csr_matrix, resolution: int, genomic_belt: int) -> ss.csr_matrix:
     """
     Given a symmetric sparse matrix in CSR format, do the following:
 
-      * Split the input matrix into a upper/lower-triangular matrices
       * Zero (i.e. drop) all values that lie outside the first genomic_belt // resolution diagonals
 
     Parameters
     ----------
-    I : ss.csr_matrix
-        the sparse matrix to be processed
-    resolution : int
+    matrix: ss.csr_matrix
+        the upper-triangular sparse matrix to be processed
+    resolution: int
         the genomic resolution of the sparse matrix I
     genomic_belt: int
         the width of the genomic belt to be extracted
 
     Returns
     -------
-    Tuple[ss.csr_matrix, ss.csr_matrix]
-        2 elements tuple with the lower-triangular and upper-triangular matrix after band extraction
+    ss.csr_matrix
     """
 
     assert resolution > 0
     assert genomic_belt > 0
+    # assert ss.tril(matrix, k=-1).count_nonzero() == 0
 
     matrix_belt = genomic_belt // resolution
-    LT_I = ss.tril(I, k=0, format="csr") - ss.tril(I, k=-matrix_belt, format="csr")
-    UT_I = ss.triu(I, k=0, format="csr") - ss.triu(I, k=matrix_belt, format="csr")
-    return LT_I, UT_I
+    if matrix_belt < matrix.shape[0]:
+        matrix -= ss.triu(matrix, k=matrix_belt, format="csr")
+
+    return matrix
 
 
-def _scale_Iproc(
-    I: ss.csr_matrix, LT_I: ss.csr_matrix, UT_I: ss.csr_matrix
-) -> Tuple[ss.csr_matrix, ss.csr_matrix, ss.csr_matrix]:
-    """
-    Rescale matrices LT_I and UT_I based on the maximum value found in matrix I
-
-    Parameters
-    ----------
-    I : ss.csr_matrix
-        the sparse matrix used to compute the scaling factor
-    LT_I : ss.csr_matrix
-        the lower-triangular sparse matrix to be rescaled
-    UT_I : ss.csr_matrix
-        the upper-triangular sparse matrix to be rescaled
-
-    Returns
-    -------
-    Tuple[ss.csr_matrix, ss.csr_matrix]
-        the rescaled lower and upper-triangular matrices
-    """
-
-    scaling_factor_Iproc = I.max()
-    return tuple(J / scaling_factor_Iproc for J in [I, LT_I, UT_I])  # noqa
-
-
-def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArray]:
+def _extract_RoIs(ut_matrix: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArray]:
     """
     Extract a region of interest (ROI) from the sparse matrix I
 
     Parameters
     ----------
-    I: ss.csr_matrix
-        the sparse matrix to be processed
+    ut_matrix: ss.csr_matrix
+        the upper-triangular sparse matrix to be processed
     RoI: Dict[str, List[int]]
         dictionary with the region of interest in matrix ('matrix') and genomic ('genomic') coordinates
 
@@ -117,8 +92,11 @@ def _extract_RoIs(I: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArr
     if RoI is None:
         return None
 
-    rows = cols = slice(RoI["matrix"][0], RoI["matrix"][1])
-    I_RoI = I[rows, cols].toarray()
+    i0, i1 = RoI["matrix"][0], RoI["matrix"][1]
+    I_RoI = ut_matrix[i0:i1, i0:i1].toarray()
+    diag = np.diag(I_RoI)
+    I_RoI += I_RoI.T
+    np.fill_diagonal(I_RoI, diag)
     return I_RoI
 
 
@@ -261,24 +239,26 @@ def _complement_persistent_minimum_points(
     return np.concatenate([[left_bound], persistent_minimum_points, [right_bound]], dtype=int)
 
 
-def step_1(I, genomic_belt, resolution, RoI=None, logger=None):
+def step_1(I: ss.csr_matrix, genomic_belt: int, resolution: int, RoI: Optional[Dict] = None, logger=None):
     if logger is None:
         logger = structlog.get_logger()
 
-    logger.bind(step=(1, 1)).info("applying log-transformation")
-    Iproc = _log_transform(I)
-
-    logger.bind(step=(1, 2)).info("focusing on a neighborhood of the main diagonal")
-    LT_Iproc, UT_Iproc = _band_extraction(Iproc, resolution, genomic_belt)
+    logger.bind(step=(1, 1)).info("focusing on a neighborhood of the main diagonal")
+    Iproc = _band_extraction(I, resolution, genomic_belt)
     nnz0 = I.count_nonzero()
-    nnz1 = LT_Iproc.count_nonzero()
+    nnz1 = Iproc.count_nonzero()
     delta = nnz0 - nnz1
-    logger.bind(step=(1, 2)).info("removed %.2f%% of the non-zero entries (%d/%d)", (delta / nnz0) * 100, delta, nnz0)
+    logger.bind(step=(1, 1)).info("removed %.2f%% of the non-zero entries (%d/%d)", (delta / nnz0) * 100, delta, nnz0)
+
+    logger.bind(step=(1, 2)).info("applying log-transformation")
+    Iproc = _log_transform(Iproc)
+
+    RoiI = _extract_RoIs(Iproc, RoI)
 
     logger.bind(step=(1, 3)).info("projecting interactions onto [1, 0]")
-    Iproc, LT_Iproc, UT_Iproc = _scale_Iproc(Iproc, LT_Iproc, UT_Iproc)
+    Iproc /= Iproc.max()
 
-    return LT_Iproc, UT_Iproc, _extract_RoIs(Iproc, RoI)
+    return Iproc.T.tocsr(), Iproc, RoiI
 
 
 def step_2(

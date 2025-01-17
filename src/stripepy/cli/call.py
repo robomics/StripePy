@@ -356,10 +356,9 @@ def run(
             start_local_time = time.time()
 
             logger.debug("fetching interactions using normalization=%s", normalization)
-            I = f.fetch(chrom_name, normalization=normalization).to_csr("full")
+            I = f.fetch(chrom_name, normalization=normalization).to_csr()
             progress_bar(progress_weights["input"])
 
-            # RoI:
             RoI = others.define_RoI(roi, chrom_size, resolution)
             if RoI is not None:
                 logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *RoI["genomic"])
