@@ -115,7 +115,11 @@ class Result(object):
         attribute
             the value associated with the given name and location.
         """
-        if location not in {"LT", "UT"}:
+        if location == "lower":
+            location = "LT"
+        elif location == "upper":
+            location = "UT"
+        elif location not in {"LT", "UT"}:
             raise ValueError("Location should be UT or LT")
 
         attr_name = f"_{location.lower()}_{name}"

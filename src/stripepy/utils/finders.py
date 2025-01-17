@@ -232,9 +232,9 @@ def find_HIoIs(
 
 
 def find_VIoIs(
-    I: Optional[ss.csr_matrix],
+    matrix: Optional[ss.csr_matrix],
     seed_sites: npt.NDArray[int],
-    HIoIs: pd.DataFrame,
+    horizontal_domains: pd.DataFrame,
     max_height: int,
     threshold_cut: float,
     min_persistence: float,
@@ -244,13 +244,13 @@ def find_VIoIs(
     logger=None,
 ) -> pd.DataFrame:
     assert len(seed_sites) > 0
-    assert len(seed_sites) == len(HIoIs)
+    assert len(seed_sites) == len(horizontal_domains)
 
     t0 = time.time()
     if logger is None:
         logger = structlog.get_logger()
 
-    df = pd.concat([pd.DataFrame({"seed_site": seed_sites}), HIoIs], axis="columns")
+    df = pd.concat([pd.DataFrame({"seed_site": seed_sites}), horizontal_domains], axis="columns")
 
     if location == "lower":
         finder = _find_lower_v_domain
@@ -262,7 +262,7 @@ def find_VIoIs(
     tasks = map_(
         partial(
             finder,
-            matrix=I,
+            matrix=matrix,
             threshold_cut=threshold_cut,
             max_height=max_height,
             min_persistence=min_persistence,

@@ -352,73 +352,52 @@ def step_2(
 
 def step_3(
     result: IO.Result,
-    L: Optional[ss.csr_matrix],
-    U: Optional[ss.csr_matrix],
+    matrix: Optional[ss.csr_matrix],
     resolution: int,
     genomic_belt: int,
     max_width: int,
     loc_pers_min: float,
     loc_trend_min: float,
+    location: str,
     map_=map,
     logger=None,
 ) -> IO.Result:
+    assert location in {"lower", "upper"}
+
     if logger is None:
         logger = structlog.get_logger()
+
+    logger = logger.bind(location="LT" if location == "lower" else "UT")
 
     if result.empty:
         logger.bind(step=(3,)).warning("no candidates found by step 2: returning immediately!")
         return result
 
-    use_shared_matrices = L is None
-    if use_shared_matrices:
-        L = get_shared_state("lower").get()
-        U = get_shared_state("upper").get()
-
-    # Retrieve data:
-    LT_mPs = result.get("persistent_minimum_points", "LT")
-    UT_mPs = result.get("persistent_minimum_points", "UT")
-    LT_MPs = result.get("persistent_maximum_points", "LT")
-    UT_MPs = result.get("persistent_maximum_points", "UT")
-    LT_pseudo_distrib = result.get("pseudodistribution", "LT")
-    UT_pseudo_distrib = result.get("pseudodistribution", "UT")
-
     start_time = time.time()
+
+    persistent_min_points = result.get("persistent_minimum_points", location)
+    persistent_max_points = result.get("persistent_maximum_points", location)
+    pseudodistribution = result.get("pseudodistribution", location)
 
     logger.bind(step=(3, 1)).info("width estimation")
     logger.bind(step=(3, 1, 1)).info("estimating candidate stripe widths")
 
-    LT_bounded_mPs = _complement_persistent_minimum_points(
-        LT_pseudo_distrib, persistent_minimum_points=LT_mPs, persistent_maximum_points=LT_MPs
-    )
-    UT_bounded_mPs = _complement_persistent_minimum_points(
-        UT_pseudo_distrib, persistent_minimum_points=UT_mPs, persistent_maximum_points=UT_MPs
+    persistent_min_points_bounded = _complement_persistent_minimum_points(
+        pseudodistribution, persistent_min_points, persistent_max_points
     )
 
     # DataFrame with the left and right boundaries for each seed site
-    LT_HIoIs = finders.find_HIoIs(
-        pseudodistribution=LT_pseudo_distrib,
-        seed_sites=LT_MPs,
-        seed_site_bounds=LT_bounded_mPs,
-        max_width=int(max_width / (2 * resolution)) + 1,
-        logger=logger,
-    )
-    UT_HIoIs = finders.find_HIoIs(
-        pseudodistribution=UT_pseudo_distrib,
-        seed_sites=UT_MPs,
-        seed_site_bounds=UT_bounded_mPs,
+    horizontal_domains = finders.find_HIoIs(
+        pseudodistribution=pseudodistribution,
+        seed_sites=persistent_max_points,
+        seed_site_bounds=persistent_min_points_bounded,
         max_width=int(max_width / (2 * resolution)) + 1,
         logger=logger,
     )
 
     logger.bind(step=(3, 1, 2)).info("updating candidate stripes with width information")
-    stripes = result.get("stripes", "LT")
-    LT_HIoIs.apply(
-        lambda seed: stripes[seed.name].set_horizontal_bounds(seed["left_bound"], seed["right_bound"]),
-        axis="columns",
-    )
-
-    stripes = result.get("stripes", "UT")
-    UT_HIoIs.apply(
+    stripes = result.get("stripes", location)
+    horizontal_domains.apply(
         lambda seed: stripes[seed.name].set_horizontal_bounds(seed["left_bound"], seed["right_bound"]),
         axis="columns",
     )
@@ -429,38 +408,21 @@ def step_3(
     start_time = time.time()
 
     logger.bind(step=(3, 2, 1)).info("estimating candidate stripe heights")
-    LT_VIoIs = finders.find_VIoIs(
-        None if use_shared_matrices else L,
-        LT_MPs,
-        LT_HIoIs,
+    vertical_domains = finders.find_VIoIs(
+        matrix,
+        persistent_max_points,
+        horizontal_domains,
         max_height=int(genomic_belt / resolution),
         threshold_cut=loc_trend_min,
         min_persistence=loc_pers_min,
-        location="lower",
-        map_=map_,
-        logger=logger,
-    )
-    UT_VIoIs = finders.find_VIoIs(
-        None if use_shared_matrices else U,
-        UT_MPs,
-        UT_HIoIs,
-        max_height=int(genomic_belt / resolution),
-        threshold_cut=loc_trend_min,
-        min_persistence=loc_pers_min,
-        location="upper",
+        location=location,
         map_=map_,
         logger=logger,
     )
 
     logger.bind(step=(3, 1, 2)).info("updating candidate stripes with height information")
-    stripes = result.get("stripes", "LT")
-    LT_VIoIs[["top_bound", "bottom_bound"]].apply(
-        lambda seed: stripes[seed.name].set_vertical_bounds(seed["top_bound"], seed["bottom_bound"]),
-        axis="columns",
-    )
-
-    stripes = result.get("stripes", "UT")
-    UT_VIoIs[["top_bound", "bottom_bound"]].apply(
+    stripes = result.get("stripes", location)
+    vertical_domains[["top_bound", "bottom_bound"]].apply(
         lambda seed: stripes[seed.name].set_vertical_bounds(seed["top_bound"], seed["bottom_bound"]),
         axis="columns",
     )

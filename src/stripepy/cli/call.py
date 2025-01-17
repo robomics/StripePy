@@ -259,7 +259,7 @@ def _merge_results(futures) -> IO.Result:
     result1, result2 = results["lower"], results["upper"]
 
     for key in keys:
-        result1.set(key, result2.get(key, "UT"), "UT")
+        result1.set(key, result2.get(key, "upper"), "upper")
 
     return result1
 
@@ -423,12 +423,25 @@ def run(
                 result = stripepy.step_3(
                     result,
                     LT_Iproc,
+                    resolution,
+                    genomic_belt,
+                    max_width,
+                    loc_pers_min,
+                    loc_trend_min,
+                    location="lower",
+                    map_=pool.map,
+                    logger=logger,
+                )
+
+                result = stripepy.step_3(
+                    result,
                     UT_Iproc,
                     resolution,
                     genomic_belt,
                     max_width,
                     loc_pers_min,
                     loc_trend_min,
+                    location="upper",
                     map_=pool.map,
                     logger=logger,
                 )
