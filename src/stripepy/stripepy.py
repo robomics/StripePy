@@ -344,7 +344,6 @@ def step_3(
     loc_pers_min: float,
     loc_trend_min: float,
     map_=map,
-    num_chunks: int = 1,
     logger=None,
 ) -> IO.Result:
     if logger is None:
@@ -441,7 +440,6 @@ def step_3(
         min_persistence=loc_pers_min,
         location="lower",
         map_=map_,
-        num_chunks=num_chunks,
         logger=logger,
     )
     UT_VIoIs = finders.find_VIoIs(
@@ -453,7 +451,6 @@ def step_3(
         min_persistence=loc_pers_min,
         location="upper",
         map_=map_,
-        num_chunks=num_chunks,
         logger=logger,
     )
 
@@ -475,17 +472,15 @@ def step_3(
     return result
 
 
-def _step4_helper(it: Tuple[Optional[ss.csr_matrix], Sequence[stripe.Stripe], str], window: int) -> List[stripe.Stripe]:
+def _step4_helper(stripe: stripe.Stripe, matrix: Optional[ss.csr_matrix], window: int, location: str) -> stripe.Stripe:
     assert window >= 0
-    matrix, stripes, location = it
 
     if matrix is None:
         matrix = get_shared_state(location).get()
 
-    for stripe in stripes:
-        stripe.compute_biodescriptors(matrix, window=window)
+    stripe.compute_biodescriptors(matrix, window=window)
 
-    return list(stripes)
+    return stripe
 
 
 def step_4(
@@ -493,7 +488,6 @@ def step_4(
     L: Optional[ss.csr_matrix],
     U: Optional[ss.csr_matrix],
     window: int = 3,
-    num_chunks: int = 1,
     map_=map,
     logger=None,
 ):
@@ -509,16 +503,8 @@ def step_4(
     lt_stripes = result.get("stripes", "LT")
     ut_stripes = result.get("stripes", "UT")
 
-    num_chunks_lt = min(num_chunks, (len(lt_stripes) + 99) // 100)
-    num_chunks_ut = min(num_chunks, (len(ut_stripes) + 99) // 100)
-
-    chunks_lt = ((L, stripes, "lower") for stripes in np.array_split(lt_stripes, num_chunks_lt))
-    chunks_ut = ((U, stripes, "upper") for stripes in np.array_split(ut_stripes, num_chunks_ut))
-
-    tasks = map_(functools.partial(_step4_helper, window=window), itertools.chain(chunks_lt, chunks_ut))
-
-    lt_stripes = list(itertools.chain.from_iterable(itertools.islice(tasks, num_chunks_lt)))
-    ut_stripes = list(itertools.chain.from_iterable(tasks))
+    lt_stripes = list(map_(functools.partial(_step4_helper, matrix=L, window=window, location="lower"), lt_stripes))
+    ut_stripes = list(map_(functools.partial(_step4_helper, matrix=U, window=window, location="lower"), ut_stripes))
 
     result.set("stripes", lt_stripes, "LT", force=True)
     result.set("stripes", ut_stripes, "UT", force=True)

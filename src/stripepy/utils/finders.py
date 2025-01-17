@@ -5,7 +5,7 @@
 import itertools
 import time
 from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -13,7 +13,7 @@ import pandas as pd
 import scipy.sparse as ss
 import structlog
 
-from .common import pretty_format_elapsed_time, split_df, zero_columns
+from .common import pretty_format_elapsed_time
 from .multiprocess_sparse_matrix import get_shared_state
 from .persistence1d import PersistenceTable
 from .regressions import _compute_wQISA_predictions
@@ -124,16 +124,19 @@ def _find_v_domain_helper(
 
 
 def _find_lower_v_domain(
+    coords: Tuple[int, int, int],
     matrix: ss.csr_matrix,
-    seed_site: int,
-    left_bound: int,
-    right_bound: int,
     threshold_cut: float,
     max_height: int,
     min_persistence: float,
     return_maxima: bool,
+    location: str,
 ) -> Dict[str, Any]:
+    seed_site, left_bound, right_bound = coords
     # assert left_bound <= seed_site <= right_bound
+
+    if matrix is None:
+        matrix = get_shared_state(location).get()
 
     profile = _extract_standardized_local_1d_pseudodistribution(
         matrix, seed_site, left_bound, right_bound, max_height, "lower"
@@ -151,16 +154,20 @@ def _find_lower_v_domain(
 
 
 def _find_upper_v_domain(
+    coords: Tuple[int, int, int],
     matrix: ss.csr_matrix,
-    seed_site: int,
-    left_bound: int,
-    right_bound: int,
     threshold_cut: float,
     max_height: int,
     min_persistence: float,
     return_maxima: bool,
+    location: str,
 ) -> Dict[str, Any]:
+    seed_site, left_bound, right_bound = coords
     # assert left_bound <= seed_site <= right_bound
+
+    if matrix is None:
+        matrix = get_shared_state(location).get()
+
     profile = _extract_standardized_local_1d_pseudodistribution(
         matrix, seed_site, left_bound, right_bound, max_height, "upper"
     )
@@ -176,53 +183,6 @@ def _find_upper_v_domain(
 
     res["maxima"] = local_maxima
     return res
-
-
-def _find_v_domains(
-    it: Tuple[Union[ss.csr_matrix, ss.csc_matrix], pd.DataFrame],
-    threshold: float,
-    max_height: int,
-    min_persistence: float,
-    return_maxima: bool,
-    location: str,
-) -> List[Dict[str, Any]]:
-    matrix, df = it
-
-    if location == "lower":
-        finder = _find_lower_v_domain
-    elif location == "upper":
-        finder = _find_upper_v_domain
-    else:
-        raise ValueError("where should be lower or upper")
-
-    if matrix is None:
-        matrix = get_shared_state(location).get()
-
-    results = []
-    cols = ["seed_site", "left_bound", "right_bound"]
-    for seed_site, left_bound, right_bound in df[cols].itertuples(index=False):
-        results.append(
-            finder(
-                matrix=matrix,
-                seed_site=seed_site,
-                left_bound=left_bound,
-                right_bound=right_bound,
-                threshold_cut=threshold,
-                max_height=max_height,
-                min_persistence=min_persistence,
-                return_maxima=return_maxima,
-            )
-        )
-
-    return results
-
-
-def _preproc_matrix_for_find_viois(matrix: ss.csr_matrix, sites: pd.DataFrame) -> Union[ss.csr_matrix, ss.csc_matrix]:
-    idx = []
-    for left_bound, right_bound in sites[["left_bound", "right_bound"]].itertuples(index=False):
-        idx.extend(range(left_bound, right_bound + 1))
-
-    return zero_columns(matrix, idx)
 
 
 def find_HIoIs(
@@ -281,10 +241,8 @@ def find_VIoIs(
     location: str,
     return_maxima: bool = False,
     map_=map,
-    num_chunks: int = 1,
     logger=None,
 ) -> pd.DataFrame:
-    assert num_chunks > 0
     assert len(seed_sites) > 0
     assert len(seed_sites) == len(HIoIs)
 
@@ -294,27 +252,28 @@ def find_VIoIs(
 
     df = pd.concat([pd.DataFrame({"seed_site": seed_sites}), HIoIs], axis="columns")
 
-    num_chunks = min(num_chunks, (len(df) + 199) // 200)
-
-    if num_chunks == 1:
-        map_ = map
-
-    chunks = zip(itertools.repeat(I), split_df(df, num_chunks))
+    if location == "lower":
+        finder = _find_lower_v_domain
+    elif location == "upper":
+        finder = _find_upper_v_domain
+    else:
+        raise ValueError("where should be lower or upper")
 
     tasks = map_(
         partial(
-            _find_v_domains,
-            threshold=threshold_cut,
+            finder,
+            matrix=I,
+            threshold_cut=threshold_cut,
             max_height=max_height,
             min_persistence=min_persistence,
             return_maxima=return_maxima,
             location=location,
         ),
-        chunks,
+        ((seed, lb, rb) for seed, lb, rb in df[["seed_site", "left_bound", "right_bound"]].itertuples(index=False)),
     )
 
     df = pd.DataFrame.from_records(
-        data=itertools.chain.from_iterable(tasks),
+        data=tasks,
         nrows=len(seed_sites),
     )
 

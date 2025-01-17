@@ -368,7 +368,6 @@ def run(
                     loc_pers_min,
                     loc_trend_min,
                     map_=pool.map,
-                    num_chunks=nproc,
                     logger=logger,
                 )
 
@@ -383,7 +382,6 @@ def run(
                     result,
                     None if pool.ready else LT_Iproc,
                     None if pool.ready else UT_Iproc,
-                    num_chunks=nproc,
                     map_=pool.map,
                     logger=logger,
                 )
