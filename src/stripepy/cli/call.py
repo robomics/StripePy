@@ -462,21 +462,26 @@ def run(
                 logger.info("statistical analysis and post-processing")
                 start_time = time.time()
 
-                result = stripepy.step_4(
-                    result,
+                task1 = tpool.submit(
+                    stripepy.step_4,
+                    result.get("stripes", "lower"),
                     LT_Iproc,
                     location="lower",
                     map_=pool.map,
                     logger=logger,
                 )
 
-                result = stripepy.step_4(
-                    result,
+                task2 = tpool.submit(
+                    stripepy.step_4,
+                    result.get("stripes", "upper"),
                     UT_Iproc,
                     location="upper",
                     map_=pool.map,
                     logger=logger,
                 )
+
+                result.set("stripes", task1.result()[1], "LT", force=True)
+                result.set("stripes", task2.result()[1], "UT", force=True)
 
                 progress_bar(progress_weights["step_4"])
                 logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))

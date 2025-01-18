@@ -425,30 +425,27 @@ def _step4_helper(stripe: stripe.Stripe, matrix: Optional[ss.csr_matrix], window
 
 
 def step_4(
-    result: IO.Result,
+    stripes: List[stripe.Stripe],
     matrix: Optional[ss.csr_matrix],
     location: str,
     window: int = 3,
     map_=map,
     logger=None,
-):
+) -> Tuple[str, List[stripe.Stripe]]:
     if logger is None:
         logger = structlog.get_logger()
 
     logger = logger.bind(location="LT" if location == "lower" else "UT")
 
-    if result.empty:
+    if len(stripes) == 0:
         logger.bind(step=(4,)).warning("no candidates found by step 2: returning immediately!")
-        return result
+        return location, stripes
 
     logger.bind(step=(4, 1)).info("computing stripe biological descriptors")
 
-    stripes = result.get("stripes", location)
-    tasks = map_(functools.partial(_step4_helper, matrix=matrix, window=window, location=location), stripes)
-
-    result.set("stripes", list(tasks), location, force=True)
-
-    return result
+    return location, list(
+        map_(functools.partial(_step4_helper, matrix=matrix, window=window, location=location), stripes)
+    )
 
 
 def _plot_pseudodistribution(
