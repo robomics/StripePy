@@ -4,11 +4,15 @@
 
 import gc
 import multiprocessing as mp
+import time
 from typing import Union
 
 import numpy as np
 import numpy.typing as npt
 import scipy.sparse as ss
+import structlog
+
+from .common import pretty_format_elapsed_time
 
 
 def _ctor(m: Union[ss.csr_matrix, ss.csc_matrix]):
@@ -25,12 +29,15 @@ def _copy_data(src: npt.NDArray, dest: mp.RawArray, dtype: npt.DTypeLike):
 
 
 class SharedCSRMatrix(object):
-    def __init__(self, m: ss.csr_matrix):
+    def __init__(self, m: ss.csr_matrix, logger=None):
+        t0 = time.time()
         self._data, self._indices, self._indptr, self._shape = _ctor(m)
 
         _copy_data(m.data, *self._data)
         _copy_data(m.indices, *self._indices)
         _copy_data(m.indptr, *self._indptr)
+        if logger:
+            logger.debug("allocation of CSR matrix in shared memory took %s", pretty_format_elapsed_time(t0))
 
     def get(self) -> ss.csr_matrix:
         return ss.csr_matrix(
@@ -45,12 +52,16 @@ class SharedCSRMatrix(object):
 
 
 class SharedCSCMatrix(object):
-    def __init__(self, m: ss.csc_matrix):
+    def __init__(self, m: ss.csc_matrix, logger=None):
+        t0 = time.time()
         self._data, self._indices, self._indptr, self._shape = _ctor(m)
 
         _copy_data(m.data, *self._data)
         _copy_data(m.indices, *self._indices)
         _copy_data(m.indptr, *self._indptr)
+
+        if logger:
+            logger.debug("allocation of CSR matrix in shared memory took %s", pretty_format_elapsed_time(t0))
 
     def get(self) -> ss.csc_matrix:
         return ss.csc_matrix(
@@ -65,13 +76,13 @@ class SharedCSCMatrix(object):
 
 
 class SharedSparseMatrix(object):
-    def __init__(self, m):
+    def __init__(self, m, logger=None):
         if isinstance(m, ss.csr_matrix):
-            self._m = SharedCSRMatrix(m)
+            self._m = SharedCSRMatrix(m, logger)
         elif isinstance(m, ss.csc_matrix):
-            self._m = SharedCSCMatrix(m)
+            self._m = SharedCSCMatrix(m, logger)
         else:
-            self._m = SharedSparseMatrix(ss.csr_matrix(m))
+            self._m = SharedSparseMatrix(ss.csr_matrix(m), logger)
 
     def get(self) -> Union[ss.csr_matrix, ss.csc_matrix]:
         return self._m.get()

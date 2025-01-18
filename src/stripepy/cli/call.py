@@ -12,7 +12,9 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import hictkpy
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import scipy.sparse as ss
 import structlog
@@ -59,17 +61,18 @@ class ProcesPoolWrapper(object):
         lt_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
         ut_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
         init_mpl: bool = False,
+        logger=None,
     ):
         self._pool = None
         self._lt_matrix = None
         self._ut_matrix = None
 
         if nproc > 1:
-            assert lt_matrix is not None
-            assert ut_matrix is not None
-            self._lt_matrix = SharedSparseMatrix(lt_matrix)
-            self._ut_matrix = SharedSparseMatrix(ut_matrix)
-            set_shared_state(self._lt_matrix, self._ut_matrix)
+            if lt_matrix is not None:
+                assert ut_matrix is not None
+                self._lt_matrix = SharedSparseMatrix(lt_matrix, logger)
+                self._ut_matrix = SharedSparseMatrix(ut_matrix, logger)
+                set_shared_state(self._lt_matrix, self._ut_matrix)
 
             self._pool = concurrent.futures.ProcessPoolExecutor(  # noqa
                 max_workers=nproc,
@@ -88,9 +91,12 @@ class ProcesPoolWrapper(object):
             structlog.get_logger().debug("shutting down process pool due to the following exception: %s", exc_val)
 
         self._pool.shutdown(wait=True, cancel_futures=True)
-        self._lt_matrix = None
-        self._ut_matrix = None
-        unset_shared_state()
+        if self._lt_matrix is not None:
+            unset_shared_state()
+            self._lt_matrix = None
+            self._ut_matrix = None
+
+        self._pool = None
         return False
 
     @property
@@ -113,6 +119,113 @@ class ProcesPoolWrapper(object):
     @property
     def ready(self):
         return self._pool is not None
+
+
+class InteractionStore(object):
+    def __init__(
+        self,
+        path: pathlib.Path,
+        resolution: int,
+        normalization: Optional[str],
+        genomic_belt: int,
+        region_of_interest: Optional[str],
+        nproc: int,
+    ):
+        self._path = path
+        self._resolution = resolution
+        self._normalization = "NONE" if normalization is None else normalization
+        self._genomic_belt = genomic_belt
+        self._roi = region_of_interest
+
+        self._tpool = ProcesPoolWrapper(nproc)
+        self._tasks = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return self._tpool.__exit__(exc_type, exc_val, exc_tb)
+
+    @staticmethod
+    def _fetch(
+        path: pathlib.Path,
+        resolution: int,
+        normalization: str,
+        genomic_belt: int,
+        chrom_name: str,
+        roi: Optional[Dict],
+    ):
+        t0 = time.time()
+        logger = structlog.get_logger().bind(chrom=chrom_name, step="IO")
+
+        logger.info("fetching interactions using normalization=%s", normalization)
+        matrix = hictkpy.File(path, resolution=resolution).fetch(chrom_name, normalization=normalization).to_csr()
+        logger.info("fetched %d pixels in %s", matrix.count_nonzero(), pretty_format_elapsed_time(t0))
+
+        logger = structlog.get_logger().bind(chrom=chrom_name, step=(1,))
+        logger.info("data pre-processing")
+        t0 = time.time()
+        lt_matrix, ut_matrix, roi_matrix = stripepy.step_1(
+            matrix,
+            genomic_belt,
+            resolution,
+            RoI=roi,
+            logger=logger,
+        )
+        logger.info("preprocessing took %s", pretty_format_elapsed_time(t0))
+
+        return lt_matrix, ut_matrix, roi_matrix
+
+    def fetch(self, chrom_name: str, chrom_size: int) -> Tuple[ss.csr_matrix, ss.csr_matrix, Optional[npt.NDArray]]:
+        data = self.get(chrom_name)
+        if data is not None:
+            structlog.get_logger().bind(chrom=chrom_name, step="IO").info("returning pre-fetched interactions")
+            return data
+
+        roi = others.define_RoI(self._roi, chrom_size, self._resolution)
+        return InteractionStore._fetch(
+            self._path,
+            self._resolution,
+            self._normalization,
+            self._genomic_belt,
+            chrom_name,
+            roi,
+        )
+
+    def fetch_async(self, chrom_name: str, chrom_size: int):
+        if not self._tpool.ready:
+            return
+
+        assert chrom_name not in self._tasks
+
+        roi = others.define_RoI(self._roi, chrom_size, self._resolution)
+        self._tasks[chrom_name] = self._tpool.submit(
+            InteractionStore._fetch,
+            self._path,
+            self._resolution,
+            self._normalization,
+            self._genomic_belt,
+            chrom_name,
+            roi,
+        )
+
+    def fetch_next_async(self, tasks: List[Tuple[str, int, bool]]):
+        if not self._tpool.ready:
+            return
+
+        if len(tasks) == 0 or tasks[0][0] in self._tasks:
+            return
+
+        for chrom, size, skip in tasks:
+            if not skip:
+                self.fetch_async(chrom, size)
+                return
+
+    def get(self, chrom: str) -> Optional[Tuple[ss.csr_matrix, ss.csr_matrix, Optional[npt.NDArray]]]:
+        res = self._tasks.pop(chrom, None)
+        if res is not None:
+            res = res.result()
+        return res
 
 
 def _generate_metadata_attribute(
@@ -296,11 +409,11 @@ def run(
         # Raise an error immediately if --roi was passed and matplotlib is not available
         _import_matplotlib()
 
-    # Data loading:
     f = others.open_matrix_file_checked(contact_map, resolution)
+    chroms = f.chromosomes(include_ALL=False)
 
     if force:
-        _remove_existing_output_files(output_file, plot_dir, f.chromosomes())
+        _remove_existing_output_files(output_file, plot_dir, chroms)
 
     with contextlib.ExitStack() as ctx:
         main_logger = structlog.get_logger()
@@ -323,6 +436,10 @@ def run(
             ),
         )
 
+        matrix_store = ctx.enter_context(
+            InteractionStore(contact_map, resolution, normalization, genomic_belt, roi, nproc)
+        )
+
         if nproc > 1:
             tpool = ctx.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=2))
         else:
@@ -332,12 +449,10 @@ def run(
             normalization = "NONE"
 
         disable_bar = not sys.stderr.isatty()
-        progress_weights_df = _compute_progress_bar_weights(
-            f.chromosomes(), include_plotting=roi is not None, nproc=nproc
-        )
+        progress_weights_df = _compute_progress_bar_weights(chroms, include_plotting=roi is not None, nproc=nproc)
         progress_bar = ctx.enter_context(
             initialize_progress_bar(
-                total=sum(f.chromosomes().values()),
+                total=sum(chroms.values()),
                 manual=True,
                 disable=disable_bar,
                 enrich_print=False,
@@ -350,7 +465,9 @@ def run(
             )
         )
 
-        for chrom_name, chrom_size, skip in _plan(f.chromosomes(include_ALL=False), min_chrom_size):
+        tasks = _plan(chroms, min_chrom_size)
+
+        for i, (chrom_name, chrom_size, skip) in enumerate(tasks):
             progress_weights = progress_weights_df.loc[chrom_name, :].to_dict()
 
             if skip:
@@ -364,34 +481,23 @@ def run(
             logger.info("begin processing...")
             start_local_time = time.time()
 
-            logger.debug("fetching interactions using normalization=%s", normalization)
-            I = f.fetch(chrom_name, normalization=normalization).to_csr()
-            progress_bar(progress_weights["input"])
+            LT_Iproc, UT_Iproc, Iproc_RoI = matrix_store.fetch(chrom_name, chrom_size)
+            matrix_store.fetch_next_async(tasks[i + 1 :])
 
-            RoI = others.define_RoI(roi, chrom_size, resolution)
-            if RoI is not None:
-                logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *RoI["genomic"])
-
-            logger = logger.bind(step=(1,))
-            logger.info("data pre-processing")
-            start_time = time.time()
-            LT_Iproc, UT_Iproc, Iproc_RoI = stripepy.step_1(
-                I,
-                genomic_belt,
-                resolution,
-                RoI=RoI,
+            with ProcesPoolWrapper(
+                nproc=nproc,
+                lt_matrix=LT_Iproc,
+                ut_matrix=UT_Iproc,
+                init_mpl=roi is not None,
                 logger=logger,
-            )
-            del I
-
-            with ProcesPoolWrapper(nproc, LT_Iproc, UT_Iproc, init_mpl=roi is not None) as pool:
+            ) as pool:
                 if pool.ready:
                     # matrices are stored in the shared global state
                     LT_Iproc = None
                     UT_Iproc = None
 
                 progress_bar(progress_weights["step_1"])
-                logger.info("preprocessing took %s", pretty_format_elapsed_time(start_time))
+                logger.info("preprocessing took %s", pretty_format_elapsed_time(start_local_time))
 
                 logger = logger.bind(step=(2,))
                 logger.info("topological data analysis")
@@ -400,7 +506,7 @@ def run(
                 task1 = pool.submit(
                     stripepy.step_2,
                     chrom_name=chrom_name,
-                    chrom_size=f.chromosomes().get(chrom_name),
+                    chrom_size=chrom_size,
                     matrix=LT_Iproc,
                     min_persistence=glob_pers_min,
                     location="lower",
@@ -410,7 +516,7 @@ def run(
                 task2 = pool.submit(
                     stripepy.step_2,
                     chrom_name=chrom_name,
-                    chrom_size=f.chromosomes().get(chrom_name),
+                    chrom_size=chrom_size,
                     matrix=UT_Iproc,
                     min_persistence=glob_pers_min,
                     location="upper",
@@ -488,11 +594,17 @@ def run(
 
                 logger = main_logger.bind(chrom=chrom_name)
                 logger.info('writing results to file "%s"', h5.path)
+                start_time = time.time()
                 h5.write_descriptors(result)
+                logger.info(
+                    'successfully written results to "%s" in %s', h5.path, pretty_format_elapsed_time(start_time)
+                )
                 progress_bar(progress_weights["output"])
                 logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
 
-                if RoI is not None:
+                if Iproc_RoI is not None:
+                    RoI = others.define_RoI(roi, chrom_size, resolution)
+                    logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *RoI["genomic"])
                     result.set_roi(RoI)
                     start_time = time.time()
                     logger = logger.bind(step=(5,))
@@ -517,8 +629,6 @@ def run(
                     logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
 
     main_logger.info("DONE!")
-    main_logger.info(
-        "processed %d chromosomes in %s", len(f.chromosomes()), pretty_format_elapsed_time(start_global_time)
-    )
+    main_logger.info("processed %d chromosomes in %s", len(chroms), pretty_format_elapsed_time(start_global_time))
 
     return 0
