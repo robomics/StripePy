@@ -56,9 +56,9 @@ class ProcesPoolWrapper(object):
     def __init__(
         self,
         nproc: int,
-        lt_matrix: Union[ss.csc_matrix, ss.csr_matrix, None],
-        ut_matrix: Union[ss.csc_matrix, ss.csr_matrix, None],
-        init_mpl: bool,
+        lt_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
+        ut_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
+        init_mpl: bool = False,
     ):
         self._pool = None
         self._lt_matrix = None
@@ -255,7 +255,7 @@ def _merge_results(futures) -> IO.Result:
     results = {}
     i = 0
     for i, fut in enumerate(futures, 1):
-        location, result = fut.result(timeout=2)
+        location, result = fut.result()
         results[location] = result
 
     assert len(results) == i
@@ -323,7 +323,10 @@ def run(
             ),
         )
 
-        tpool = ctx.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=2))
+        if nproc > 1:
+            tpool = ctx.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=2))
+        else:
+            tpool = ctx.enter_context(ProcesPoolWrapper(1))
 
         if normalization is None:
             normalization = "NONE"
