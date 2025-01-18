@@ -6,14 +6,12 @@
 
 
 import argparse
+import json
 import logging
 import pathlib
 import sys
-from typing import Optional, Sequence
 
-from pandas.testing import assert_frame_equal
-
-from stripepy.IO import ResultFile
+from stripepy.IO import compare_result_files
 
 
 def existing_file(arg: str) -> pathlib.Path:
@@ -39,63 +37,14 @@ def make_cli() -> argparse.ArgumentParser:
         help="Set verbosity of output to the console.",
     )
 
-    return cli
-
-
-def compare_attributes(f1: ResultFile, f2: ResultFile):
-    assert f1.assembly == f2.assembly
-    assert f1.resolution == f2.resolution
-    assert f1.format == f2.format
-    assert f1.normalization == f2.normalization
-    assert f1.chromosomes == f2.chromosomes
-
-    metadata1 = f1.metadata
-    metadata2 = f2.metadata
-
-    metadata1.pop("min-chromosome-size")
-    metadata2.pop("min-chromosome-size")
-
-    assert metadata1 == metadata2
-
-
-def compare_field(f1: ResultFile, f2: ResultFile, chrom: str, field: str, location: str):
-    assert chrom in f1.chromosomes
-    logging.info("comparing %s for %s (%s)...", field, chrom, location)
-    df1 = f1.get(chrom, field, location)
-    df2 = f2.get(chrom, field, location)
-
-    try:
-        assert_frame_equal(df1, df2, check_exact=False)
-    except AssertionError as e:
-        logging.fatal("%s", e)
-        logging.fatal("### FAILURE!")
-        sys.exit(1)
-
-
-def compare_result(f1: ResultFile, f2: ResultFile, chrom: str, location: str):
-    fields = (
-        "pseudodistribution",
-        "all_minimum_points",
-        "persistence_of_all_minimum_points",
-        "all_maximum_points",
-        "persistence_of_all_maximum_points",
-        "stripes",
+    cli.add_argument(
+        "--print-traceback",
+        action="store_true",
+        default=False,
+        help="Upon encountering an exception, print the traceback and exit immediately (mostly useful for debugging).",
     )
 
-    for field in fields:
-        compare_field(f1, f2, chrom, field, location)
-
-
-def compare_result_files(reference: pathlib.Path, found: pathlib.Path, chroms: Optional[Sequence[str]] = None):
-    with ResultFile(reference) as f1, ResultFile(found) as f2:
-        compare_attributes(f1, f2)
-
-        if chroms is None:
-            chroms = f1.chromosomes
-
-        for chrom in chroms:
-            compare_result(f1, f2, chrom, "LT")
-            compare_result(f1, f2, chrom, "UT")
+    return cli
 
 
 def setup_logger(level: str):
@@ -104,13 +53,19 @@ def setup_logger(level: str):
     logging.getLogger().setLevel(level)
 
 
-def main():
+def main() -> int:
     args = vars(make_cli().parse_args())
     setup_logger(args["verbosity"].upper())
-    compare_result_files(*args["hdf5"])
+    report = compare_result_files(*args["hdf5"], raise_on_exception=args["print_traceback"])
+    if report["success"]:
+        logging.debug("%s", json.dumps(report, indent=2))
+        logging.info("### SUCCESS!")
+        return 0
 
-    logging.info("### SUCCESS!")
+    logging.critical("%s", json.dumps(report, indent=2))
+    logging.critical("### FAILURE")
+    return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

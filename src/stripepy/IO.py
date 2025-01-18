@@ -14,6 +14,7 @@ import hictkpy
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+from pandas.testing import assert_frame_equal
 
 from stripepy.utils.stripe import Stripe
 
@@ -1029,3 +1030,118 @@ class ResultFile(object):
                 location,
             )
             self._append_stripes(result.get("stripes", location), location)
+
+
+def _compare_result_file_attributes(f1: ResultFile, f2: ResultFile, raise_on_exception: bool) -> Dict[str, Any]:
+    result = {"success": True, "errors": []}
+    try:
+        for attr in ("assembly", "resolution", "format", "normalization", "chromosomes"):
+            expected = getattr(f1, attr)
+            found = getattr(f2, attr)
+
+            if expected != found:
+                result["errors"].append(
+                    f'mismatched value for attribute "{attr}": expected "{expected}", found "{found}"'
+                )
+                result["success"] = False
+
+        expected = f1.metadata
+        found = f2.metadata
+
+        expected.pop("min-chromosome-size")
+        found.pop("min-chromosome-size")
+
+        if expected != found:
+            result["errors"].append(
+                f'mismatched value for attribute "metadata": expected "{expected}", found "{found}"'
+            )
+            result["success"] = False
+
+    except Exception as e:
+        if raise_on_exception:
+            raise
+        result["success"] = False
+        result["errors"].append(str(e))
+
+    return result
+
+
+def _compare_result_field(
+    f1: ResultFile, f2: ResultFile, chrom: str, field: str, location: str, raise_on_exception: bool
+) -> Dict[str, Any]:
+    assert chrom in f1.chromosomes
+    df1 = f1.get(chrom, field, location)
+    try:
+        df2 = f2.get(chrom, field, location)
+        assert_frame_equal(df1, df2, check_exact=False)
+    except Exception as e:
+        if raise_on_exception:
+            raise
+        return {"field": field, "success": False, "errors": [str(e)]}
+
+    return {"field": field, "success": True, "errors": []}
+
+
+def _compare_result(
+    f1: ResultFile, f2: ResultFile, chrom: str, location: str, raise_on_exception: bool
+) -> Dict[str, Any]:
+    fields = (
+        "pseudodistribution",
+        "all_minimum_points",
+        "persistence_of_all_minimum_points",
+        "all_maximum_points",
+        "persistence_of_all_maximum_points",
+        "stripes",
+    )
+
+    report = {"success": True}
+
+    for field in fields:
+        field_report = _compare_result_field(f1, f2, chrom, field, location, raise_on_exception)
+        field_report.pop("field")
+        report[field] = field_report
+
+    for status in report.values():
+        if not isinstance(status, dict):
+            continue
+
+        if not status["success"]:
+            report["success"] = False  # noqa
+            break
+
+    return report
+
+
+def compare_result_files(
+    reference: pathlib.Path,
+    found: pathlib.Path,
+    chroms: Optional[Sequence[str]] = None,
+    raise_on_exception: bool = False,
+) -> Dict[str, Any]:
+    report = {"success": True, "exception": None, "chroms": {}}
+
+    try:
+        with ResultFile(reference) as f1, ResultFile(found) as f2:
+            report["attributes"] = _compare_result_file_attributes(f1, f2, raise_on_exception)
+            report["success"] = report["attributes"]["success"]
+            if not report["success"]:
+                return report
+
+            if chroms is None:
+                chroms = f1.chromosomes
+
+            for chrom in chroms:
+                report["chroms"][chrom] = {
+                    "LT": _compare_result(f1, f2, chrom, "LT", raise_on_exception),
+                    "UT": _compare_result(f1, f2, chrom, "UT", raise_on_exception),
+                }
+                if not report["chroms"][chrom]["LT"]["success"] or not report["chroms"][chrom]["UT"]["success"]:
+                    report["success"] = False
+
+    except Exception as e:
+        if raise_on_exception:
+            raise
+        report["exception"] = str(e)
+        report["success"] = False
+
+    return report
