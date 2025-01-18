@@ -259,7 +259,7 @@ def step_1(
     logger.bind(step=(1, 3)).info("projecting interactions onto [1, 0]")
     Iproc /= Iproc.max()
 
-    return Iproc.T, Iproc, RoiI  # noqa
+    return Iproc.T, Iproc.tocsc(), RoiI  # noqa
 
 
 def step_2(
