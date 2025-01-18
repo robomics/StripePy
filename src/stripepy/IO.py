@@ -334,8 +334,8 @@ class ResultFile(object):
     """
 
     def __init__(self, path: pathlib.Path, mode: str = "r"):
-        if mode not in ["r", "w"]:
-            raise ValueError('mode should be "r" or "w"')
+        if mode not in ["r", "w", "a"]:
+            raise ValueError('mode should be "r", "w", or "a"')
 
         self._path = path
         self._mode = mode
@@ -343,7 +343,7 @@ class ResultFile(object):
 
         self._h5 = h5py.File(self._path, self._mode)
 
-        if self._mode == "r":
+        if self._mode != "w":
             self._validate(self._h5)
             self._chroms = {
                 chrom.decode("utf-8"): size for chrom, size in zip(self._h5["/chroms/name"], self._h5["/chroms/length"])

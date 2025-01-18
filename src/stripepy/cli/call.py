@@ -121,17 +121,19 @@ class ProcesPoolWrapper(object):
         return self._pool is not None
 
 
-class InteractionStore(object):
+class IOManager(object):
     def __init__(
         self,
-        path: pathlib.Path,
+        matrix_path: pathlib.Path,
+        result_path: pathlib.Path,
         resolution: int,
         normalization: Optional[str],
         genomic_belt: int,
         region_of_interest: Optional[str],
         nproc: int,
+        metadata: Dict[str, Any],
     ):
-        self._path = path
+        self._path = matrix_path
         self._resolution = resolution
         self._normalization = "NONE" if normalization is None else normalization
         self._genomic_belt = genomic_belt
@@ -140,11 +142,18 @@ class InteractionStore(object):
         self._tpool = ProcesPoolWrapper(nproc)
         self._tasks = {}
 
+        logger = structlog.get_logger().bind(step="IO")
+        logger.info('initializing result file "%s"...', result_path)
+        with IO.ResultFile(result_path, "w") as h5:
+            h5.init_file(hictkpy.File(self._path, self._resolution), normalization, metadata)
+        self._h5_path = result_path
+        self._h5_pending_io_task = None
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        return self._tpool.__exit__(exc_type, exc_val, exc_tb)
+        self._tpool.__exit__(exc_type, exc_val, exc_tb)
 
     @staticmethod
     def _fetch(
@@ -176,14 +185,16 @@ class InteractionStore(object):
 
         return lt_matrix, ut_matrix, roi_matrix
 
-    def fetch(self, chrom_name: str, chrom_size: int) -> Tuple[ss.csr_matrix, ss.csr_matrix, Optional[npt.NDArray]]:
-        data = self.get(chrom_name)
+    def fetch_interaction_matrix(
+        self, chrom_name: str, chrom_size: int
+    ) -> Tuple[ss.csr_matrix, ss.csr_matrix, Optional[npt.NDArray]]:
+        data = self.get_interaction_matrix(chrom_name)
         if data is not None:
             structlog.get_logger().bind(chrom=chrom_name, step="IO").info("returning pre-fetched interactions")
             return data
 
         roi = others.define_RoI(self._roi, chrom_size, self._resolution)
-        return InteractionStore._fetch(
+        return IOManager._fetch(
             self._path,
             self._resolution,
             self._normalization,
@@ -192,7 +203,7 @@ class InteractionStore(object):
             roi,
         )
 
-    def fetch_async(self, chrom_name: str, chrom_size: int):
+    def fetch_interaction_matrix_async(self, chrom_name: str, chrom_size: int):
         if not self._tpool.ready:
             return
 
@@ -200,7 +211,7 @@ class InteractionStore(object):
 
         roi = others.define_RoI(self._roi, chrom_size, self._resolution)
         self._tasks[chrom_name] = self._tpool.submit(
-            InteractionStore._fetch,
+            IOManager._fetch,
             self._path,
             self._resolution,
             self._normalization,
@@ -209,7 +220,7 @@ class InteractionStore(object):
             roi,
         )
 
-    def fetch_next_async(self, tasks: List[Tuple[str, int, bool]]):
+    def fetch_next_interaction_matrix_async(self, tasks: List[Tuple[str, int, bool]]):
         if not self._tpool.ready:
             return
 
@@ -218,14 +229,33 @@ class InteractionStore(object):
 
         for chrom, size, skip in tasks:
             if not skip:
-                self.fetch_async(chrom, size)
+                self.fetch_interaction_matrix_async(chrom, size)
                 return
 
-    def get(self, chrom: str) -> Optional[Tuple[ss.csr_matrix, ss.csr_matrix, Optional[npt.NDArray]]]:
+    def get_interaction_matrix(
+        self, chrom: str
+    ) -> Optional[Tuple[ss.csr_matrix, ss.csr_matrix, Optional[npt.NDArray]]]:
         res = self._tasks.pop(chrom, None)
         if res is not None:
             res = res.result()
         return res
+
+    @staticmethod
+    def _write_results(path: pathlib.Path, result: IO.Result):
+        logger = structlog.get_logger().bind(chrom=result.chrom[0], step="IO")
+        logger.info('writing results to file "%s"', path)
+        start_time = time.time()
+        with IO.ResultFile(path, "a") as h5:
+            h5.write_descriptors(result)
+        logger.info('successfully written results to "%s" in %s', path, pretty_format_elapsed_time(start_time))
+
+    def write_results(self, result: IO.Result):
+        if self._h5_pending_io_task is not None:
+            # This checks for exceptions and ensures that we are not trying to write data for
+            # two chromosomes at the same time
+            self._h5_pending_io_task.result()
+
+        self._h5_pending_io_task = self._tpool.submit(IOManager._write_results, self._h5_path, result)
 
 
 def _generate_metadata_attribute(
@@ -418,26 +448,25 @@ def run(
     with contextlib.ExitStack() as ctx:
         main_logger = structlog.get_logger()
 
-        # Create HDF5 file to store candidate stripes:
-        main_logger.info('initializing result file "%s"...', output_file)
-        h5 = ctx.enter_context(IO.ResultFile(output_file, "w"))
-
-        h5.init_file(
-            f,
-            normalization,
-            _generate_metadata_attribute(
-                constrain_heights=constrain_heights,
+        io_manager = ctx.enter_context(
+            IOManager(
+                matrix_path=contact_map,
+                result_path=output_file,
+                resolution=resolution,
+                normalization=normalization,
                 genomic_belt=genomic_belt,
-                glob_pers_min=glob_pers_min,
-                loc_pers_min=loc_pers_min,
-                loc_trend_min=loc_trend_min,
-                max_width=max_width,
-                min_chrom_size=min_chrom_size,
-            ),
-        )
-
-        matrix_store = ctx.enter_context(
-            InteractionStore(contact_map, resolution, normalization, genomic_belt, roi, nproc)
+                region_of_interest=roi,
+                metadata=_generate_metadata_attribute(
+                    constrain_heights=constrain_heights,
+                    genomic_belt=genomic_belt,
+                    glob_pers_min=glob_pers_min,
+                    loc_pers_min=loc_pers_min,
+                    loc_trend_min=loc_trend_min,
+                    max_width=max_width,
+                    min_chrom_size=min_chrom_size,
+                ),
+                nproc=nproc,
+            )
         )
 
         if nproc > 1:
@@ -472,8 +501,7 @@ def run(
 
             if skip:
                 logger.warning("writing an empty entry for chromosome %s...", chrom_name)
-                result = _generate_empty_result(chrom_name, chrom_size, resolution)
-                h5.write_descriptors(result)
+                io_manager.write_results(_generate_empty_result(chrom_name, chrom_size, resolution))
                 progress_bar(max(progress_weights.values()))
                 continue
 
@@ -481,8 +509,8 @@ def run(
             logger.info("begin processing...")
             start_local_time = time.time()
 
-            LT_Iproc, UT_Iproc, Iproc_RoI = matrix_store.fetch(chrom_name, chrom_size)
-            matrix_store.fetch_next_async(tasks[i + 1 :])
+            LT_Iproc, UT_Iproc, Iproc_RoI = io_manager.fetch_interaction_matrix(chrom_name, chrom_size)
+            io_manager.fetch_next_interaction_matrix_async(tasks[i + 1 :])
 
             with ProcesPoolWrapper(
                 nproc=nproc,
@@ -592,13 +620,7 @@ def run(
                 progress_bar(progress_weights["step_4"])
                 logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))
 
-                logger = main_logger.bind(chrom=chrom_name)
-                logger.info('writing results to file "%s"', h5.path)
-                start_time = time.time()
-                h5.write_descriptors(result)
-                logger.info(
-                    'successfully written results to "%s" in %s', h5.path, pretty_format_elapsed_time(start_time)
-                )
+                io_manager.write_results(result)
                 progress_bar(progress_weights["output"])
                 logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
 
