@@ -94,10 +94,10 @@ class ProcesPoolWrapper(object):
         return False
 
     @property
-    def map(self):
+    def map(self, chunksize: int = 50):
         if self._pool is None:
             return map
-        return self._pool.map
+        return functools.partial(self._pool.map, chunksize=chunksize)
 
     def submit(self, fx, *args, **kwargs) -> concurrent.futures.Future:
         if self._pool is None:
