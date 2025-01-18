@@ -4,6 +4,7 @@
 
 import concurrent.futures
 import contextlib
+import functools
 import json
 import pathlib
 import shutil
@@ -262,7 +263,7 @@ def _merge_results(futures) -> IO.Result:
     result1, result2 = results["lower"], results["upper"]
 
     for key in keys:
-        result1.set(key, result2.get(key, "upper"), "upper")
+        result1.set(key, result2.get(key, "upper"), "upper", force=True)
 
     return result1
 
@@ -321,6 +322,8 @@ def run(
                 min_chrom_size=min_chrom_size,
             ),
         )
+
+        tpool = ctx.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=2))
 
         if normalization is None:
             normalization = "NONE"
@@ -419,7 +422,8 @@ def run(
                 logger = logger.bind(step=(3,))
                 logger.info("shape analysis")
                 start_time = time.time()
-                result = stripepy.step_3(
+                task1 = tpool.submit(
+                    stripepy.step_3,
                     result,
                     LT_Iproc,
                     resolution,
@@ -432,7 +436,8 @@ def run(
                     logger=logger,
                 )
 
-                result = stripepy.step_3(
+                task2 = tpool.submit(
+                    stripepy.step_3,
                     result,
                     UT_Iproc,
                     resolution,
@@ -444,6 +449,8 @@ def run(
                     map_=pool.map,
                     logger=logger,
                 )
+
+                result = _merge_results((task1, task2))
 
                 progress_bar(progress_weights["step_3"])
                 logger.info("shape analysis took %s", pretty_format_elapsed_time(start_time))

@@ -342,7 +342,7 @@ def step_3(
     location: str,
     map_=map,
     logger=None,
-) -> IO.Result:
+) -> Tuple[str, IO.Result]:
     assert location in {"lower", "upper"}
 
     if logger is None:
@@ -352,7 +352,7 @@ def step_3(
 
     if result.empty:
         logger.bind(step=(3,)).warning("no candidates found by step 2: returning immediately!")
-        return result
+        return location, result
 
     start_time = time.time()
 
@@ -410,7 +410,7 @@ def step_3(
 
     logger.bind(step=(3, 2)).info("height estimation took %s", common.pretty_format_elapsed_time(start_time))
 
-    return result
+    return location, result
 
 
 def _step4_helper(stripe: stripe.Stripe, matrix: Optional[ss.csr_matrix], window: int, location: str) -> stripe.Stripe:
