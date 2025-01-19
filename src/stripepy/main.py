@@ -52,6 +52,7 @@ class _StructLogPlainStyles(object):
 
         self.timestamp = ""
         self.chromosome = ""
+        self.location = ""
         self.step = ""
         self.logger_name = ""
 
@@ -82,6 +83,7 @@ class _StructLogColorfulStyles(object):
 
         self.timestamp = self.dim
         self.chromosome = _try_get_color("Fore.BLUE")
+        self.location = _try_get_color("Fore.BLUE")
         self.step = _try_get_color("Fore.BLUE")
         self.logger_name = _try_get_color("Fore.BLUE")
 
@@ -133,6 +135,8 @@ def _configure_logger_columns(
         styles = _StructLogPlainStyles()
 
     def step_formatter(data):
+        if isinstance(data, str) and data.startswith("IO"):
+            return data
         if isinstance(data, collections.abc.Sequence):
             return f"step {'.'.join(str(x) for x in data)}"
         return f"step {data}"
@@ -171,6 +175,18 @@ def _configure_logger_columns(
                 reset_style=styles.reset,
                 value_repr=step_formatter,
                 width=pad_step,
+                prefix="[",
+                postfix="]",
+            ),
+        ),
+        structlog.dev.Column(
+            "location",
+            structlog.dev.KeyValueColumnFormatter(
+                key_style=None,
+                value_style=styles.location,
+                reset_style=styles.reset,
+                value_repr=str,
+                width=2,
                 prefix="[",
                 postfix="]",
             ),
