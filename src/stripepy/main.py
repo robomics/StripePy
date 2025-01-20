@@ -2,10 +2,11 @@
 #
 # SPDX-License-Identifier: MIT
 
+import multiprocessing as mp
+import platform
 import sys
+import traceback
 from typing import List, Union
-
-import structlog
 
 from .cli import call, download, logging, plot, setup, view
 
@@ -21,6 +22,8 @@ def _setup_matplotlib(subcommand: str, **kwargs):
         import matplotlib
         import matplotlib.pyplot as plt
     except ImportError:
+        import structlog
+
         structlog.get_logger().warning("failed to configure matplotlib")
         return
 
@@ -60,6 +63,8 @@ def main(args: Union[List[str], None] = None):
         raise NotImplementedError
 
     except (RuntimeError, ImportError) as e:
+        import structlog
+
         structlog.get_logger().exception(e)
         if args is not None:
             raise
@@ -67,4 +72,10 @@ def main(args: Union[List[str], None] = None):
 
 
 if __name__ == "__main__":
+    if platform.system() == "Linux":
+        mp.set_start_method("forkserver")
+        mp.set_forkserver_preload(("numpy", "pandas", "scipy.sparse", "structlog"))
+    else:
+        mp.set_start_method("spawn")
+
     sys.exit(main())
