@@ -28,6 +28,8 @@ from stripepy.utils.multiprocess_sparse_matrix import (
 )
 from stripepy.utils.progress_bar import initialize_progress_bar
 
+from .logging import setup_logger
+
 
 def _init_mpl_backend(skip: bool):
     if skip:
@@ -45,8 +47,14 @@ def _init_mpl_backend(skip: bool):
 def _init_shared_state(
     lower_triangular_matrix: Optional[SharedSparseMatrix],
     upper_triangular_matrix: Optional[SharedSparseMatrix],
+    matrix_file: pathlib.Path,
+    log_file: Optional[pathlib.Path],
+    log_level: Optional[str],
     init_mpl: bool,
 ):
+    if log_level is not None:
+        setup_logger(level=log_level, file=log_file, force=True, matrix_file=matrix_file)
+
     if lower_triangular_matrix is not None:
         assert upper_triangular_matrix is not None
         set_shared_state(lower_triangular_matrix, upper_triangular_matrix)
@@ -54,12 +62,15 @@ def _init_shared_state(
     _init_mpl_backend(skip=not init_mpl)
 
 
-class ProcesPoolWrapper(object):
+class ProcessPoolWrapper(object):
     def __init__(
         self,
         nproc: int,
+        matrix_file: Optional[pathlib.Path] = None,
         lt_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
         ut_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
+        log_file: Optional[pathlib.Path] = None,
+        log_level: Optional[str] = None,
         init_mpl: bool = False,
         logger=None,
     ):
@@ -77,7 +88,7 @@ class ProcesPoolWrapper(object):
             self._pool = concurrent.futures.ProcessPoolExecutor(  # noqa
                 max_workers=nproc,
                 initializer=_init_shared_state,
-                initargs=(self._lt_matrix, self._ut_matrix, init_mpl),
+                initargs=(self._lt_matrix, self._ut_matrix, matrix_file, log_file, log_level, init_mpl),
             )
 
     def __enter__(self):
@@ -132,6 +143,8 @@ class IOManager(object):
         region_of_interest: Optional[str],
         nproc: int,
         metadata: Dict[str, Any],
+        log_file: Optional[pathlib.Path],
+        log_level: Optional[str],
     ):
         self._path = matrix_path
         self._resolution = resolution
@@ -139,7 +152,13 @@ class IOManager(object):
         self._genomic_belt = genomic_belt
         self._roi = region_of_interest
 
-        self._tpool = ProcesPoolWrapper(nproc)
+        self._tpool = ProcessPoolWrapper(
+            nproc,
+            matrix_file=matrix_path,
+            log_file=log_file,
+            log_level=log_level,
+            init_mpl=False,
+        )
         self._tasks = {}
 
         logger = structlog.get_logger().bind(step="IO")
@@ -429,11 +448,25 @@ def _merge_results(futures) -> IO.Result:
     return result1
 
 
-def _setup_tpool(ctx, nproc: int) -> Union[ProcesPoolWrapper, concurrent.futures.ThreadPoolExecutor]:
+def _setup_tpool(
+    ctx,
+    nproc: int,
+    matrix_file: pathlib.Path,
+    log_file: Optional[pathlib.Path],
+    log_level: Optional[str],
+) -> Union[ProcessPoolWrapper, concurrent.futures.ThreadPoolExecutor]:
     if nproc > 1:
         return ctx.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=2))
 
-    return ctx.enter_context(ProcesPoolWrapper(1))
+    return ctx.enter_context(
+        ProcessPoolWrapper(
+            1,
+            matrix_file=matrix_file,
+            log_file=log_file,
+            log_level=log_level,
+            init_mpl=False,
+        )
+    )
 
 
 def run(
@@ -449,6 +482,7 @@ def run(
     force: bool,
     nproc: int,
     min_chrom_size: int,
+    verbosity: str,
     roi: Optional[str] = None,
     log_file: Optional[pathlib.Path] = None,
     plot_dir: Optional[pathlib.Path] = None,
@@ -491,6 +525,8 @@ def run(
                     min_chrom_size=min_chrom_size,
                 ),
                 nproc=nproc,
+                log_file=log_file,
+                log_level=verbosity,
             )
         )
 
@@ -514,7 +550,7 @@ def run(
         if normalization is None:
             normalization = "NONE"
 
-        tpool = _setup_tpool(ctx, nproc)
+        tpool = _setup_tpool(ctx, nproc, contact_map, log_file, verbosity)
         tasks = _plan(chroms, min_chrom_size)
 
         for i, (chrom_name, chrom_size, skip) in enumerate(tasks):
@@ -533,10 +569,13 @@ def run(
             LT_Iproc, UT_Iproc, Iproc_RoI = io_manager.fetch_interaction_matrix(chrom_name, chrom_size)
             io_manager.fetch_next_interaction_matrix_async(tasks[i + 1 :])
 
-            with ProcesPoolWrapper(
+            with ProcessPoolWrapper(
                 nproc=nproc,
                 lt_matrix=LT_Iproc,
                 ut_matrix=UT_Iproc,
+                matrix_file=contact_map,
+                log_file=log_file,
+                log_level=verbosity,
                 init_mpl=roi is not None,
                 logger=logger,
             ) as pool:
