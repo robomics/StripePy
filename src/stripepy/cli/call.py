@@ -144,8 +144,14 @@ class IOManager(object):
 
         logger = structlog.get_logger().bind(step="IO")
         logger.info('initializing result file "%s"...', result_path)
-        with IO.ResultFile(result_path, "w") as h5:
-            h5.init_file(hictkpy.File(self._path, self._resolution), normalization, metadata)
+        with IO.ResultFile.create_from_file(
+            result_path,
+            mode="a",
+            matrix_file=hictkpy.File(matrix_path, resolution),
+            normalization=normalization,
+            metadata=metadata,
+        ) as h5:
+            pass
         self._h5_path = result_path
         self._h5_pending_io_task = None
 
@@ -245,7 +251,7 @@ class IOManager(object):
         logger = structlog.get_logger().bind(chrom=result.chrom[0], step="IO")
         logger.info('writing results to file "%s"', path)
         start_time = time.time()
-        with IO.ResultFile(path, "a") as h5:
+        with IO.ResultFile.append(path) as h5:
             h5.write_descriptors(result)
         logger.info('successfully written results to "%s" in %s', path, pretty_format_elapsed_time(start_time))
 
@@ -256,6 +262,10 @@ class IOManager(object):
             self._h5_pending_io_task.result()
 
         self._h5_pending_io_task = self._tpool.submit(IOManager._write_results, self._h5_path, result)
+
+    def finalize_results(self):
+        with IO.ResultFile.append(self._h5_path) as h5:
+            h5.finalize()
 
 
 def _generate_metadata_attribute(
@@ -649,6 +659,9 @@ def run(
 
                     progress_bar(progress_weights["step_5"])
                     logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
+
+        main_logger.bind(step="IO").info('finalizing file "%s"...', output_file)
+        io_manager.finalize_results()
 
     main_logger.info("DONE!")
     main_logger.info("processed %d chromosomes in %s", len(chroms), pretty_format_elapsed_time(start_global_time))

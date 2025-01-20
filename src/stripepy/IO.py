@@ -4,6 +4,7 @@
 
 import datetime
 import functools
+import itertools
 import json
 import pathlib
 from importlib.metadata import version
@@ -334,31 +335,119 @@ class ResultFile(object):
 
     """
 
-    def __init__(self, path: pathlib.Path, mode: str = "r"):
-        if mode not in ["r", "w", "a"]:
-            raise ValueError('mode should be "r", "w", or "a"')
+    # This is just a private member used to ensure that files are initialized correctly when mode != "r"
+    __create_key = object()
+
+    @staticmethod
+    def _open_in_read_mode(path: pathlib.Path) -> Tuple[h5py.File, str, int]:
+        h5 = h5py.File(path, "r")
+        ResultFile._validate(h5)
+
+        return h5, "r", h5.attrs["format-version"]
+
+    @staticmethod
+    def _open_in_append_mode(path: pathlib.Path, mode: str) -> Tuple[h5py.File, str, int]:
+        new_file = not path.is_file()
+        h5 = h5py.File(path, mode)
+        if not new_file:
+            ResultFile._validate(h5, skip_index_validation=True, skip_version_check=True)
+
+        # Negative version numbers mark files that have not yet been finalized.
+        # A version value of -2 marks a v2 file that is being constructed
+        version = h5.attrs.get("format-version", -2)  # noqa
+        if version >= 0:
+            raise RuntimeError("cannot append to a file that has already been finalized!")
+        if version != -2:
+            raise RuntimeError("can only append to v2 files")
+
+        return h5, mode, version
+
+    @staticmethod
+    def _open_in_write_mode(path: pathlib.Path) -> Tuple[h5py.File, str, int]:
+        return h5py.File(path, "w-"), "w", 2
+
+    def __init__(self, path: pathlib.Path, mode: str = "r", _create_key: Optional[object] = None):
+        if mode != "r" and _create_key != ResultFile.__create_key:
+            raise RuntimeError(
+                "Please use ResultFile.create(), ResultFile.create_from_file(), or ResultFile.append() to open a file in write mode"
+            )
 
         self._path = path
-        self._mode = mode
-        self._chroms = None
 
-        self._h5 = h5py.File(self._path, self._mode)
-
-        if self._mode != "w":
-            self._validate(self._h5)
-            self._chroms = {
-                chrom.decode("utf-8"): size for chrom, size in zip(self._h5["/chroms/name"], self._h5["/chroms/length"])
-            }
-            self._version = self._h5.attrs["format-version"]
+        if mode == "r":
+            open = ResultFile._open_in_read_mode  # noqa
+        elif mode == "a" or mode == "r+":
+            open = functools.partial(ResultFile._open_in_append_mode, mode=mode)  # noqa
+        elif mode == "w":
+            open = ResultFile._open_in_write_mode  # noqa
         else:
-            self._version = 2
+            raise ValueError('mode should be "r", "w", or "a"')
 
-        self._attrs = dict(self._h5.attrs)
+        self._h5, self._mode, self._version = open(path)
+        self._chroms = self._read_chroms()
+        self._chroms_idx = {chrom: i for i, chrom in enumerate(self._chroms)}
+        self._attrs = dict(self._h5.attrs)  # noqa
+
+    @staticmethod
+    def create_from_file(
+        path: pathlib.Path,
+        mode: str,
+        matrix_file: hictkpy.File,
+        normalization: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        compression_lvl: int = 9,
+    ):
+        return ResultFile.create(
+            path,
+            mode,
+            matrix_file.chromosomes(include_ALL=False),
+            matrix_file.resolution(),
+            normalization,
+            matrix_file.attributes().get("assembly", "unknown"),
+            metadata,
+            compression_lvl,
+        )
+
+    @staticmethod
+    def create(
+        path: pathlib.Path,
+        mode: str,
+        chroms: Dict[str, int],
+        resolution: int,
+        normalization: Optional[str] = None,
+        assembly: str = "unknown",
+        metadata: Optional[Dict[str, Any]] = None,
+        compression_lvl: int = 9,
+    ):
+
+        if normalization is None:
+            normalization = "NONE"
+
+        if metadata is None:
+            metadata = {}
+
+        f = ResultFile(path, mode, _create_key=ResultFile.__create_key)
+        f._init_attributes(resolution, assembly, normalization, metadata)
+        f._init_chromosomes(chroms)
+        f._init_index()
+        f._init_min_persistence()
+        f._init_points(compression_lvl)
+        f._init_pseudodistribution(compression_lvl)
+        f._init_stripes(compression_lvl)
+        f._chroms_idx = {chrom: i for i, chrom in enumerate(f._chroms)}
+
+        return f
+
+    @staticmethod
+    def append(path: pathlib.Path):
+        return ResultFile(path, mode="a", _create_key=ResultFile.__create_key)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._mode != "r":
+            self._finalize()
         self._h5.close()
 
     def __getitem__(self, chrom: str) -> Result:
@@ -476,7 +565,7 @@ class ResultFile(object):
 
     @functools.cached_property
     def format_version(self) -> int:
-        return self._h5.attrs["format-version"]
+        return abs(self._h5.attrs["format-version"])
 
     @functools.cached_property
     def generated_by(self) -> str:
@@ -498,7 +587,23 @@ class ResultFile(object):
         return self._chroms
 
     @staticmethod
-    def _validate(h5: h5py.File):
+    def _validate_index(h5: h5py.File):
+        num_chroms = len(h5["/chroms/name"])
+        for prefix, suffix in itertools.product(("/index/lt", "/index/ut"), h5["/index/lt"]):
+            dset_name = f"{prefix}/{suffix}"
+            dset_length = len(h5[dset_name])
+            if dset_length != num_chroms + 1:
+                raise RuntimeError(
+                    f'malformed index "{dset_name}": expected {num_chroms + 1} entries, found {dset_length}'
+                )
+
+            data = h5[dset_name][:]
+            data = data[np.isfinite(data)]
+            if len(data) > 1 and not np.all(data[:-1] <= data[1:]):
+                raise RuntimeError(f'malformed index "{dset_name}": index entries are not sorted in ascending order"')
+
+    @staticmethod
+    def _validate(h5: h5py.File, skip_version_check: bool = False, skip_index_validation: bool = False):
         """
         Perform a basic sanity check on the metadata of the current file
         """
@@ -515,16 +620,29 @@ class ResultFile(object):
                 raise RuntimeError(f'unrecognized file format: expected "HDF5::StripePy", found "{format}"')
 
             known_versions = {1, 2}
-            if format_version not in known_versions:
+            if not skip_version_check and format_version not in known_versions:
                 known_versions_ = ", ".join(str(v) for v in known_versions)
                 raise RuntimeError(
                     f'unsupported file format version "{format_version}". At present only versions {known_versions_} are supported'
                 )
+
+            if not skip_index_validation and abs(format_version) > 1:
+                ResultFile._validate_index(h5)
+
         except RuntimeError as e:
             raise RuntimeError(
-                f'failed to validate input file "{h5.filename}": {e}: file is corrupt or was not generated by StripePy.'
-            )
+                f'failed to validate input file "{h5.filename}": file is corrupt or was not generated by StripePy.'
+            ) from e
 
+    def _read_chroms(self) -> Dict[str, int]:
+        if not "/chroms/name" in self._h5:
+            return {}
+
+        return {
+            chrom.decode("utf-8"): size for chrom, size in zip(self._h5["/chroms/name"], self._h5["/chroms/length"])
+        }
+
+    @functools.cache
     def _get_min_persistence_v1(self, chrom: str) -> float:
         return float(self._h5[f"/{chrom}/global-pseudo-distributions"].attrs["min_persistence_used"])
 
@@ -773,12 +891,14 @@ class ResultFile(object):
             return self._get_v1(chrom, field, location)
         return self._get_v2(chrom, field, location)
 
-    def _init_attributes(self, matrix_file: hictkpy.File, normalization: Optional[str], metadata: Dict[str, Any]):
+    def _init_attributes(self, resolution: int, assembly: str, normalization: Optional[str], metadata: Dict[str, Any]):
         if normalization is None:
             normalization = "NONE"
 
-        self._h5.attrs["assembly"] = matrix_file.attributes().get("assembly", "unknown")
-        self._h5.attrs["bin-size"] = matrix_file.resolution()
+        assert resolution > 0
+
+        self._h5.attrs["assembly"] = assembly
+        self._h5.attrs["bin-size"] = resolution
         self._h5.attrs["creation-date"] = datetime.datetime.now().isoformat()
         self._h5.attrs["format"] = "HDF5::StripePy"
         self._h5.attrs["format-url"] = "https://github.com/paulsengroup/StripePy"
@@ -787,8 +907,10 @@ class ResultFile(object):
         self._h5.attrs["metadata"] = json.dumps(metadata, indent=2)
         self._h5.attrs["normalization"] = normalization
 
-    def _init_chromosomes(self, matrix_file: hictkpy.File):
-        self._chroms = matrix_file.chromosomes(include_ALL=False)
+    def _init_chromosomes(self, chroms: Dict[str, int]):
+        assert len(chroms) > 0
+
+        self._chroms = chroms
         self._h5.create_group("/chroms")
         self._h5.create_dataset("/chroms/name", data=list(self._chroms.keys()))
         self._h5.create_dataset("/chroms/length", data=list(self._chroms.values()))
@@ -801,20 +923,15 @@ class ResultFile(object):
             "/index/{{location}}/chrom_offsets_stripes",
         ]
 
-        for pattern in templates:
+        data = np.zeros(len(self._chroms) + 1, dtype=int)
+        for pattern, location in itertools.product(templates, ("lt", "ut")):
             self._h5.create_dataset(
-                name=pattern.replace("{{location}}", "lt"),
-                data=[0],
-                maxshape=(len(self._chroms) + 1),
-            )
-            self._h5.create_dataset(
-                name=pattern.replace("{{location}}", "ut"),
-                data=[0],
-                maxshape=(len(self._chroms) + 1),
+                name=pattern.replace("{{location}}", location),
+                data=data,
             )
 
     def _init_min_persistence(self):
-        self._h5.create_dataset(name="/min_persistence", dtype=float, shape=(0,), maxshape=(len(self._chroms),))
+        self._h5.create_dataset(name="/min_persistence", data=np.full(len(self._chroms), np.nan, dtype=float))
 
     def _init_pseudodistribution(self, compression_lvl: int):
         resolution = self.resolution
@@ -889,41 +1006,6 @@ class ResultFile(object):
             for name in dsets:
                 self._h5.create_dataset(name=name, **params)
 
-    def init_file(
-        self,
-        matrix_file: hictkpy.File,
-        normalization: Optional[str],
-        metadata: Dict[str, Any],
-        compression_lvl: int = 9,
-    ):
-        """
-        Initialize the current file.
-
-        This method must be called when opening a ResultFile for writing before adding data to the file.
-
-        Parameters
-        ----------
-        matrix_file: hictkpy.File
-            handle of the file that is used to compute the results stored in this file
-        normalization: Optional[str]
-            name of the normalization used to compute the results stored in this file
-        metadata: Dict[str, Any]
-            dictionary with the metadata to be associated with this file.
-            The dictionary should contain values that can be encoded as a JSON string
-        compression_lvl: int
-            GZIP compression level used to create large HDF5 datasets
-        """
-        if normalization is None:
-            normalization = "NONE"
-
-        self._init_attributes(matrix_file, normalization, metadata)
-        self._init_chromosomes(matrix_file)
-        self._init_index()
-        self._init_min_persistence()
-        self._init_points(compression_lvl)
-        self._init_pseudodistribution(compression_lvl)
-        self._init_stripes(compression_lvl)
-
     def _append_to_dset(self, path: str, data):
         if len(data) == 0:
             return
@@ -936,19 +1018,30 @@ class ResultFile(object):
         dset.resize(shape)
         dset[-len(data) :] = data
 
-    def _append_min_persistence(self, pers: float):
-        self._append_to_dset("/min_persistence", (pers,))
+    def _update_index(self, chrom: str, name: str, offset: int, location: str):
+        idx = self._chroms_idx[chrom] + 1
+        dset_name = f"/index/{location}/{name}"
+        self._h5[dset_name][idx:] = offset
 
-    def _append_pseudodistribution(self, data: Sequence[float], location: str):
+    def _write_min_persistence(self, chrom: str, pers: float):
+        idx = self._chroms_idx[chrom]
+        self._h5["/min_persistence"][idx] = pers
+
+    def _append_pseudodistribution(self, chrom: str, data: Sequence[float], location: str):
         location = location.lower()
         assert location in {"lt", "ut"}
 
         self._append_to_dset(f"/pseudodistribution/{location}", data)
-        self._append_to_dset(
-            f"/index/{location}/chrom_offsets_pd", (self._h5[f"/pseudodistribution/{location}"].shape[0],)
+        self._update_index(
+            chrom,
+            name="chrom_offsets_pd",
+            offset=len(self._h5[f"/pseudodistribution/{location}"]),
+            location=location,
         )
 
-    def _append_persistence(self, points: Sequence[int], persistence: Sequence[float], kind: str, location: str):
+    def _append_persistence(
+        self, chrom: str, points: Sequence[int], persistence: Sequence[float], kind: str, location: str
+    ):
         location = location.lower()
         assert len(points) == len(persistence)
         assert kind in {"min", "max"}
@@ -956,12 +1049,14 @@ class ResultFile(object):
 
         self._append_to_dset(f"{kind}_points/{location}/points", points)
         self._append_to_dset(f"{kind}_points/{location}/persistence", persistence)
-        self._append_to_dset(
-            f"/index/{location}/chrom_offsets_{kind}_points",
-            (self._h5[f"{kind}_points/{location}/persistence"].shape[0],),
+        self._update_index(
+            chrom,
+            name=f"chrom_offsets_{kind}_points",
+            offset=len(self._h5[f"{kind}_points/{location}/points"]),
+            location=location,
         )
 
-    def _append_stripes(self, stripes: Sequence[Stripe], location: str):
+    def _append_stripes(self, chrom: str, stripes: Sequence[Stripe], location: str):
         location = location.lower()
         assert location in {"lt", "ut"}
         seeds = np.empty_like(stripes, dtype=int)
@@ -1001,8 +1096,12 @@ class ResultFile(object):
         self._append_to_dset(f"/stripes/{location}/outer_rmean", outer_rmeans)
         self._append_to_dset(f"/stripes/{location}/quartile", quartiles)
 
-        offset = self._h5[f"/stripes/{location}/seed"].shape[0]
-        self._append_to_dset(f"/index/{location}/chrom_offsets_stripes", (offset,))
+        self._update_index(
+            chrom,
+            name="chrom_offsets_stripes",
+            offset=len(self._h5[f"/stripes/{location}/seed"]),
+            location=location,
+        )
 
     def write_descriptors(self, result: Result):
         """
@@ -1013,23 +1112,49 @@ class ResultFile(object):
         result: Result
             results to be added to the opened file
         """
-        self._append_min_persistence(result.min_persistence)
+        chrom = result.chrom[0]
+        self._write_min_persistence(chrom, result.min_persistence)
 
         for location in ("LT", "UT"):
-            self._append_pseudodistribution(result.get("pseudodistribution", location), location)
+            self._append_pseudodistribution(chrom, result.get("pseudodistribution", location), location)
             self._append_persistence(
+                chrom,
                 result.get("all_minimum_points", location),
                 result.get("persistence_of_all_minimum_points", location),
                 "min",
                 location,
             )
             self._append_persistence(
+                chrom,
                 result.get("all_maximum_points", location),
                 result.get("persistence_of_all_maximum_points", location),
                 "max",
                 location,
             )
-            self._append_stripes(result.get("stripes", location), location)
+            self._append_stripes(chrom, result.get("stripes", location), location)
+
+    def _finalize(self, format_version: Optional[int] = None):
+        if self._version > 0 and self._mode != "w":
+            raise RuntimeError("file cannot be finalized: file was not opened in append mode")
+
+        if format_version is not None:
+            self._version = format_version
+        self._h5.attrs["format"] = "HDF5::StripePy"
+        self._h5.attrs["format-url"] = "https://github.com/paulsengroup/StripePy"
+        self._h5.attrs["format-version"] = self._version
+        self._h5.attrs["generated-by"] = f"StripePy v{version('stripepy-hic')}"
+
+        if "/chroms/name" not in self._h5:
+            raise RuntimeError("file has not been yet initialized")
+
+        skip_version_check = self._version < 0
+        self._validate(self._h5, skip_version_check=skip_version_check)
+        self._mode = "r"
+        self._h5.close()
+        self._h5 = h5py.File(self._path, "r")
+
+    def finalize(self):
+        self._finalize(abs(self._version))
 
 
 def _compare_result_file_attributes(f1: ResultFile, f2: ResultFile, raise_on_exception: bool) -> Dict[str, Any]:
