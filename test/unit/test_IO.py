@@ -2,10 +2,11 @@
 #
 # SPDX-License-Identifier: MIT
 
+import itertools
 import json
 import math
 import pathlib
-from typing import Sequence
+from typing import Dict, Sequence
 
 import hictkpy as htk
 import numpy as np
@@ -261,6 +262,32 @@ class TestResultFile:
 
         f.write_descriptors(res)
 
+    @staticmethod
+    def _compare_results(
+        path: pathlib.Path,
+        chroms: Dict[str, int],
+        points: Sequence[int],
+        pseudodistribution: Sequence[float],
+        persistence: Sequence[float],
+    ):
+
+        with ResultFile(path) as f:
+            assert f.chromosomes == chroms
+            assert f.normalization == "weight"
+            assert f.metadata.get("key", "missing") == "value"
+
+            for chrom, location in itertools.product(chroms, ("UT", "LT")):
+                assert np.isclose(f.get_min_persistence(chrom), 1.23)
+                assert np.allclose(
+                    f.get(chrom, "pseudodistribution", location)["pseudodistribution"], pseudodistribution
+                )
+
+                for key in ("all_minimum_points", "all_maximum_points"):
+                    assert (f.get(chrom, key, location)[key] == points).all()
+
+                for key in ("persistence_of_all_minimum_points", "persistence_of_all_maximum_points"):
+                    assert np.allclose(f.get(chrom, key, location)[key], persistence)
+
     def test_file_creation(self, tmpdir):
         tmpdir = pathlib.Path(tmpdir)
 
@@ -270,7 +297,7 @@ class TestResultFile:
 
         points = [1, 2, 3]
         persistence = [4.0, 5.0, 6.0]
-        pseudoditribution = [7.0, 8.0, 9.0]
+        pseudodistribution = [7.0, 8.0, 9.0]
 
         # Create a mock ResultFile
         path = tmpdir / "results.hdf5"
@@ -282,31 +309,16 @@ class TestResultFile:
             metadata={"key": "value"},
         ) as f:
             for chrom in chroms:
-                TestResultFile._write_mock_result_to_file(f, chrom, resolution, points, pseudoditribution, persistence)
+                TestResultFile._write_mock_result_to_file(f, chrom, resolution, points, pseudodistribution, persistence)
 
-        with ResultFile(path) as f:
-            assert f.chromosomes == chroms
-            assert f.normalization == "weight"
-            assert f.metadata.get("key", "missing") == "value"
-
-            for location in ["UT", "LT"]:
-                assert np.isclose(f.get_min_persistence(chrom), 1.23)
-                assert np.allclose(
-                    f.get(chrom, "pseudodistribution", location)["pseudodistribution"], pseudoditribution
-                )
-
-                for key in ("all_minimum_points", "all_maximum_points"):
-                    assert (f.get(chrom, key, location)[key] == points).all()
-
-                for key in ("persistence_of_all_minimum_points", "persistence_of_all_maximum_points"):
-                    assert np.allclose(f.get(chrom, key, location)[key], persistence)
+        TestResultFile._compare_results(path, chroms, points, pseudodistribution, persistence)
 
     def test_progressive_file_creation(self, tmpdir):
         tmpdir = pathlib.Path(tmpdir)
 
         points = [1, 2, 3]
         persistence = [4.0, 5.0, 6.0]
-        pseudoditribution = [7.0, 8.0, 9.0]
+        pseudodistribution = [7.0, 8.0, 9.0]
 
         resolution = 10_000
         clr_file = generate_singleres_test_file(
@@ -320,24 +332,9 @@ class TestResultFile:
 
         for chrom in chroms:
             with ResultFile.append(path) as f:
-                TestResultFile._write_mock_result_to_file(f, chrom, resolution, points, pseudoditribution, persistence)
+                TestResultFile._write_mock_result_to_file(f, chrom, resolution, points, pseudodistribution, persistence)
 
         with ResultFile.append(path) as f:
             f.finalize()
 
-        with ResultFile(path) as f:
-            assert f.chromosomes == chroms
-            assert f.normalization == "weight"
-            assert f.metadata.get("key", "missing") == "value"
-
-            for location in ["UT", "LT"]:
-                assert np.isclose(f.get_min_persistence(chrom), 1.23)
-                assert np.allclose(
-                    f.get(chrom, "pseudodistribution", location)["pseudodistribution"], pseudoditribution
-                )
-
-                for key in ["all_minimum_points", "all_maximum_points"]:
-                    assert (f.get(chrom, key, location)[key] == points).all()
-
-                for key in ["persistence_of_all_minimum_points", "persistence_of_all_maximum_points"]:
-                    assert np.allclose(f.get(chrom, key, location)[key], persistence)
+        TestResultFile._compare_results(path, chroms, points, pseudodistribution, persistence)
