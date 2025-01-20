@@ -429,6 +429,13 @@ def _merge_results(futures) -> IO.Result:
     return result1
 
 
+def _setup_tpool(ctx, nproc: int) -> Union[ProcesPoolWrapper, concurrent.futures.ThreadPoolExecutor]:
+    if nproc > 1:
+        return ctx.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=2))
+
+    return ctx.enter_context(ProcesPoolWrapper(1))
+
+
 def run(
     contact_map: pathlib.Path,
     resolution: int,
@@ -451,6 +458,8 @@ def run(
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
 
+    main_logger = structlog.get_logger()
+
     _write_param_summary(args)
 
     if roi is not None:
@@ -464,8 +473,6 @@ def run(
         _remove_existing_output_files(output_file, plot_dir, chroms)
 
     with contextlib.ExitStack() as ctx:
-        main_logger = structlog.get_logger()
-
         io_manager = ctx.enter_context(
             IOManager(
                 matrix_path=contact_map,
@@ -487,14 +494,6 @@ def run(
             )
         )
 
-        if nproc > 1:
-            tpool = ctx.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=2))
-        else:
-            tpool = ctx.enter_context(ProcesPoolWrapper(1))
-
-        if normalization is None:
-            normalization = "NONE"
-
         disable_bar = not sys.stderr.isatty()
         progress_weights_df = _compute_progress_bar_weights(chroms, include_plotting=roi is not None, nproc=nproc)
         progress_bar = ctx.enter_context(
@@ -512,6 +511,10 @@ def run(
             )
         )
 
+        if normalization is None:
+            normalization = "NONE"
+
+        tpool = _setup_tpool(ctx, nproc)
         tasks = _plan(chroms, min_chrom_size)
 
         for i, (chrom_name, chrom_size, skip) in enumerate(tasks):
