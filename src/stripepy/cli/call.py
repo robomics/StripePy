@@ -255,15 +255,23 @@ class IOManager(object):
             h5.write_descriptors(result)
         logger.info('successfully written results to "%s" in %s', path, pretty_format_elapsed_time(start_time))
 
-    def write_results(self, result: IO.Result):
-        if self._h5_pending_io_task is not None:
-            # This checks for exceptions and ensures that we are not trying to write data for
-            # two chromosomes at the same time
-            self._h5_pending_io_task.result()
+    def _wait_on_io_on_results_file(self):
+        """
+        This checks for exceptions and ensures that we are not trying to perform concurrent writes on the same result file
+        (e.g. starting to write results for chr2 before we're done writing results for chr1, or finalizing the result file
+        before results for the last chromosome has been completely written to file)
+        """
 
+        if self._h5_pending_io_task is not None:
+            self._h5_pending_io_task.result()
+            self._h5_pending_io_task = None
+
+    def write_results(self, result: IO.Result):
+        self._wait_on_io_on_results_file()
         self._h5_pending_io_task = self._tpool.submit(IOManager._write_results, self._h5_path, result)
 
     def finalize_results(self):
+        self._wait_on_io_on_results_file()
         with IO.ResultFile.append(self._h5_path) as h5:
             h5.finalize()
 
