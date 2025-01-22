@@ -6,6 +6,7 @@ import concurrent.futures
 import contextlib
 import functools
 import json
+import multiprocessing as mp
 import pathlib
 import shutil
 import sys
@@ -46,10 +47,10 @@ def _init_mpl_backend(skip: bool):
 def _init_shared_state(
     lower_triangular_matrix: Optional[SharedSparseMatrix],
     upper_triangular_matrix: Optional[SharedSparseMatrix],
-    main_logger: logging.ProcessSafeLogger,
+    log_queue: mp.Queue,
     init_mpl: bool,
 ):
-    main_logger.setup_logger()
+    logging.ProcessSafeLogger._setup_logger(log_queue)
 
     if lower_triangular_matrix is not None:
         assert upper_triangular_matrix is not None
@@ -82,7 +83,7 @@ class ProcessPoolWrapper(object):
             self._pool = concurrent.futures.ProcessPoolExecutor(  # noqa
                 max_workers=nproc,
                 initializer=_init_shared_state,
-                initargs=(self._lt_matrix, self._ut_matrix, main_logger, init_mpl),
+                initargs=(self._lt_matrix, self._ut_matrix, main_logger.log_queue, init_mpl),
             )
 
     def __enter__(self):
