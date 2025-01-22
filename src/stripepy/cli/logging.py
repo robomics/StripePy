@@ -292,7 +292,7 @@ class ProcessSafeLogger(object):
     def __enter__(self):
         if self._path is not None:
             if self._path.exists() and not self._force:
-                raise RuntimeError(
+                raise FileExistsError(
                     f'Refusing to overwrite existing log file "{self._path}". Pass --force to overwrite.'
                 )
 

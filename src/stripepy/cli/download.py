@@ -302,7 +302,7 @@ def run(
             output_path = pathlib.Path(f"{dset_name}.{config['format']}")
 
     if output_path.exists() and not force:
-        raise RuntimeError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")
+        raise FileExistsError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")
     output_path.unlink(missing_ok=True)
 
     dest = _download_and_checksum(dset_name, config, output_path)

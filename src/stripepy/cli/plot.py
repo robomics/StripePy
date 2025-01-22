@@ -353,7 +353,7 @@ def run(
             logger.debug('removing existing output file "%s"', output_name)
             output_name.unlink()
         else:
-            raise RuntimeError(
+            raise FileExistsError(
                 f'Refusing to overwrite file "{output_name}". Pass --force to overwrite existing file(s).'
             )
 

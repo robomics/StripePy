@@ -34,30 +34,42 @@ def _setup_matplotlib(subcommand: str, **kwargs):
 
 
 def main(args: Union[List[str], None] = None):
-    if args is None:
-        args = sys.argv[1:]
+    subcommand, kwargs, verbosity = setup.parse_args(sys.argv[1:] if args is None else args)
 
-    subcommand, args, verbosity = setup.parse_args(args)
-
-    log_file = args.get("log_file")
-    force = args.get("force")
-    matrix_file = args.get("contact_map")
-    with logging.ProcessSafeLogger(verbosity, log_file, force, matrix_file) as main_logger:
+    log_file = kwargs.get("log_file")
+    force = kwargs.get("force")
+    matrix_file = kwargs.get("contact_map")
+    with logging.ProcessSafeLogger(
+        verbosity,
+        log_file,
+        force,
+        matrix_file,
+        print_welcome_message=subcommand != "view",
+    ) as main_logger:
         try:
             main_logger.setup_logger()
-            _setup_matplotlib(subcommand, **args)
-            args["main_logger"] = main_logger
+            _setup_matplotlib(subcommand, **kwargs)
+            kwargs["main_logger"] = main_logger
 
             if subcommand == "call":
-                return call.run(**args, verbosity=verbosity)
+                return call.run(**kwargs, verbosity=verbosity)
             if subcommand == "download":
-                return download.run(**args)
+                return download.run(**kwargs)
             if subcommand == "plot":
-                return plot.run(**args)
+                return plot.run(**kwargs)
             if subcommand == "view":
-                return view.run(**args)
+                return view.run(**kwargs)
 
             raise NotImplementedError
+
+        except FileExistsError as e:
+            import structlog
+
+            structlog.get_logger().error(e)
+
+            if args is not None:
+                raise
+            return 1
 
         except (RuntimeError, ImportError) as e:
             import structlog
