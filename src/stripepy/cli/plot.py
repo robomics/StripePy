@@ -339,6 +339,7 @@ def run(
     output_name: pathlib.Path,
     dpi: int,
     force: bool,
+    main_logger,
     **kwargs,
 ) -> int:
     logger = structlog.get_logger()

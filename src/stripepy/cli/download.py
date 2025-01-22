@@ -273,6 +273,7 @@ def run(
     name: Optional[str] = None,
     output_path: Optional[pathlib.Path] = None,
     assembly: Optional[str] = None,
+    main_logger=None,
 ) -> int:
     t0 = time.time()
     if list_only:

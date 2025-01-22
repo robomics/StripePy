@@ -20,6 +20,7 @@ import scipy.sparse as ss
 import structlog
 
 from stripepy import IO, others, stripepy
+from stripepy.cli import logging
 from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
 from stripepy.utils.multiprocess_sparse_matrix import (
     SharedSparseMatrix,
@@ -27,8 +28,6 @@ from stripepy.utils.multiprocess_sparse_matrix import (
     unset_shared_state,
 )
 from stripepy.utils.progress_bar import initialize_progress_bar
-
-from .logging import setup_logger
 
 
 def _init_mpl_backend(skip: bool):
@@ -47,13 +46,10 @@ def _init_mpl_backend(skip: bool):
 def _init_shared_state(
     lower_triangular_matrix: Optional[SharedSparseMatrix],
     upper_triangular_matrix: Optional[SharedSparseMatrix],
-    matrix_file: pathlib.Path,
-    log_file: Optional[pathlib.Path],
-    log_level: Optional[str],
+    main_logger: logging.ProcessSafeLogger,
     init_mpl: bool,
 ):
-    if log_level is not None:
-        setup_logger(level=log_level, file=log_file, force=True, matrix_file=matrix_file)
+    main_logger.setup_logger()
 
     if lower_triangular_matrix is not None:
         assert upper_triangular_matrix is not None
@@ -66,11 +62,9 @@ class ProcessPoolWrapper(object):
     def __init__(
         self,
         nproc: int,
-        matrix_file: Optional[pathlib.Path] = None,
+        main_logger: logging.ProcessSafeLogger,
         lt_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
         ut_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
-        log_file: Optional[pathlib.Path] = None,
-        log_level: Optional[str] = None,
         init_mpl: bool = False,
         logger=None,
     ):
@@ -88,7 +82,7 @@ class ProcessPoolWrapper(object):
             self._pool = concurrent.futures.ProcessPoolExecutor(  # noqa
                 max_workers=nproc,
                 initializer=_init_shared_state,
-                initargs=(self._lt_matrix, self._ut_matrix, matrix_file, log_file, log_level, init_mpl),
+                initargs=(self._lt_matrix, self._ut_matrix, main_logger, init_mpl),
             )
 
     def __enter__(self):
@@ -143,8 +137,7 @@ class IOManager(object):
         region_of_interest: Optional[str],
         nproc: int,
         metadata: Dict[str, Any],
-        log_file: Optional[pathlib.Path],
-        log_level: Optional[str],
+        main_logger: logging.ProcessSafeLogger,
     ):
         self._path = matrix_path
         self._resolution = resolution
@@ -154,9 +147,7 @@ class IOManager(object):
 
         self._tpool = ProcessPoolWrapper(
             nproc,
-            matrix_file=matrix_path,
-            log_file=log_file,
-            log_level=log_level,
+            main_logger=main_logger,
             init_mpl=False,
         )
         self._tasks = {}
@@ -364,9 +355,12 @@ class _JSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def _write_param_summary(config: Dict[str, Any]):
+def _write_param_summary(config: Dict[str, Any], logger=None):
+    if logger is None:
+        logger = structlog.get_logger()
+
     config_str = json.dumps(config, indent=2, sort_keys=True, cls=_JSONEncoder)
-    structlog.get_logger().info(f"CONFIG:\n{config_str}")
+    logger.info(f"CONFIG:\n{config_str}")
 
 
 def _compute_progress_bar_weights(chrom_sizes: Dict[str, int], include_plotting: bool, nproc: int) -> pd.DataFrame:
@@ -451,9 +445,7 @@ def _merge_results(futures) -> IO.Result:
 def _setup_tpool(
     ctx,
     nproc: int,
-    matrix_file: pathlib.Path,
-    log_file: Optional[pathlib.Path],
-    log_level: Optional[str],
+    main_logger: logging.ProcessSafeLogger,
 ) -> Union[ProcessPoolWrapper, concurrent.futures.ThreadPoolExecutor]:
     if nproc > 1:
         return ctx.enter_context(concurrent.futures.ThreadPoolExecutor(max_workers=2))
@@ -461,9 +453,7 @@ def _setup_tpool(
     return ctx.enter_context(
         ProcessPoolWrapper(
             1,
-            matrix_file=matrix_file,
-            log_file=log_file,
-            log_level=log_level,
+            main_logger=main_logger,
             init_mpl=False,
         )
     )
@@ -483,24 +473,27 @@ def run(
     nproc: int,
     min_chrom_size: int,
     verbosity: str,
+    main_logger: logging.ProcessSafeLogger,
     roi: Optional[str] = None,
     log_file: Optional[pathlib.Path] = None,
     plot_dir: Optional[pathlib.Path] = None,
     normalization: Optional[str] = None,
 ) -> int:
     args = locals()
+    args.pop("main_logger")
     # How long does stripepy take to analyze the whole Hi-C matrix?
     start_global_time = time.time()
 
-    main_logger = structlog.get_logger()
+    parent_logger = main_logger
+    main_logger = structlog.get_logger().bind(step="main")
 
-    _write_param_summary(args)
+    _write_param_summary(args, logger=main_logger)
 
     if roi is not None:
         # Raise an error immediately if --roi was passed and matplotlib is not available
         _import_matplotlib()
 
-    f = others.open_matrix_file_checked(contact_map, resolution)
+    f = others.open_matrix_file_checked(contact_map, resolution, logger=main_logger)
     chroms = f.chromosomes(include_ALL=False)
 
     if force:
@@ -525,8 +518,7 @@ def run(
                     min_chrom_size=min_chrom_size,
                 ),
                 nproc=nproc,
-                log_file=log_file,
-                log_level=verbosity,
+                main_logger=parent_logger,
             )
         )
 
@@ -550,7 +542,7 @@ def run(
         if normalization is None:
             normalization = "NONE"
 
-        tpool = _setup_tpool(ctx, nproc, contact_map, log_file, verbosity)
+        tpool = _setup_tpool(ctx, nproc, parent_logger)
         tasks = _plan(chroms, min_chrom_size)
 
         for i, (chrom_name, chrom_size, skip) in enumerate(tasks):
@@ -573,9 +565,7 @@ def run(
                 nproc=nproc,
                 lt_matrix=LT_Iproc,
                 ut_matrix=UT_Iproc,
-                matrix_file=contact_map,
-                log_file=log_file,
-                log_level=verbosity,
+                main_logger=parent_logger,
                 init_mpl=roi is not None,
                 logger=logger,
             ) as pool:

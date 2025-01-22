@@ -5,7 +5,6 @@
 import multiprocessing as mp
 import platform
 import sys
-import traceback
 from typing import List, Union
 
 from .cli import call, download, logging, plot, setup, view
@@ -38,37 +37,35 @@ def main(args: Union[List[str], None] = None):
     if args is None:
         args = sys.argv[1:]
 
-    logging.setup_logger("INFO")
-    try:
-        subcommand, args, verbosity = setup.parse_args(args)
-        _setup_matplotlib(subcommand, **args)
+    subcommand, args, verbosity = setup.parse_args(args)
 
-        if subcommand == "call":
-            logging.setup_logger(
-                verbosity,
-                file=args.get("log_file"),
-                force=args["force"],
-                matrix_file=args["contact_map"],
-            )
-            return call.run(**args, verbosity=verbosity)
+    log_file = args.get("log_file")
+    force = args.get("force")
+    matrix_file = args.get("contact_map")
+    with logging.ProcessSafeLogger(verbosity, log_file, force, matrix_file) as main_logger:
+        try:
+            main_logger.setup_logger()
+            _setup_matplotlib(subcommand, **args)
+            args["main_logger"] = main_logger
 
-        logging.setup_logger(verbosity)
-        if subcommand == "download":
-            return download.run(**args)
-        if subcommand == "plot":
-            return plot.run(**args)
-        if subcommand == "view":
-            return view.run(**args)
+            if subcommand == "call":
+                return call.run(**args, verbosity=verbosity)
+            if subcommand == "download":
+                return download.run(**args)
+            if subcommand == "plot":
+                return plot.run(**args)
+            if subcommand == "view":
+                return view.run(**args)
 
-        raise NotImplementedError
+            raise NotImplementedError
 
-    except (RuntimeError, ImportError) as e:
-        import structlog
+        except (RuntimeError, ImportError) as e:
+            import structlog
 
-        structlog.get_logger().exception(e)
-        if args is not None:
-            raise
-        return 1
+            structlog.get_logger().exception(e)
+            if args is not None:
+                raise
+            return 1
 
 
 if __name__ == "__main__":

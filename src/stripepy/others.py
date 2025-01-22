@@ -13,8 +13,9 @@ def _raise_invalid_bin_type_except(f: hictkpy.File):
     raise RuntimeError(f"Only files with a uniform bin size are supported, found \"{f.attributes()['bin-type']}\".")
 
 
-def open_matrix_file_checked(path: os.PathLike, resolution: int) -> hictkpy.File:
-    logger = structlog.get_logger()
+def open_matrix_file_checked(path: os.PathLike, resolution: int, logger=None) -> hictkpy.File:
+    if logger is None:
+        logger = structlog.get_logger()
     logger.info('validating file "%s" (%dbp)...', path, resolution)
 
     try:
