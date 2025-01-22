@@ -8,6 +8,7 @@ import functools
 import json
 import multiprocessing as mp
 import pathlib
+import platform
 import shutil
 import sys
 import time
@@ -460,6 +461,49 @@ def _setup_tpool(
     )
 
 
+def _run_step_2(
+    chrom_name: str,
+    chrom_size: int,
+    ut_matrix: Optional[ss.csr_matrix],
+    lt_matrix: Optional[ss.csr_matrix],
+    min_persistence: float,
+    tpool: concurrent.futures.ThreadPoolExecutor,
+    pool: ProcessPoolWrapper,
+    logger,
+) -> IO.Result:
+    logger = logger.bind(step=(2,))
+    logger.info("topological data analysis")
+    t0 = time.time()
+
+    if platform.system() == "Linux":
+        executor = pool
+    else:
+        executor = tpool
+
+    task1 = executor.submit(
+        stripepy.step_2,
+        chrom_name=chrom_name,
+        chrom_size=chrom_size,
+        matrix=lt_matrix,
+        min_persistence=min_persistence,
+        location="lower",
+    )
+
+    task2 = executor.submit(
+        stripepy.step_2,
+        chrom_name=chrom_name,
+        chrom_size=chrom_size,
+        matrix=ut_matrix,
+        min_persistence=min_persistence,
+        location="upper",
+    )
+
+    result = _merge_results((task1, task2))
+
+    logger.info("topological data analysis took %s", pretty_format_elapsed_time(t0))
+    return result
+
+
 def run(
     contact_map: pathlib.Path,
     resolution: int,
@@ -578,32 +622,18 @@ def run(
                 progress_bar(progress_weights["step_1"])
                 logger.info("preprocessing took %s", pretty_format_elapsed_time(start_local_time))
 
-                logger = logger.bind(step=(2,))
-                logger.info("topological data analysis")
-                start_time = time.time()
-
-                task1 = pool.submit(
-                    stripepy.step_2,
+                result = _run_step_2(
                     chrom_name=chrom_name,
                     chrom_size=chrom_size,
-                    matrix=LT_Iproc,
+                    lt_matrix=LT_Iproc,
+                    ut_matrix=UT_Iproc,
                     min_persistence=glob_pers_min,
-                    location="lower",
+                    tpool=tpool,
+                    pool=pool,
+                    logger=logger,
                 )
-
-                task2 = pool.submit(
-                    stripepy.step_2,
-                    chrom_name=chrom_name,
-                    chrom_size=chrom_size,
-                    matrix=UT_Iproc,
-                    min_persistence=glob_pers_min,
-                    location="upper",
-                )
-
-                result = _merge_results((task1, task2))
 
                 progress_bar(progress_weights["step_2"])
-                logger.info("topological data analysis took %s", pretty_format_elapsed_time(start_time))
 
                 logger = logger.bind(step=(3,))
                 logger.info("shape analysis")
