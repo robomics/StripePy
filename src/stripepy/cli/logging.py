@@ -31,7 +31,14 @@ def _map_log_level_to_levelno(level: str) -> int:
     return levels.get(level.lower(), 0)
 
 
-class _MultiOutputLogger(object):
+class _TeePipeWriter(object):
+    """
+    This class implements the bare minimum functionality to model a tee-pipe where one end is connected
+    to the console while the other is connected to a file.
+    If the console and/or file passed on construction are None, then the write method acts as if that handle is redirected to /dev/null.
+
+    """
+
     def __init__(self, console, file):
         self._console = console
         self._file = file
@@ -49,27 +56,36 @@ class _MultiOutputLogger(object):
             self._file.flush()
 
 
-class _PrintLogger(object):
+class _TeeLogger(object):
+    """
+    Class suitable to be used by structlog as logger factory.
+    The class is basically a wrapper around _TeePipeWriter.
+    """
+
     def __init__(self, console, file):
-        self._logger = _MultiOutputLogger(console, file)
+        self._writer = _TeePipeWriter(console, file)
 
     def msg(self, file_message: Optional[str] = None, console_message: Optional[str] = None):
-        self._logger.write(file_message, console_message)
+        self._writer.write(file_message, console_message)
 
     log = debug = info = warn = warning = msg
     fatal = failure = err = error = critical = exception = msg
 
 
-class PrintLoggerFactory(object):
+class _TeeLoggerFactory(object):
     def __init__(self, console, file):
         self._console = console
         self._file = file
 
-    def __call__(self) -> _PrintLogger:
-        return _PrintLogger(self._console, self._file)
+    def __call__(self) -> _TeeLogger:
+        return _TeeLogger(self._console, self._file)
 
 
 class _NullLogger(object):
+    """
+    A logger class that ignores all received messages.
+    """
+
     def msg(self, *args, **kwargs):
         pass
 
@@ -77,7 +93,7 @@ class _NullLogger(object):
     fatal = failure = err = error = critical = exception = msg
 
 
-class NullLoggerFactory(object):
+class _NullLoggerFactory(object):
     def __call__(self) -> _NullLogger:
         return _NullLogger()
 
@@ -257,6 +273,9 @@ def _configure_logger_columns(
 
 
 def _get_longest_chrom_name(path: pathlib.Path) -> str:
+    """
+    Find the chromosome with the longest name given the path to a file in .mcool format
+    """
     try:
         chroms = hictkpy.MultiResFile(path).chromosomes(include_ALL=False).keys()
     except RuntimeError:
@@ -269,6 +288,29 @@ def _get_longest_chrom_name(path: pathlib.Path) -> str:
 
 
 class ProcessSafeLogger(object):
+    """
+    This class implements a process-safe logger that writes messages to stderr and optionally a file.
+    IMPORTANT: this class should only be used from a context manager.
+
+    Here's an overview of how the class works:
+    - The constructor does nothing interesting: it just stores a copy of the given params and
+      initializes a few member variables.
+    - The __enter__ method does most of the heavy-lifting:
+        - When path is not None, it creates a new log file (overwriting existing files when force=True).
+        - Then it spawns a process that waits for incoming event_dicts, formats them, and writes the
+          resulting message to the console and the given file
+    - The __exit__ method ensures that the process started by __enter__ exits, then finalizes the log file
+
+    IMPORTANT: each process that needs to log messages using structlog (except the process that created
+    the current ProcessSafeLogger object) must call setup_logger(queue) before writing any logs.
+    The queue param should be the queue returned by the ProcessSafeLogger.log_queue attribute.
+
+    Each setup_logger() call configures the process logger such that event_dicts are placed on the queue
+    instead of being printed directly from the child process.
+    The logger processed spawned by the __enter__ method consumes the messages placed on the queue by other
+    processes, formats them, and prints them to the console and/or log file.
+    """
+
     def __init__(
         self,
         level: str,
@@ -289,7 +331,10 @@ class ProcessSafeLogger(object):
         else:
             self._longest_chrom_name = _get_longest_chrom_name(matrix_file)
 
+        self._object_owned_by_a_context_manager = False
+
     def __enter__(self):
+        self._object_owned_by_a_context_manager = True
         if self._path is not None:
             if self._path.exists() and not self._force:
                 raise FileExistsError(
@@ -310,9 +355,12 @@ class ProcessSafeLogger(object):
         )
         self._listener.start()
 
+        self.setup_logger(self._queue)
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self._object_owned_by_a_context_manager = False
         if self._listener is not None:
             self._queue.put(None)
             self._listener.join()
@@ -320,6 +368,30 @@ class ProcessSafeLogger(object):
                 with self._path.open("a") as f:
                     f.write("### END OF LOG ###\n")
         return False
+
+    @property
+    def log_queue(self) -> Optional[mp.Queue]:
+        assert self._object_owned_by_a_context_manager
+        return self._queue
+
+    @staticmethod
+    def setup_logger(queue: mp.Queue):
+        timestamper = structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S.%f")
+        processors = [
+            timestamper,
+            structlog.processors.add_log_level,
+            ProcessSafeLogger._queue_logger(queue),
+        ]
+
+        structlog.configure(
+            cache_logger_on_first_use=True,
+            processors=processors,
+            wrapper_class=None,
+            logger_factory=_NullLoggerFactory(),
+        )
+
+        proc = mp.current_process()
+        structlog.get_logger().debug("successfully initialized logger in %s with PID=%d", proc.name, proc.pid)
 
     @staticmethod
     def _listener(
@@ -385,10 +457,6 @@ class ProcessSafeLogger(object):
                 event_dict["level"] = log_level_mapper(event_dict.pop("level", "notset"))
                 logger.log(**event_dict)
 
-    @property
-    def log_queue(self) -> Optional[mp.Queue]:
-        return self._queue
-
     @staticmethod
     def _setup_logger_for_listener(
         log_level_console: str,
@@ -449,11 +517,8 @@ class ProcessSafeLogger(object):
             cache_logger_on_first_use=True,
             wrapper_class=structlog.make_filtering_bound_logger(0),
             processors=processors,
-            logger_factory=PrintLoggerFactory(console=console_handle, file=file_handle),
+            logger_factory=_TeeLoggerFactory(console=console_handle, file=file_handle),
         )
-
-    def setup_logger(self):
-        ProcessSafeLogger._setup_logger(self._queue)
 
     @staticmethod
     def _queue_logger_helper(_, method_name, event_dict, queue: mp.Queue) -> str:
@@ -463,22 +528,3 @@ class ProcessSafeLogger(object):
     @staticmethod
     def _queue_logger(queue: mp.Queue):
         return functools.partial(ProcessSafeLogger._queue_logger_helper, queue=queue)
-
-    @staticmethod
-    def _setup_logger(queue: mp.Queue):
-        timestamper = structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S.%f")
-        processors = [
-            timestamper,
-            structlog.processors.add_log_level,
-            ProcessSafeLogger._queue_logger(queue),
-        ]
-
-        structlog.configure(
-            cache_logger_on_first_use=True,
-            processors=processors,
-            wrapper_class=None,
-            logger_factory=NullLoggerFactory(),
-        )
-
-        proc = mp.current_process()
-        structlog.get_logger().debug("successfully initialized logger in %s with PID=%d", proc.name, proc.pid)
