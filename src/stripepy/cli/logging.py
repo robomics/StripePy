@@ -393,6 +393,8 @@ class ProcessSafeLogger(object):
         proc = mp.current_process()
         structlog.get_logger().debug("successfully initialized logger in %s with PID=%d", proc.name, proc.pid)
 
+        install_custom_warning_handler()
+
     @staticmethod
     def _listener(
         path: pathlib.Path,
@@ -528,3 +530,26 @@ class ProcessSafeLogger(object):
     @staticmethod
     def _queue_logger(queue: mp.Queue):
         return functools.partial(ProcessSafeLogger._queue_logger_helper, queue=queue)
+
+
+def _warning_handler(message, category, filename, lineno, file=None, line=None):
+    from warnings import formatwarning
+
+    import structlog
+
+    structlog.get_logger().warning(
+        "\n%s\n",
+        formatwarning(
+            message=message,
+            category=category,
+            filename=filename,
+            lineno=lineno,
+            line=line,
+        ),
+    )
+
+
+def install_custom_warning_handler():
+    import warnings
+
+    warnings.showwarning = _warning_handler
