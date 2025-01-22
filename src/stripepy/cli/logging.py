@@ -287,14 +287,13 @@ class ProcessSafeLogger(object):
             self._longest_chrom_name = _get_longest_chrom_name(matrix_file)
 
     def __enter__(self):
-        self._queue = mp.Manager().Queue(64 * 1024)
-
         if self._path is not None:
             if self._path.exists() and not self._force:
                 raise RuntimeError(
                     f'Refusing to overwrite existing log file "{self._path}". Pass --force to overwrite.'
                 )
 
+        self._queue = mp.Manager().Queue(64 * 1024)
         self._listener = mp.Process(
             target=ProcessSafeLogger._listener,
             args=(
@@ -313,6 +312,9 @@ class ProcessSafeLogger(object):
         if self._listener is not None:
             self._queue.put(None)
             self._listener.join()
+            if self._path is not None:
+                with self._path.open("a") as f:
+                    f.write("### END OF LOG ###\n")
         return False
 
     @staticmethod
@@ -332,7 +334,13 @@ class ProcessSafeLogger(object):
                 else:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.unlink(missing_ok=True)
-                    log_file = ctx.enter_context(path.open("w", encoding="utf-8"))
+                    log_file = ctx.enter_context(
+                        path.open(
+                            "x",
+                            encoding="utf-8",
+                            buffering=1,
+                        )
+                    )
             except Exception:  # noqa
                 import traceback
 
@@ -346,7 +354,7 @@ class ProcessSafeLogger(object):
                 file_handle=log_file,
                 longest_chrom_name=longest_chrom_name,
             )
-            logger = structlog.get_logger()
+            logger = structlog.get_logger().bind()
 
             if path is not None:
                 if error is not None:
@@ -441,7 +449,7 @@ class ProcessSafeLogger(object):
 
     @staticmethod
     def _queue_logger_helper(_, method_name, event_dict, queue: mp.Queue) -> str:
-        queue.put_nowait(event_dict)
+        queue.put(event_dict)
         return ""
 
     @staticmethod

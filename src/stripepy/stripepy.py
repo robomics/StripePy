@@ -242,7 +242,7 @@ def step_1(
     I: ss.csr_matrix, genomic_belt: int, resolution: int, RoI: Optional[Dict] = None, logger=None
 ) -> Tuple[ss.csc_matrix, ss.csr_matrix, Optional[NDArray[float]]]:
     if logger is None:
-        logger = structlog.get_logger()
+        logger = structlog.get_logger().bind(step="IO")
 
     logger.bind(step=(1, 1)).info("focusing on a neighborhood of the main diagonal")
     Iproc = _band_extraction(I, resolution, genomic_belt)
@@ -273,7 +273,7 @@ def step_2(
     assert location in {"lower", "upper"}
 
     if logger is None:
-        logger = structlog.get_logger()
+        logger = structlog.get_logger().bind(chrom=chrom_name, step=(2,))
 
     logger = logger.bind(location="LT" if location == "lower" else "UT")
 
@@ -346,7 +346,7 @@ def step_3(
     assert location in {"lower", "upper"}
 
     if logger is None:
-        logger = structlog.get_logger()
+        logger = structlog.get_logger().bind(chrom=result.chrom[0], step=(3,))
 
     logger = logger.bind(location="LT" if location == "lower" else "UT")
 
@@ -433,7 +433,7 @@ def step_4(
     logger=None,
 ) -> Tuple[str, List[stripe.Stripe]]:
     if logger is None:
-        logger = structlog.get_logger()
+        logger = structlog.get_logger().bind(step=(4,))
 
     logger = logger.bind(location="LT" if location == "lower" else "UT")
 

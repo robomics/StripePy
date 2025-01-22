@@ -589,7 +589,6 @@ def run(
                     matrix=LT_Iproc,
                     min_persistence=glob_pers_min,
                     location="lower",
-                    logger=logger,
                 )
 
                 task2 = pool.submit(
@@ -599,7 +598,6 @@ def run(
                     matrix=UT_Iproc,
                     min_persistence=glob_pers_min,
                     location="upper",
-                    logger=logger,
                 )
 
                 result = _merge_results((task1, task2))
