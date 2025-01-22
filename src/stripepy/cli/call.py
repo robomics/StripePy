@@ -467,7 +467,7 @@ def _run_step_2(
     ut_matrix: Optional[ss.csr_matrix],
     lt_matrix: Optional[ss.csr_matrix],
     min_persistence: float,
-    tpool: concurrent.futures.ThreadPoolExecutor,
+    tpool: Union[ProcessPoolWrapper, concurrent.futures.ThreadPoolExecutor],
     pool: ProcessPoolWrapper,
     logger,
 ) -> IO.Result:
@@ -501,6 +501,97 @@ def _run_step_2(
     result = _merge_results((task1, task2))
 
     logger.info("topological data analysis took %s", pretty_format_elapsed_time(t0))
+    return result
+
+
+def _run_step_3(
+    result: IO.Result,
+    lt_matrix: Optional[ss.csr_matrix],
+    ut_matrix: Optional[ss.csr_matrix],
+    resolution: int,
+    genomic_belt: int,
+    max_width: int,
+    loc_pers_min: float,
+    loc_trend_min: float,
+    tpool: Union[ProcessPoolWrapper, concurrent.futures.ThreadPoolExecutor],
+    pool: ProcessPoolWrapper,
+    logger,
+) -> IO.Result:
+    logger = logger.bind(step=(3,))
+    logger.info("shape analysis")
+    t0 = time.time()
+
+    task1 = tpool.submit(
+        stripepy.step_3,
+        result,
+        lt_matrix,
+        resolution,
+        genomic_belt,
+        max_width,
+        loc_pers_min,
+        loc_trend_min,
+        location="lower",
+        map_=pool.map,
+        logger=logger,
+    )
+
+    task2 = tpool.submit(
+        stripepy.step_3,
+        result,
+        ut_matrix,
+        resolution,
+        genomic_belt,
+        max_width,
+        loc_pers_min,
+        loc_trend_min,
+        location="upper",
+        map_=pool.map,
+        logger=logger,
+    )
+
+    result = _merge_results((task1, task2))
+
+    logger.info("shape analysis took %s", pretty_format_elapsed_time(t0))
+
+    return result
+
+
+def _run_step_4(
+    result: IO.Result,
+    lt_matrix: Optional[ss.csr_matrix],
+    ut_matrix: Optional[ss.csr_matrix],
+    tpool: Union[ProcessPoolWrapper, concurrent.futures.ThreadPoolExecutor],
+    pool: ProcessPoolWrapper,
+    logger,
+) -> IO.Result:
+    t0 = time.time()
+
+    logger = logger.bind(step=(4,))
+    logger.info("statistical analysis and post-processing")
+
+    task1 = tpool.submit(
+        stripepy.step_4,
+        result.get("stripes", "lower"),
+        lt_matrix,
+        location="lower",
+        map_=pool.map,
+        logger=logger,
+    )
+
+    task2 = tpool.submit(
+        stripepy.step_4,
+        result.get("stripes", "upper"),
+        ut_matrix,
+        location="upper",
+        map_=pool.map,
+        logger=logger,
+    )
+
+    result.set("stripes", task1.result()[1], "LT", force=True)
+    result.set("stripes", task2.result()[1], "UT", force=True)
+
+    logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(t0))
+
     return result
 
 
@@ -632,72 +723,32 @@ def run(
                     pool=pool,
                     logger=logger,
                 )
-
                 progress_bar(progress_weights["step_2"])
 
-                logger = logger.bind(step=(3,))
-                logger.info("shape analysis")
-                start_time = time.time()
-                task1 = tpool.submit(
-                    stripepy.step_3,
-                    result,
-                    LT_Iproc,
-                    resolution,
-                    genomic_belt,
-                    max_width,
-                    loc_pers_min,
-                    loc_trend_min,
-                    location="lower",
-                    map_=pool.map,
+                result = _run_step_3(
+                    result=result,
+                    lt_matrix=LT_Iproc,
+                    ut_matrix=UT_Iproc,
+                    resolution=resolution,
+                    genomic_belt=genomic_belt,
+                    max_width=max_width,
+                    loc_pers_min=loc_pers_min,
+                    loc_trend_min=loc_trend_min,
+                    tpool=tpool,
+                    pool=pool,
                     logger=logger,
                 )
-
-                task2 = tpool.submit(
-                    stripepy.step_3,
-                    result,
-                    UT_Iproc,
-                    resolution,
-                    genomic_belt,
-                    max_width,
-                    loc_pers_min,
-                    loc_trend_min,
-                    location="upper",
-                    map_=pool.map,
-                    logger=logger,
-                )
-
-                result = _merge_results((task1, task2))
-
                 progress_bar(progress_weights["step_3"])
-                logger.info("shape analysis took %s", pretty_format_elapsed_time(start_time))
 
-                logger = logger.bind(step=(4,))
-                logger.info("statistical analysis and post-processing")
-                start_time = time.time()
-
-                task1 = tpool.submit(
-                    stripepy.step_4,
-                    result.get("stripes", "lower"),
-                    LT_Iproc,
-                    location="lower",
-                    map_=pool.map,
+                result = _run_step_4(
+                    result=result,
+                    lt_matrix=LT_Iproc,
+                    ut_matrix=UT_Iproc,
+                    tpool=tpool,
+                    pool=pool,
                     logger=logger,
                 )
-
-                task2 = tpool.submit(
-                    stripepy.step_4,
-                    result.get("stripes", "upper"),
-                    UT_Iproc,
-                    location="upper",
-                    map_=pool.map,
-                    logger=logger,
-                )
-
-                result.set("stripes", task1.result()[1], "LT", force=True)
-                result.set("stripes", task2.result()[1], "UT", force=True)
-
                 progress_bar(progress_weights["step_4"])
-                logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(start_time))
 
                 io_manager.write_results(result)
                 progress_bar(progress_weights["output"])
