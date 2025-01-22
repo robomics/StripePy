@@ -692,8 +692,7 @@ def run(
                         loc_pers_min,
                         loc_trend_min,
                         plot_dir,
-                        map_=pool.map,
-                        logger=logger,
+                        pool=pool,
                     )
 
                     progress_bar(progress_weights["step_5"])

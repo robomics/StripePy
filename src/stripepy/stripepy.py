@@ -16,6 +16,7 @@ from numpy.typing import NDArray
 
 from . import IO, plot
 from .utils import common, finders, regressions, stripe
+from .utils.common import pretty_format_elapsed_time
 from .utils.multiprocess_sparse_matrix import get_shared_state
 from .utils.persistence1d import PersistenceTable
 
@@ -448,17 +449,54 @@ def step_4(
     )
 
 
+def _plot_matrix(
+    chrom_name: str,
+    chrom_size: int,
+    resolution: int,
+    start: int,
+    end: int,
+    matrix: NDArray,
+    dest: pathlib.Path,
+    matrix_type: str,
+):
+    t0 = time.time()
+    plt = common._import_pyplot()
+
+    if matrix_type == "raw":
+        logger = structlog.get_logger().bind(chrom=chrom_name, step=(5, 1, 1))
+    else:
+        assert matrix_type == "processed"
+        logger = structlog.get_logger().bind(chrom=chrom_name, step=(5, 1, 2))
+
+    dummy_result = IO.Result(chrom_name, chrom_size)
+    logger.info("plotting %s matrix", matrix_type)
+    fig, _ = plot.plot(
+        dummy_result,
+        resolution=resolution,
+        plot_type="matrix",
+        start=start,
+        end=end,
+        matrix=matrix,
+        log_scale=False,
+    )
+
+    fig.savefig(dest, dpi=256)
+    plt.close(fig)
+    logger.info("plotting %s matrix took %s", matrix_type, pretty_format_elapsed_time(t0))
+
+
 def _plot_pseudodistribution(
     result: IO.Result,
     resolution: int,
     matrix: Optional[NDArray],
     output_folder: pathlib.Path,
-    logger,
 ):
+    t0 = time.time()
     plt = common._import_pyplot()
     assert result.roi is not None
 
-    logger.bind(step=(5, 1, 1)).info("plotting pseudo-distributions")
+    logger = structlog.get_logger().bind(chrom=result.chrom[0], step=(5, 2, 1))
+    logger.info("plotting pseudo-distributions")
     start, end = result.roi["genomic"]
     fig, _ = plot.plot(
         result,
@@ -469,11 +507,14 @@ def _plot_pseudodistribution(
     )
     fig.savefig(output_folder / "pseudo_distribution.jpg", dpi=256)
     plt.close(fig)
+    logger.info("plotting pseudo-distributions took %s", pretty_format_elapsed_time(t0))
 
     if matrix is None:
         return
 
-    logger.bind(step=(5, 1, 2)).info("plotting processed matrix with highlighted seed(s)")
+    t0 = time.time()
+    logger = structlog.get_logger().bind(step=(5, 2, 2))
+    logger.info("plotting processed matrix with highlighted seed(s)")
     # Plot the region of interest of Iproc with over-imposed vertical lines for seeds:
     fig, _ = plot.plot(
         result,
@@ -486,6 +527,7 @@ def _plot_pseudodistribution(
     )
     fig.savefig(output_folder / "matrix_with_seeds.jpg", dpi=256)
     plt.close(fig)
+    logger.info("plotting processed matrix with highlighted seed(s) took %s", pretty_format_elapsed_time(t0))
 
 
 def _plot_hic_and_hois(
@@ -493,15 +535,17 @@ def _plot_hic_and_hois(
     resolution: int,
     matrix: Optional[NDArray],
     output_folder: pathlib.Path,
-    logger,
 ):
-    plt = common._import_pyplot()
     assert result.roi is not None
+
+    t0 = time.time()
+    plt = common._import_pyplot()
 
     if matrix is None:
         return
 
-    logger.bind(step=(5, 2, 1)).info("plotting regions overlapping with candidate stripe(s)")
+    logger = structlog.get_logger().bind(chrom=result.chrom[0], step=(5, 3, 1))
+    logger.info("plotting regions overlapping with candidate stripe(s)")
     start, end = result.roi["genomic"]
     fig, _ = plot.plot(
         result,
@@ -513,8 +557,11 @@ def _plot_hic_and_hois(
     )
     fig.savefig(output_folder / "all_domains.jpg", dpi=256)
     plt.close(fig)
+    logger.info("plotting regions overlapping with candidate stripe(s) took %s", pretty_format_elapsed_time(t0))
 
-    logger.bind(step=(5, 2, 1)).info("plotting processed matrix with candidate stripe(s) highlighted")
+    t0 = time.time()
+    logger = logger.bind(step=(5, 3, 2))
+    logger.info("plotting processed matrix with candidate stripe(s) highlighted")
     fig, _ = plot.plot(
         result,
         resolution,
@@ -526,18 +573,25 @@ def _plot_hic_and_hois(
     fig.savefig(output_folder / "all_candidates.jpg", dpi=256)
     plt.close(fig)
 
+    logger.info(
+        "plotting processed matrix with candidate stripe(s) highlighted took %s", pretty_format_elapsed_time(t0)
+    )
+
 
 def _plot_geo_descriptors(
     result: IO.Result,
     resolution: int,
     output_folder: pathlib.Path,
-    logger,
 ):
+    t0 = time.time()
     plt = common._import_pyplot()
-    logger.bind(step=(5, 3, 1)).info("generating histograms for geo-descriptors")
+
+    logger = structlog.get_logger().bind(chrom=result.chrom[0], step=(5, 4, 1))
+    logger.info("generating histograms for geo-descriptors")
     fig, _ = plot.plot(result, resolution, plot_type="geo_descriptors", start=0, end=result.chrom[1])
     fig.savefig(output_folder / "geo_descriptors.jpg", dpi=256)
     plt.close(fig)
+    logger.info("generating histograms for geo-descriptors took %s", pretty_format_elapsed_time(t0))
 
 
 def _marginalize_matrix_lt(
@@ -574,14 +628,16 @@ def _plot_local_pseudodistributions_helper(args):
         loc_trend_min,
         output_folder,
         location,
-        logger,
+        chrom_name,
     ) = args
 
     if matrix is None:
         matrix = get_shared_state(location).get()
 
     plt = common._import_pyplot()
-    logger.bind(step=(5, 4, i)).debug("plotting local profile for seed %d (%s)", seed, location)
+    structlog.get_logger().bind(chrom=chrom_name, step=(5, 5, i)).debug(
+        "plotting local profile for seed %d (%s)", seed, location
+    )
 
     if location == "LT":
         y = _marginalize_matrix_lt(matrix, seed, left_bound, right_bound, max_height)
@@ -636,10 +692,13 @@ def _plot_local_pseudodistributions(
     loc_pers_min: float,
     loc_trend_min: float,
     output_folder: pathlib.Path,
-    map,
+    map_,
     logger,
 ):
+    t0 = time.time()
     output_folder.mkdir()
+
+    logger = logger.bind(step=(5, 5, 0))
 
     start, end = result.roi["genomic"]
     max_height = int(np.ceil(genomic_belt / resolution))
@@ -647,59 +706,63 @@ def _plot_local_pseudodistributions(
     df = result.get_stripe_geo_descriptors("LT")
     df = df[(df["left_bound"] * resolution >= start) & (df["right_bound"] * resolution <= end)]
 
-    logger.bind(step=(5, 4, 0)).info("plotting local profiles for %d LT seed(s)", len(df))
-    list(
-        itertools.filterfalse(
-            None,
-            map(
-                _plot_local_pseudodistributions_helper,
-                zip(
-                    itertools.count(1, 1),
-                    df["seed"],
-                    df["left_bound"],
-                    df["right_bound"],
-                    itertools.repeat(matrix_lt),
-                    itertools.repeat(loc_pers_min),
-                    itertools.repeat(max_height),
-                    itertools.repeat(loc_trend_min),
-                    itertools.repeat(output_folder),
-                    itertools.repeat("LT"),
-                    itertools.repeat(logger),
-                ),
-            ),
+    params = list(
+        zip(
+            itertools.count(1, 1),
+            df["seed"],
+            df["left_bound"],
+            df["right_bound"],
+            itertools.repeat(matrix_lt),
+            itertools.repeat(loc_pers_min),
+            itertools.repeat(max_height),
+            itertools.repeat(loc_trend_min),
+            itertools.repeat(output_folder),
+            itertools.repeat("LT"),
+            itertools.repeat(result.chrom[0]),
         )
     )
+
+    if len(df) == 0:
+        logger.bind(location="LT").info("no local profiles to plot!")
+    else:
+        logger.bind(location="LT").info("plotting local profiles for %d seed(s)", len(df))
 
     offset = len(df) + 1
     df = result.get_stripe_geo_descriptors("UT")
     df = df[(df["left_bound"] * resolution >= start) & (df["right_bound"] * resolution <= end)]
 
-    list(
-        itertools.filterfalse(
-            None,
-            map(
-                _plot_local_pseudodistributions_helper,
-                zip(
-                    itertools.count(offset, 1),
-                    df["seed"],
-                    df["left_bound"],
-                    df["right_bound"],
-                    itertools.repeat(matrix_ut),
-                    itertools.repeat(loc_pers_min),
-                    itertools.repeat(max_height),
-                    itertools.repeat(loc_trend_min),
-                    itertools.repeat(output_folder),
-                    itertools.repeat("UT"),
-                    itertools.repeat(logger),
-                ),
-            ),
-        )
+    params.extend(
+        zip(
+            itertools.count(offset, 1),
+            df["seed"],
+            df["left_bound"],
+            df["right_bound"],
+            itertools.repeat(matrix_ut),
+            itertools.repeat(loc_pers_min),
+            itertools.repeat(max_height),
+            itertools.repeat(loc_trend_min),
+            itertools.repeat(output_folder),
+            itertools.repeat("UT"),
+            itertools.repeat(result.chrom[0]),
+        ),
     )
+
+    if len(df) == 0:
+        logger.bind(location="UT").info("no local profiles to plot!")
+    else:
+        logger.bind(location="UT").info("plotting local profiles for %d seed(s)", len(df))
+
+    num_tasks = sum(1 for _ in map_(_plot_local_pseudodistributions_helper, params))
+    if num_tasks > 0:
+        logger.info("plotting %d profiles took %s", num_tasks, pretty_format_elapsed_time(t0))
 
 
 def _plot_stripes_helper(args):
+    t0 = time.time()
     plt = common._import_pyplot()
-    matrix, result, resolution, start, end, cutoff, output_folder, logger = args
+    i, matrix, result, resolution, start, end, cutoff, output_folder = args
+
+    logger = structlog.get_logger().bind(chrom=result.chrom[0], step=(5, 6, i))
     logger.debug("plotting stripes with cutoff=%.2f", cutoff)
 
     fig, _ = plot.plot(
@@ -708,6 +771,7 @@ def _plot_stripes_helper(args):
     dest = output_folder / f"stripes_{cutoff:.2f}.jpg"
     fig.savefig(dest, dpi=256)
     plt.close(fig)
+    logger.debug("plotting stripes with cutoff=%.2f took %s", cutoff, pretty_format_elapsed_time(t0))
 
 
 def _get_stripes(result: IO.Result, resolution: int) -> pd.DataFrame:
@@ -732,13 +796,17 @@ def _plot_stripes(
     resolution: int,
     matrix: Optional[NDArray],
     output_folder: pathlib.Path,
-    map,
+    map_,
     logger,
 ):
     assert result.roi is not None
 
+    t0 = time.time()
+
     if matrix is None:
         return
+
+    logger = logger.bind(step=(5, 6, 0))
 
     df = _get_stripes(result, resolution)
 
@@ -750,24 +818,24 @@ def _plot_stripes(
 
     start, end = result.roi["genomic"]
 
+    logger.info("plotting stripes using %d different cutoffs", len(cutoffs))
     list(
-        itertools.filterfalse(
-            None,
-            map(
-                _plot_stripes_helper,
-                zip(
-                    itertools.repeat(matrix),
-                    itertools.repeat(result),
-                    itertools.repeat(resolution),
-                    itertools.repeat(start),
-                    itertools.repeat(end),
-                    cutoffs.values(),
-                    itertools.repeat(output_folder),
-                    itertools.repeat(logger),
-                ),
+        map_(
+            _plot_stripes_helper,
+            zip(
+                itertools.count(1, 1),
+                itertools.repeat(matrix),
+                itertools.repeat(result),
+                itertools.repeat(resolution),
+                itertools.repeat(start),
+                itertools.repeat(end),
+                cutoffs.values(),
+                itertools.repeat(output_folder),
             ),
         ),
     )
+
+    logger.info("plotting stripes using %d different cutoffs took %s", len(cutoffs), pretty_format_elapsed_time(t0))
 
 
 def step_5(
@@ -781,15 +849,13 @@ def step_5(
     loc_pers_min: float,
     loc_trend_min: float,
     output_folder: Optional[pathlib.Path],
-    map_=map,
+    pool,
     logger=None,
 ):
     assert result.roi is not None
 
-    plt = common._import_pyplot()
-
     if logger is None:
-        logger = structlog.get_logger()
+        logger = structlog.get_logger().bind(chrom=result.chrom[0], step=(5,))
 
     chrom_name, chrom_size = result.chrom
     start, end = result.roi["genomic"]
@@ -797,49 +863,44 @@ def step_5(
     for directory in ("1_preprocessing", "2_TDA", "3_shape_analysis", "4_biological_analysis"):
         (output_folder / chrom_name / directory).mkdir(parents=True, exist_ok=True)
 
-    dummy_result = IO.Result(chrom_name, chrom_size)
+    tasks = []
 
-    matrix_output_paths = (
-        output_folder / chrom_name / "1_preprocessing" / f"raw_matrix_{start}_{end}.jpg",
-        output_folder / chrom_name / "1_preprocessing" / f"proc_matrix_{start}_{end}.jpg",
-    )
+    dest = output_folder / chrom_name / "1_preprocessing" / f"raw_matrix_{start}_{end}.jpg"
+    tasks.append(pool.submit(_plot_matrix, *result.chrom, resolution, start, end, raw_matrix, dest, "raw"))
 
-    matrices = (raw_matrix, proc_matrix)
+    if proc_matrix is not None:
+        dest = output_folder / chrom_name / "1_preprocessing" / f"proc_matrix_{start}_{end}.jpg"
+        tasks.append(pool.submit(_plot_matrix, *result.chrom, resolution, start, end, raw_matrix, dest, "processed"))
 
-    for dest, matrix in zip(matrix_output_paths, matrices):
-        fig, _ = plot.plot(
-            dummy_result,
-            resolution=resolution,
-            plot_type="matrix",
-            start=start,
-            end=end,
-            matrix=matrix,
-            log_scale=False,
+    tasks.append(
+        pool.submit(
+            _plot_pseudodistribution,
+            result,
+            resolution,
+            proc_matrix,
+            output_folder / chrom_name / "2_TDA",
         )
+    )
 
-        fig.savefig(dest, dpi=256)
-        plt.close(fig)
+    tasks.append(
+        pool.submit(
+            _plot_hic_and_hois,
+            result,
+            resolution,
+            proc_matrix,
+            output_folder / chrom_name / "3_shape_analysis",
+        )
+    )
 
-    _plot_pseudodistribution(
-        result,
-        resolution,
-        proc_matrix,
-        output_folder / chrom_name / "2_TDA",
-        logger,
+    tasks.append(
+        pool.submit(
+            _plot_geo_descriptors,
+            result,
+            resolution,
+            output_folder / chrom_name / "3_shape_analysis",
+        )
     )
-    _plot_hic_and_hois(
-        result,
-        resolution,
-        proc_matrix,
-        output_folder / chrom_name / "3_shape_analysis",
-        logger,
-    )
-    _plot_geo_descriptors(
-        result,
-        resolution,
-        output_folder / chrom_name / "3_shape_analysis",
-        logger,
-    )
+
     _plot_local_pseudodistributions(
         result,
         gw_matrix_proc_lt,
@@ -849,14 +910,18 @@ def step_5(
         loc_pers_min,
         loc_trend_min,
         output_folder / chrom_name / "3_shape_analysis" / "local_pseudodistributions",
-        map_,
+        pool.map,
         logger,
     )
+
     _plot_stripes(
         result,
         resolution,
         proc_matrix,
         output_folder / chrom_name / "4_biological_analysis",
-        map_,
+        pool.map,
         logger,
     )
+
+    for t in tasks:
+        t.result()
