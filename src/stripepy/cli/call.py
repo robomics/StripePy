@@ -50,7 +50,7 @@ def _init_shared_state(
     log_queue: mp.Queue,
     init_mpl: bool,
 ):
-    logging.ProcessSafeLogger._setup_logger(log_queue)
+    logging.ProcessSafeLogger.setup_logger(log_queue)
 
     if lower_triangular_matrix is not None:
         assert upper_triangular_matrix is not None
