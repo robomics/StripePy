@@ -107,7 +107,7 @@ class ProcessPoolWrapper(object):
         return False
 
     @property
-    def map(self, chunksize: int = 50):
+    def map(self, chunksize: int = 1):
         if self._pool is None:
             return map
         return functools.partial(self._pool.map, chunksize=chunksize)
@@ -521,6 +521,11 @@ def _run_step_3(
     logger.info("shape analysis")
     t0 = time.time()
 
+    if pool.map is map:
+        executor = pool.map
+    else:
+        executor = functools.partial(pool.map, chunksize=50)
+
     task1 = tpool.submit(
         stripepy.step_3,
         result,
@@ -531,7 +536,7 @@ def _run_step_3(
         loc_pers_min,
         loc_trend_min,
         location="lower",
-        map_=pool.map,
+        map_=executor,
         logger=logger,
     )
 
@@ -545,7 +550,7 @@ def _run_step_3(
         loc_pers_min,
         loc_trend_min,
         location="upper",
-        map_=pool.map,
+        map_=executor,
         logger=logger,
     )
 
@@ -569,12 +574,17 @@ def _run_step_4(
     logger = logger.bind(step=(4,))
     logger.info("statistical analysis and post-processing")
 
+    if pool.map is map:
+        executor = pool.map
+    else:
+        executor = functools.partial(pool.map, chunksize=50)
+
     task1 = tpool.submit(
         stripepy.step_4,
         result.get("stripes", "lower"),
         lt_matrix,
         location="lower",
-        map_=pool.map,
+        map_=executor,
         logger=logger,
     )
 
@@ -583,7 +593,7 @@ def _run_step_4(
         result.get("stripes", "upper"),
         ut_matrix,
         location="upper",
-        map_=pool.map,
+        map_=executor,
         logger=logger,
     )
 
