@@ -47,7 +47,6 @@ def main(args: Union[List[str], None] = None):
         print_welcome_message=subcommand != "view",
     ) as main_logger:
         try:
-            logging.install_custom_warning_handler()
             _setup_matplotlib(subcommand, **kwargs)
             kwargs["main_logger"] = main_logger
 
