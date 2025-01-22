@@ -5,6 +5,7 @@
 import collections.abc
 import contextlib
 import functools
+import importlib.metadata
 import importlib.util
 import multiprocessing as mp
 import pathlib
@@ -274,6 +275,7 @@ class ProcessSafeLogger(object):
         path: Optional[pathlib.Path],
         force: bool = False,
         matrix_file: Optional[pathlib.Path] = None,
+        print_welcome_message: bool = True,
     ):
         self._level = level
         self._path = path
@@ -281,6 +283,7 @@ class ProcessSafeLogger(object):
         self._queue = None
         self._listener = None
         self._log_file = None
+        self._print_welcome_message = print_welcome_message
         if matrix_file is None:
             self._longest_chrom_name = ""
         else:
@@ -302,6 +305,7 @@ class ProcessSafeLogger(object):
                 "DEBUG",
                 self._longest_chrom_name,
                 self._queue,
+                self._print_welcome_message,
             ),
         )
         self._listener.start()
@@ -324,6 +328,7 @@ class ProcessSafeLogger(object):
         log_level_file: str,
         longest_chrom_name: str,
         queue: mp.Queue,
+        print_welcome_message: bool,
     ):
         proc = mp.current_process()
         with contextlib.ExitStack() as ctx:
@@ -355,6 +360,9 @@ class ProcessSafeLogger(object):
                 longest_chrom_name=longest_chrom_name,
             )
             logger = structlog.get_logger().bind()
+
+            if print_welcome_message:
+                logger.info("running StripePy v%s", importlib.metadata.version("stripepy-hic"))
 
             if path is not None:
                 if error is not None:
