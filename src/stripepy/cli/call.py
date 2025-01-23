@@ -8,7 +8,6 @@ import functools
 import json
 import multiprocessing as mp
 import pathlib
-import platform
 import shutil
 import sys
 import time
@@ -23,9 +22,12 @@ import structlog
 
 from stripepy import IO, others, stripepy
 from stripepy.cli import logging
+from stripepy.utils import stripe
 from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
 from stripepy.utils.multiprocess_sparse_matrix import (
     SharedSparseMatrix,
+    SparseMatrix,
+    get_shared_state,
     set_shared_state,
     unset_shared_state,
 )
@@ -65,10 +67,8 @@ class ProcessPoolWrapper(object):
         self,
         nproc: int,
         main_logger: logging.ProcessSafeLogger,
-        lt_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
-        ut_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
         init_mpl: bool = False,
-        lazy_pool_initialization: bool = True,
+        lazy_pool_initialization: bool = False,
         logger=None,
     ):
         self._nproc = nproc
@@ -81,11 +81,7 @@ class ProcessPoolWrapper(object):
         if nproc > 1:
             self._lock = mp.Lock()
             self._log_queue = main_logger.log_queue
-            if lt_matrix is not None:
-                assert ut_matrix is not None
-                self.rebind_shared_matrices(lt_matrix, ut_matrix, logger)
-
-            if self._pool is None and not lazy_pool_initialization:
+            if not lazy_pool_initialization:
                 self._initialize_pool(logger)
 
     def __enter__(self):
@@ -117,21 +113,27 @@ class ProcessPoolWrapper(object):
 
     def rebind_shared_matrices(
         self,
-        lt_matrix: Union[ss.csr_matrix, ss.csc_matrix],
-        ut_matrix: Union[ss.csr_matrix, ss.csc_matrix],
+        chrom: str,
+        lt_matrix: SparseMatrix,
+        ut_matrix: SparseMatrix,
         logger=None,
+        max_nnz: Optional[int] = None,
     ):
         if self._nproc < 2:
             return
 
         if self._can_rebind_shared_matrices(lt_matrix, ut_matrix):
-            self._lt_matrix.assign(lt_matrix, logger)
-            self._ut_matrix.assign(ut_matrix, logger)
+            self._lt_matrix.assign(chrom, lt_matrix, logger)
+            self._ut_matrix.assign(chrom, ut_matrix, logger)
+            set_shared_state(self._lt_matrix, self._ut_matrix)
             return
 
+        if max_nnz is not None:
+            max_nnz = max(max_nnz, lt_matrix.nnz, ut_matrix.nnz)
+
         unset_shared_state()
-        self._lt_matrix = SharedSparseMatrix(lt_matrix, logger) if lt_matrix is not None else None
-        self._ut_matrix = SharedSparseMatrix(ut_matrix, logger) if ut_matrix is not None else None
+        self._lt_matrix = SharedSparseMatrix(chrom, lt_matrix, logger, max_nnz) if lt_matrix is not None else None
+        self._ut_matrix = SharedSparseMatrix(chrom, ut_matrix, logger, max_nnz) if ut_matrix is not None else None
         set_shared_state(self._lt_matrix, self._ut_matrix)
         self._initialize_pool(logger)
 
@@ -203,7 +205,7 @@ class IOManager(object):
 
         logger = structlog.get_logger().bind(step="IO")
 
-        self._tpool = ProcessPoolWrapper(
+        self._pool = ProcessPoolWrapper(
             min(nproc, 2),
             main_logger=main_logger,
             init_mpl=False,
@@ -227,7 +229,7 @@ class IOManager(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._tpool.__exit__(exc_type, exc_val, exc_tb)
+        self._pool.__exit__(exc_type, exc_val, exc_tb)
 
     @staticmethod
     def _fetch(
@@ -278,13 +280,13 @@ class IOManager(object):
         )
 
     def fetch_interaction_matrix_async(self, chrom_name: str, chrom_size: int):
-        if not self._tpool.ready:
+        if not self._pool.ready:
             return
 
         assert chrom_name not in self._tasks
 
         roi = others.define_RoI(self._roi, chrom_size, self._resolution)
-        self._tasks[chrom_name] = self._tpool.submit(
+        self._tasks[chrom_name] = self._pool.submit(
             IOManager._fetch,
             self._path,
             self._resolution,
@@ -295,7 +297,7 @@ class IOManager(object):
         )
 
     def fetch_next_interaction_matrix_async(self, tasks: List[Tuple[str, int, bool]]):
-        if not self._tpool.ready:
+        if not self._pool.ready:
             return
 
         if len(tasks) == 0 or tasks[0][0] in self._tasks:
@@ -336,7 +338,7 @@ class IOManager(object):
 
     def write_results(self, result: IO.Result):
         self._wait_on_io_on_results_file()
-        self._h5_pending_io_task = self._tpool.submit(IOManager._write_results, self._h5_path, result)
+        self._h5_pending_io_task = self._pool.submit(IOManager._write_results, self._h5_path, result)
 
     def finalize_results(self):
         self._wait_on_io_on_results_file()
@@ -486,8 +488,11 @@ def _merge_results(futures) -> IO.Result:
 
     results = {}
     i = 0
-    for i, fut in enumerate(futures, 1):
-        location, result = fut.result()
+    for i, res in enumerate(futures, 1):
+        if isinstance(res, concurrent.futures.Future):
+            res = res.result()
+
+        location, result = res
         results[location] = result
 
     assert len(results) == i
@@ -517,13 +522,37 @@ def _setup_tpool(
     )
 
 
+def _run_step_2_helper(args) -> Tuple[str, IO.Result]:
+    return stripepy.step_2(*args)
+
+
+def _run_step_3_helper(args) -> Tuple[str, IO.Result]:
+    return stripepy.step_3(*args)
+
+
+def _run_step_4_helper(args) -> Tuple[str, List[stripe.Stripe]]:
+    return stripepy.step_4(*args)
+
+
+def _fetch_matrix_metadata(lt_matrix: Optional[SparseMatrix], ut_matrix: Optional[SparseMatrix]) -> Tuple[Dict, Dict]:
+    if lt_matrix is None:
+        lt_matrix_metadata = get_shared_state("lower").metadata
+    else:
+        lt_matrix_metadata = None
+    if ut_matrix is None:
+        ut_matrix_metadata = get_shared_state("upper").metadata
+    else:
+        ut_matrix_metadata = None
+
+    return lt_matrix_metadata, ut_matrix_metadata
+
+
 def _run_step_2(
     chrom_name: str,
     chrom_size: int,
-    ut_matrix: Optional[ss.csr_matrix],
-    lt_matrix: Optional[ss.csr_matrix],
+    lt_matrix: Optional[SparseMatrix],
+    ut_matrix: Optional[SparseMatrix],
     min_persistence: float,
-    tpool: Union[ProcessPoolWrapper, concurrent.futures.ThreadPoolExecutor],
     pool: ProcessPoolWrapper,
     logger,
 ) -> IO.Result:
@@ -531,30 +560,15 @@ def _run_step_2(
     logger.info("topological data analysis")
     t0 = time.time()
 
-    if platform.system() == "Linux":
-        executor = pool
-    else:
-        executor = tpool
+    lt_matrix_metadata, ut_matrix_metadata = _fetch_matrix_metadata(lt_matrix, ut_matrix)
 
-    task1 = executor.submit(
-        stripepy.step_2,
-        chrom_name=chrom_name,
-        chrom_size=chrom_size,
-        matrix=lt_matrix,
-        min_persistence=min_persistence,
-        location="lower",
+    params = (
+        (chrom_name, chrom_size, lt_matrix, lt_matrix_metadata, min_persistence, "lower"),
+        (chrom_name, chrom_size, ut_matrix, ut_matrix_metadata, min_persistence, "upper"),
     )
 
-    task2 = executor.submit(
-        stripepy.step_2,
-        chrom_name=chrom_name,
-        chrom_size=chrom_size,
-        matrix=ut_matrix,
-        min_persistence=min_persistence,
-        location="upper",
-    )
-
-    result = _merge_results((task1, task2))
+    tasks = pool.map(_run_step_2_helper, params)
+    result = _merge_results(tasks)
 
     logger.info("topological data analysis took %s", pretty_format_elapsed_time(t0))
     return result
@@ -562,8 +576,8 @@ def _run_step_2(
 
 def _run_step_3(
     result: IO.Result,
-    lt_matrix: Optional[ss.csr_matrix],
-    ut_matrix: Optional[ss.csr_matrix],
+    lt_matrix: Optional[SparseMatrix],
+    ut_matrix: Optional[SparseMatrix],
     resolution: int,
     genomic_belt: int,
     max_width: int,
@@ -582,35 +596,39 @@ def _run_step_3(
     else:
         executor = functools.partial(pool.map, chunksize=50)
 
-    task1 = tpool.submit(
-        stripepy.step_3,
-        result,
-        lt_matrix,
-        resolution,
-        genomic_belt,
-        max_width,
-        loc_pers_min,
-        loc_trend_min,
-        location="lower",
-        map_=executor,
-        logger=logger,
+    lt_matrix_metadata, ut_matrix_metadata = _fetch_matrix_metadata(lt_matrix, ut_matrix)
+
+    params = (
+        (
+            result,
+            lt_matrix,
+            lt_matrix_metadata,
+            resolution,
+            genomic_belt,
+            max_width,
+            loc_pers_min,
+            loc_trend_min,
+            "lower",
+            executor,
+            logger,
+        ),
+        (
+            result,
+            ut_matrix,
+            ut_matrix_metadata,
+            resolution,
+            genomic_belt,
+            max_width,
+            loc_pers_min,
+            loc_trend_min,
+            "upper",
+            executor,
+            logger,
+        ),
     )
 
-    task2 = tpool.submit(
-        stripepy.step_3,
-        result,
-        ut_matrix,
-        resolution,
-        genomic_belt,
-        max_width,
-        loc_pers_min,
-        loc_trend_min,
-        location="upper",
-        map_=executor,
-        logger=logger,
-    )
-
-    result = _merge_results((task1, task2))
+    tasks = tpool.map(_run_step_3_helper, params)
+    result = _merge_results(tasks)
 
     logger.info("shape analysis took %s", pretty_format_elapsed_time(t0))
 
@@ -619,8 +637,8 @@ def _run_step_3(
 
 def _run_step_4(
     result: IO.Result,
-    lt_matrix: Optional[ss.csr_matrix],
-    ut_matrix: Optional[ss.csr_matrix],
+    lt_matrix: Optional[SparseMatrix],
+    ut_matrix: Optional[SparseMatrix],
     tpool: Union[ProcessPoolWrapper, concurrent.futures.ThreadPoolExecutor],
     pool: ProcessPoolWrapper,
     logger,
@@ -635,30 +653,34 @@ def _run_step_4(
     else:
         executor = functools.partial(pool.map, chunksize=50)
 
-    task1 = tpool.submit(
-        stripepy.step_4,
-        result.get("stripes", "lower"),
-        lt_matrix,
-        location="lower",
-        map_=executor,
-        logger=logger,
+    lt_matrix_metadata, ut_matrix_metadata = _fetch_matrix_metadata(lt_matrix, ut_matrix)
+
+    params = (
+        (result.get("stripes", "lower"), lt_matrix, lt_matrix_metadata, "lower", executor, logger),
+        (result.get("stripes", "upper"), ut_matrix, ut_matrix_metadata, "upper", executor, logger),
     )
 
-    task2 = tpool.submit(
-        stripepy.step_4,
-        result.get("stripes", "upper"),
-        ut_matrix,
-        location="upper",
-        map_=executor,
-        logger=logger,
-    )
-
-    result.set("stripes", task1.result()[1], "LT", force=True)
-    result.set("stripes", task2.result()[1], "UT", force=True)
+    (_, lt_stripes), (_, ut_stripes) = list(tpool.map(_run_step_4_helper, params))
+    result.set("stripes", lt_stripes, "LT", force=True)
+    result.set("stripes", ut_stripes, "UT", force=True)
 
     logger.info("statistical analysis and post-processing took %s", pretty_format_elapsed_time(t0))
 
     return result
+
+
+def _estimate_max_nnz(chrom: str, matrix: SparseMatrix, chroms: Dict[str, int], multiplier: float = 2.0) -> int:
+    assert multiplier >= 1
+    longest_chrom = max(chroms, key=chroms.get)  # noqa
+    if longest_chrom == chrom:
+        return int(multiplier * matrix.nnz)
+
+    max_size = chroms[longest_chrom]
+    current_size = chroms[chrom]
+
+    ratio = max_size / current_size
+
+    return int(multiplier * ratio * matrix.nnz)
 
 
 def run(
@@ -727,10 +749,9 @@ def run(
         pool = ctx.enter_context(
             ProcessPoolWrapper(
                 nproc=nproc,
-                lt_matrix=None,
-                ut_matrix=None,
                 main_logger=parent_logger,
                 init_mpl=roi is not None,
+                lazy_pool_initialization=True,
                 logger=None,
             )
         )
@@ -773,8 +794,11 @@ def run(
 
             LT_Iproc, UT_Iproc, Iproc_RoI = io_manager.fetch_interaction_matrix(chrom_name, chrom_size)
             io_manager.fetch_next_interaction_matrix_async(tasks[i + 1 :])
-
-            pool.rebind_shared_matrices(LT_Iproc, UT_Iproc, logger)
+            if i == 0:
+                max_nnz = _estimate_max_nnz(chrom_name, LT_Iproc, chroms)
+                pool.rebind_shared_matrices(chrom_name, LT_Iproc, UT_Iproc, logger, max_nnz)
+            else:
+                pool.rebind_shared_matrices(chrom_name, LT_Iproc, UT_Iproc, logger, max_nnz)
 
             if pool.ready:
                 # matrices are stored in the shared global state
@@ -789,7 +813,6 @@ def run(
                 lt_matrix=LT_Iproc,
                 ut_matrix=UT_Iproc,
                 min_persistence=glob_pers_min,
-                tpool=tpool,
                 pool=pool,
                 logger=logger,
             )

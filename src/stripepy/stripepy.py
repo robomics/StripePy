@@ -6,7 +6,7 @@ import functools
 import itertools
 import pathlib
 import time
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,11 @@ from numpy.typing import NDArray
 from . import IO, plot
 from .utils import common, finders, regressions, stripe
 from .utils.common import pretty_format_elapsed_time
-from .utils.multiprocess_sparse_matrix import get_shared_state
+from .utils.multiprocess_sparse_matrix import (
+    SparseMatrix,
+    get_shared_state,
+    shared_state_avail,
+)
 from .utils.persistence1d import PersistenceTable
 
 
@@ -266,7 +270,8 @@ def step_1(
 def step_2(
     chrom_name: str,
     chrom_size: int,
-    matrix: Optional[ss.csr_matrix],
+    matrix: Optional[SparseMatrix],
+    matrix_metadata: Optional[Dict],
     min_persistence: float,
     location: str,
     logger=None,
@@ -279,7 +284,8 @@ def step_2(
     logger = logger.bind(location="LT" if location == "lower" else "UT")
 
     if matrix is None:
-        matrix = get_shared_state(location).get()
+        assert matrix_metadata is not None
+        matrix = get_shared_state(location, matrix_metadata).get()
 
     result = IO.Result(chrom_name, chrom_size)
 
@@ -334,7 +340,8 @@ def step_2(
 
 def step_3(
     result: IO.Result,
-    matrix: Optional[ss.csr_matrix],
+    matrix: Optional[SparseMatrix],
+    matrix_metadata: Optional[Dict],
     resolution: int,
     genomic_belt: int,
     max_width: int,
@@ -398,9 +405,10 @@ def step_3(
 
     logger.bind(step=(3, 2, 1)).info("estimating candidate stripe heights")
     vertical_domains = finders.find_VIoIs(
-        matrix,
-        persistent_max_points,
-        horizontal_domains,
+        matrix=matrix,
+        matrix_metadata=matrix_metadata,
+        seed_sites=persistent_max_points,
+        horizontal_domains=horizontal_domains,
         max_height=int(genomic_belt / resolution),
         threshold_cut=loc_trend_min,
         min_persistence=loc_pers_min,
@@ -428,11 +436,18 @@ def step_3(
     return location, result
 
 
-def _step4_helper(stripe: stripe.Stripe, matrix: Optional[ss.csr_matrix], window: int, location: str) -> stripe.Stripe:
+def _step_4_helper(
+    stripe: stripe.Stripe,
+    matrix: Optional[ss.csr_matrix],
+    matrix_metadata: Optional[Dict],
+    window: int,
+    location: str,
+) -> stripe.Stripe:
     assert window >= 0
 
     if matrix is None:
-        matrix = get_shared_state(location).get()
+        assert matrix_metadata is not None
+        matrix = get_shared_state(location, matrix_metadata).get()
 
     stripe.compute_biodescriptors(matrix, window=window)
 
@@ -442,10 +457,11 @@ def _step4_helper(stripe: stripe.Stripe, matrix: Optional[ss.csr_matrix], window
 def step_4(
     stripes: List[stripe.Stripe],
     matrix: Optional[ss.csr_matrix],
+    matrix_metadata: Optional[Dict],
     location: str,
-    window: int = 3,
     map_=map,
     logger=None,
+    window: int = 3,
 ) -> Tuple[str, List[stripe.Stripe]]:
     if logger is None:
         logger = structlog.get_logger().bind(step=(4,))
@@ -459,7 +475,16 @@ def step_4(
     logger.bind(step=(4, 1)).info("computing stripe biological descriptors")
 
     return location, list(
-        map_(functools.partial(_step4_helper, matrix=matrix, window=window, location=location), stripes)
+        map_(
+            functools.partial(
+                _step_4_helper,
+                matrix=matrix,
+                matrix_metadata=matrix_metadata,
+                window=window,
+                location=location,
+            ),
+            stripes,
+        )
     )
 
 

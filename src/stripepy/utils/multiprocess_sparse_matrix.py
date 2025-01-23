@@ -4,9 +4,8 @@
 
 import gc
 import multiprocessing as mp
-import platform
 import time
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -14,21 +13,25 @@ import scipy.sparse as ss
 
 from .common import pretty_format_elapsed_time
 
+SparseMatrix = Union[ss.csr_matrix, ss.csc_matrix]
+
 
 class _SharedRawArrayWrapper(object):
     def __init__(self, data: npt.NDArray, capacity: Optional[int] = None):
         if capacity is None:
             capacity = len(data)
 
+        assert capacity >= len(data)
+
         self._dtype = data.dtype
-        self._size = len(data)
         self._capacity = capacity
-        self._data = mp.RawArray(np.ctypeslib.as_ctypes_type(self._dtype), self._capacity)
+        self._shared_buffer = mp.RawArray(np.ctypeslib.as_ctypes_type(self._dtype), self._capacity)
+        self._numpy_array = None
 
         self.assign(data)
 
     def __len__(self) -> int:
-        return self._size
+        return len(self._numpy_array)
 
     def can_assign(self, data: npt.NDArray) -> bool:
         if len(data) > self._capacity:
@@ -41,8 +44,15 @@ class _SharedRawArrayWrapper(object):
 
     def assign(self, data: npt.NDArray):
         assert self.can_assign(data)
-        self._size = len(data)
-        np.copyto(np.frombuffer(self._data, dtype=data.dtype, count=self._size), data, casting="safe")
+        new_size = len(data)
+        self._numpy_array = np.frombuffer(self._shared_buffer, dtype=self._dtype, count=new_size)
+        np.copyto(self._numpy_array, data, casting="safe")
+
+    def shrink(self, new_size: int):
+        if new_size == len(self._numpy_array):
+            return
+        assert new_size < self._capacity
+        self._numpy_array = np.frombuffer(self._shared_buffer, dtype=self._dtype, count=new_size)
 
     @property
     def dtype(self) -> npt.DTypeLike:
@@ -50,50 +60,60 @@ class _SharedRawArrayWrapper(object):
 
     @property
     def capacity(self) -> int:
-        return self._size
+        return self._capacity
 
     @property
     def data(self) -> npt.NDArray:
-        return np.frombuffer(self._data, count=self._size, dtype=self._dtype)
+        return self._numpy_array
 
     @property
     def raw_data(self) -> mp.RawArray:
-        return self._data
+        return self._shared_buffer
 
 
 class _SharedSparseMatrixBase(object):
-    def __init__(self, m: Union[ss.csr_matrix, ss.csc_matrix], logger=None):
+    def __init__(self, chrom: str, m: SparseMatrix, logger=None, max_nnz: Optional[int] = None):
         assert isinstance(m, ss.csr_matrix) or isinstance(m, ss.csc_matrix)
 
+        if max_nnz is None:
+            capacity_data = len(m.data)
+            capacity_indices = len(m.indices)
+            capacity_indptr = len(m.indptr)
+        else:
+            spare_capacity_pct = max(1.0, max_nnz / m.nnz)
+            capacity_data = int(np.ceil(len(m.data) * spare_capacity_pct))
+            capacity_indices = int(np.ceil(len(m.indices) * spare_capacity_pct))
+            capacity_indptr = int(np.ceil(len(m.indptr) * spare_capacity_pct))
+
         t0 = time.time()
-        self._data = _SharedRawArrayWrapper(m.data)
-        self._indices = _SharedRawArrayWrapper(m.indices)
-        self._indptr = _SharedRawArrayWrapper(m.indptr)
+        self._chrom = chrom
+        self._data = _SharedRawArrayWrapper(m.data, capacity_data)
+        self._indices = _SharedRawArrayWrapper(m.indices, capacity_indices)
+        self._indptr = _SharedRawArrayWrapper(m.indptr, capacity_indptr)
         self._shape = m.shape
         self._matrix_type_str = "CSR" if isinstance(m, ss.csr_matrix) else "CSC"
         self._matrix_type = type(m)
+        self._sum = None  # self.get().sum()
 
         if logger:
             logger.debug(
-                "allocation and initialization of a %s matrix (%d nnz) in shared memory took %s",
+                "allocation and initialization of a %s matrix (%s; %d nnz) in shared memory took %s",
                 self._matrix_type_str,
+                self._shape,
                 m.nnz,
                 pretty_format_elapsed_time(t0),
             )
 
-    def get(self) -> Union[ss.csr_matrix, ss.csc_matrix]:
-
+    def get(self) -> SparseMatrix:
         return self._matrix_type(
             (self._data.data, self._indices.data, self._indptr.data),
             shape=self._shape,
             copy=False,
         )
 
-    def can_assign(self, m: Union[ss.csr_matrix, ss.csc_matrix]) -> bool:
+    def can_assign(self, m: SparseMatrix) -> bool:
         assert isinstance(m, self._matrix_type)
 
-        if platform.system() not in {"Darwin", "Windows"}:
-            return False
         return all(
             (
                 self._data.can_assign(m.data),
@@ -102,43 +122,85 @@ class _SharedSparseMatrixBase(object):
             )
         )
 
-    def assign(self, m: Union[ss.csr_matrix, ss.csc_matrix], logger=None):
+    def assign(self, chrom: str, m: SparseMatrix, logger=None):
+        assert self.can_assign(m)
+
         t0 = time.time()
+        self._chrom = chrom
         self._data.assign(m.data)
         self._indices.assign(m.indices)
         self._indptr.assign(m.indptr)
         self._shape = m.shape
+        self._sum = None  # self.get().sum()
+
         if logger:
             logger.debug(
-                "assigning to a %s matrix (%d nnz) in shared memory took %s",
+                "assigning to a %s matrix (%s; %d nnz) in shared memory took %s",
                 self._matrix_type_str,
+                self._chrom,
                 m.nnz,
                 pretty_format_elapsed_time(t0),
             )
 
+    def update_metadata(self, chrom, shape, data_shape, indices_shape, indptr_shape, sum):
+        if chrom == self._chrom:
+            return
+        old_data_len = len(self._data)
+        old_indices_len = len(self._indices)
+        old_indptr_len = len(self._indptr)
+        try:
+            self._data.shrink(data_shape)
+            self._indices.shrink(indices_shape)
+            self._indptr.shrink(indptr_shape)
+        except Exception:  # noqa
+            self._data.shrink(old_data_len)
+            self._indices.shrink(old_indices_len)
+            self._indptr.shrink(old_indptr_len)
+            raise
+
+        self._chrom = chrom
+        self._shape = shape
+        if sum is not None:
+            assert np.isclose(self.get().sum(), sum)
+
+    @property
+    def chrom(self) -> str:
+        return self._chrom
+
+    @property
+    def metadata(self) -> Dict:
+        return {
+            "chrom": self._chrom,
+            "shape": self._shape,
+            "data_shape": len(self._data),
+            "indices_shape": len(self._indices),
+            "indptr_shape": len(self._indptr),
+            "sum": self._sum,
+        }
+
 
 class SharedCSRMatrix(_SharedSparseMatrixBase):
-    def __init__(self, m: ss.csr_matrix, logger=None):
+    def __init__(self, chrom: str, m: ss.csr_matrix, logger=None, max_nnz: Optional[int] = None):
         assert isinstance(m, ss.csr_matrix)
-        super().__init__(m, logger)
+        super().__init__(chrom, m, logger, max_nnz)
 
 
 class SharedCSCMatrix(_SharedSparseMatrixBase):
-    def __init__(self, m: ss.csc_matrix, logger=None):
+    def __init__(self, chrom: str, m: ss.csc_matrix, logger=None, max_nnz: Optional[int] = None):
         assert isinstance(m, ss.csc_matrix)
-        super().__init__(m, logger)
+        super().__init__(chrom, m, logger, max_nnz)
 
 
 class SharedSparseMatrix(object):
-    def __init__(self, m, logger=None):
+    def __init__(self, chrom: str, m: SparseMatrix, logger=None, max_nnz: Optional[int] = None):
         if isinstance(m, ss.csr_matrix):
-            self._m = SharedCSRMatrix(m, logger)
+            self._m = SharedCSRMatrix(chrom, m, logger, max_nnz)
         elif isinstance(m, ss.csc_matrix):
-            self._m = SharedCSCMatrix(m, logger)
+            self._m = SharedCSCMatrix(chrom, m, logger, max_nnz)
         else:
-            self._m = SharedSparseMatrix(ss.csr_matrix(m), logger)
+            self._m = SharedCSCMatrix(chrom, ss.csc_matrix(m), logger, max_nnz)
 
-    def get(self) -> Union[ss.csr_matrix, ss.csc_matrix]:
+    def get(self) -> SparseMatrix:
         return self._m.get()
 
     def can_assign(self, m) -> bool:
@@ -149,9 +211,16 @@ class SharedSparseMatrix(object):
 
         raise NotImplementedError
 
-    def assign(self, m, logger=None):
+    def assign(self, chrom: str, m: SparseMatrix, logger=None):
         assert self.can_assign(m) and self._m.can_assign(m)
-        self._m.assign(m, logger)
+        self._m.assign(chrom, m, logger)
+
+    def update_metadata(self, chrom, shape, data_shape, indices_shape, indptr_shape, sum):
+        self._m.update_metadata(chrom, shape, data_shape, indices_shape, indptr_shape, sum)
+
+    @property
+    def metadata(self) -> Dict:
+        return self._m.metadata
 
 
 def set_shared_state(lt_matrix: SharedSparseMatrix, ut_matrix: SharedSparseMatrix):
@@ -165,12 +234,12 @@ def set_shared_state(lt_matrix: SharedSparseMatrix, ut_matrix: SharedSparseMatri
 
 def unset_shared_state():
     call_gc = False
-    if "_lower_triangular_matrix" in globals():
+    if shared_state_avail("lower"):
         global _lower_triangular_matrix
         del _lower_triangular_matrix
         call_gc = True
 
-    if "_upper_triangular_matrix" in globals():
+    if shared_state_avail("upper"):
         global _upper_triangular_matrix
         del _upper_triangular_matrix
         call_gc = True
@@ -179,13 +248,26 @@ def unset_shared_state():
         gc.collect()
 
 
-def get_shared_state(key: str):
+def shared_state_avail(key: str) -> bool:
+    if key in {"lower", "LT"}:
+        return "_lower_triangular_matrix" in globals()
+
+    if key in {"upper", "UT"}:
+        return "_upper_triangular_matrix" in globals()
+
+    raise ValueError("Invalid key")
+
+
+def get_shared_state(key: str, metadata: Optional[Dict] = None) -> SharedSparseMatrix:
     if key in {"lower", "LT"}:
         global _lower_triangular_matrix
+        if metadata is not None and _lower_triangular_matrix.metadata != metadata:
+            _lower_triangular_matrix.update_metadata(**metadata)
         return _lower_triangular_matrix
 
     if key in {"upper", "UT"}:
         global _upper_triangular_matrix
+        if metadata is not None and _upper_triangular_matrix.metadata != metadata:
+            _upper_triangular_matrix.update_metadata(**metadata)
         return _upper_triangular_matrix
-
     raise ValueError("Invalid key")
