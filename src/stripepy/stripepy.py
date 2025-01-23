@@ -575,7 +575,7 @@ def _plot_pseudodistribution(
         return
 
     t0 = time.time()
-    logger = structlog.get_logger().bind(step=(5, 2, 2))
+    logger = logger.bind(step=(5, 2, 2))
     logger.info("plotting processed matrix with highlighted seed(s)")
     # Plot the region of interest of Iproc with over-imposed vertical lines for seeds:
     fig, _ = plot.plot(
