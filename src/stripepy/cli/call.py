@@ -23,7 +23,12 @@ import structlog
 from stripepy import IO, others, stripepy
 from stripepy.cli import logging
 from stripepy.utils import stripe
-from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
+from stripepy.utils.common import (
+    _import_matplotlib,
+    pretty_format_elapsed_time,
+    zero_columns,
+    zero_rows,
+)
 from stripepy.utils.multiprocess_sparse_matrix import (
     SharedSparseMatrix,
     SparseMatrix,
@@ -250,27 +255,27 @@ class IOManager(object):
         logger = structlog.get_logger().bind(chrom=chrom_name, step=(1,))
         logger.info("data pre-processing")
         t0 = time.time()
-        lt_matrix, ut_matrix, roi_matrix = stripepy.step_1(
+        lt_matrix, ut_matrix, roi_matrix_raw, roi_matrix_proc = stripepy.step_1(
             matrix,
             genomic_belt,
             resolution,
-            RoI=roi,
+            roi=roi,
             logger=logger,
         )
         logger.info("preprocessing took %s", pretty_format_elapsed_time(t0))
 
-        return lt_matrix, ut_matrix, roi_matrix
+        return lt_matrix, ut_matrix, roi_matrix_raw, roi_matrix_proc
 
     def fetch_interaction_matrix(
         self, chrom_name: str, chrom_size: int
-    ) -> Tuple[ss.csr_matrix, ss.csr_matrix, Optional[npt.NDArray]]:
+    ) -> Tuple[SparseMatrix, SparseMatrix, Optional[SparseMatrix], Optional[SparseMatrix]]:
         data = self.get_interaction_matrix(chrom_name)
         if data is not None:
             structlog.get_logger().bind(chrom=chrom_name, step="IO").info("returning pre-fetched interactions")
             return data
 
         roi = others.define_RoI(self._roi, chrom_size, self._resolution)
-        return IOManager._fetch(
+        return IOManager._fetch(  # noqa
             self._path,
             self._resolution,
             self._normalization,
@@ -310,10 +315,10 @@ class IOManager(object):
 
     def get_interaction_matrix(
         self, chrom: str
-    ) -> Optional[Tuple[ss.csr_matrix, ss.csr_matrix, Optional[npt.NDArray]]]:
+    ) -> Optional[Tuple[SparseMatrix, SparseMatrix, Optional[SparseMatrix], Optional[SparseMatrix]]]:
         res = self._tasks.pop(chrom, None)
         if res is not None:
-            res = res.result()
+            res = res.result()  # noqa
         return res
 
     @staticmethod
@@ -792,26 +797,28 @@ def run(
             logger.info("begin processing...")
             start_local_time = time.time()
 
-            LT_Iproc, UT_Iproc, Iproc_RoI = io_manager.fetch_interaction_matrix(chrom_name, chrom_size)
+            lt_matrix, ut_matrix, matrix_roi_raw, matrix_roi_proc = io_manager.fetch_interaction_matrix(
+                chrom_name, chrom_size
+            )
             io_manager.fetch_next_interaction_matrix_async(tasks[i + 1 :])
             if i == 0:
-                max_nnz = _estimate_max_nnz(chrom_name, LT_Iproc, chroms)
-                pool.rebind_shared_matrices(chrom_name, LT_Iproc, UT_Iproc, logger, max_nnz)
+                max_nnz = _estimate_max_nnz(chrom_name, lt_matrix, chroms)
+                pool.rebind_shared_matrices(chrom_name, lt_matrix, ut_matrix, logger, max_nnz)
             else:
-                pool.rebind_shared_matrices(chrom_name, LT_Iproc, UT_Iproc, logger, max_nnz)
+                pool.rebind_shared_matrices(chrom_name, lt_matrix, ut_matrix, logger, max_nnz)
 
             if pool.ready:
                 # matrices are stored in the shared global state
-                LT_Iproc = None
-                UT_Iproc = None
+                lt_matrix = None
+                ut_matrix = None
 
             progress_bar(progress_weights["step_1"])
 
             result = _run_step_2(
                 chrom_name=chrom_name,
                 chrom_size=chrom_size,
-                lt_matrix=LT_Iproc,
-                ut_matrix=UT_Iproc,
+                lt_matrix=lt_matrix,
+                ut_matrix=ut_matrix,
                 min_persistence=glob_pers_min,
                 pool=pool,
                 logger=logger,
@@ -820,8 +827,8 @@ def run(
 
             result = _run_step_3(
                 result=result,
-                lt_matrix=LT_Iproc,
-                ut_matrix=UT_Iproc,
+                lt_matrix=lt_matrix,
+                ut_matrix=ut_matrix,
                 resolution=resolution,
                 genomic_belt=genomic_belt,
                 max_width=max_width,
@@ -835,8 +842,8 @@ def run(
 
             result = _run_step_4(
                 result=result,
-                lt_matrix=LT_Iproc,
-                ut_matrix=UT_Iproc,
+                lt_matrix=lt_matrix,
+                ut_matrix=ut_matrix,
                 tpool=tpool,
                 pool=pool,
                 logger=logger,
@@ -848,21 +855,19 @@ def run(
             io_manager.write_results(result)
             progress_bar(progress_weights["output"])
 
-            if Iproc_RoI is not None:
-                RoI = others.define_RoI(roi, chrom_size, resolution)
-                logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *RoI["genomic"])
-                result.set_roi(RoI)
+            if matrix_roi_raw is not None:
+                assert matrix_roi_proc is not None
+                chrom_roi = others.define_RoI(roi, chrom_size, resolution)
+                logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *chrom_roi["genomic"])
+                result.set_roi(chrom_roi)
                 start_time = time.time()
                 logger = logger.bind(step=(5,))
                 logger.info("generating plots")
-                query = f"{chrom_name}:{result.roi['genomic'][0]}-{result.roi['genomic'][1]}"
                 stripepy.step_5(
                     result,
                     resolution,
-                    LT_Iproc,
-                    UT_Iproc,
-                    f.fetch(query, normalization=normalization).to_numpy("full"),
-                    Iproc_RoI,
+                    matrix_roi_raw,
+                    matrix_roi_proc,
                     genomic_belt,
                     loc_pers_min,
                     loc_trend_min,

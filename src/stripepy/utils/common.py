@@ -4,9 +4,10 @@
 
 import decimal
 import time
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
+import scipy.sparse as ss
 from numpy.typing import NDArray
 
 
@@ -71,6 +72,26 @@ def truncate_np(v: NDArray[float], places: int) -> NDArray[float]:
         context.rounding = decimal.ROUND_DOWN
         exponent = decimal.Decimal(str(10**-places))
         return np.array([float(decimal.Decimal(str(n)).quantize(exponent)) for n in v], dtype=float)
+
+
+def zero_rows(matrix: ss.csr_matrix, rows: Sequence[int]) -> ss.csr_matrix:
+    """
+    https://stackoverflow.com/a/43114513
+    """
+    diag = ss.eye(matrix.shape[0]).tolil()
+    for i in rows:
+        diag[i, i] = 0
+    return diag.dot(matrix).tocsr()
+
+
+def zero_columns(matrix: ss.csc_matrix, columns: Sequence[int]) -> ss.csc_matrix:
+    """
+    https://stackoverflow.com/a/43114513
+    """
+    diag = ss.eye(matrix.shape[1]).tolil()
+    for i in columns:
+        diag[i, i] = 0
+    return matrix.dot(diag).tocsc()
 
 
 def _import_matplotlib():

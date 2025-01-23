@@ -16,12 +16,8 @@ from numpy.typing import NDArray
 
 from . import IO, plot
 from .utils import common, finders, regressions, stripe
-from .utils.common import pretty_format_elapsed_time
-from .utils.multiprocess_sparse_matrix import (
-    SparseMatrix,
-    get_shared_state,
-    shared_state_avail,
-)
+from .utils.common import pretty_format_elapsed_time, zero_columns, zero_rows
+from .utils.multiprocess_sparse_matrix import SparseMatrix, get_shared_state
 from .utils.persistence1d import PersistenceTable
 
 
@@ -76,7 +72,7 @@ def _band_extraction(matrix: ss.csr_matrix, resolution: int, genomic_belt: int) 
     return ss.tril(matrix, k=matrix_belt, format="csr")
 
 
-def _extract_RoIs(ut_matrix: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[NDArray[float]]:
+def _extract_RoIs(ut_matrix: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Optional[ss.csr_matrix]:
     """
     Extract a region of interest (ROI) from the sparse matrix I
 
@@ -89,19 +85,22 @@ def _extract_RoIs(ut_matrix: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Option
 
     Returns
     -------
-    Optional[NDArray]
-        dense matrix with the interactions for the regions of interest (or None in case RoI itself is None)
+    Optional[ss.csr_matrix]
+        sparse matrix with the same shape as the input matrix, but without interactions outside the given RoI
     """
 
     if RoI is None:
         return None
 
-    i0, i1 = RoI["matrix"][0], RoI["matrix"][1]
-    I_RoI = ut_matrix[i0:i1, i0:i1].toarray()
-    diag = np.diag(I_RoI)
-    I_RoI += I_RoI.T
-    np.fill_diagonal(I_RoI, diag)
-    return I_RoI
+    assert isinstance(ut_matrix, ss.csr_matrix)
+
+    i0, i1 = RoI["matrix"]
+    idx = np.setdiff1d(np.arange(ut_matrix.shape[0]), np.arange(i0, i1 + 1))
+    matrix_roi = zero_rows(ut_matrix, idx)
+    matrix_roi = zero_columns(matrix_roi.tocsc(), idx)
+
+    # make matrix symmetric
+    return matrix_roi + ss.triu(matrix_roi, k=1, format="csc").T
 
 
 def _compute_global_pseudodistribution(
@@ -244,27 +243,45 @@ def _complement_persistent_minimum_points(
 
 
 def step_1(
-    I: ss.csr_matrix, genomic_belt: int, resolution: int, RoI: Optional[Dict] = None, logger=None
-) -> Tuple[ss.csc_matrix, ss.csr_matrix, Optional[NDArray[float]]]:
+    matrix: ss.csr_matrix, genomic_belt: int, resolution: int, roi: Optional[Dict] = None, logger=None
+) -> Tuple[ss.csc_matrix, ss.csr_matrix, Optional[ss.csr_matrix], Optional[ss.csr_matrix]]:
     if logger is None:
         logger = structlog.get_logger().bind(step="IO")
 
     logger.bind(step=(1, 1)).info("focusing on a neighborhood of the main diagonal")
-    Iproc = _band_extraction(I, resolution, genomic_belt)
-    nnz0 = I.nnz
-    nnz1 = Iproc.nnz
+    matrix_proc = _band_extraction(matrix, resolution, genomic_belt)
+    nnz0 = matrix.nnz
+    nnz1 = matrix_proc.nnz
     delta = nnz0 - nnz1
     logger.bind(step=(1, 1)).info("removed %.2f%% of the non-zero entries (%d/%d)", (delta / nnz0) * 100, delta, nnz0)
 
     logger.bind(step=(1, 2)).info("applying log-transformation")
-    Iproc = _log_transform(Iproc)
 
-    RoiI = _extract_RoIs(Iproc, RoI)
+    # We need to extend the RoI to make sure we have all the data required to calculate the local pseudodistributions
+    extension_window = genomic_belt // resolution
+    if roi is None:
+        extended_roi = None
+    else:
+        extended_roi = {
+            "matrix": [
+                max(0, roi["matrix"][0] - extension_window),
+                min(matrix.shape[0], roi["matrix"][1] + extension_window),
+            ]
+        }
+
+    roi_matrix_raw = _extract_RoIs(matrix_proc, extended_roi)
+    matrix_proc = _log_transform(matrix_proc)
 
     logger.bind(step=(1, 3)).info("projecting interactions onto [1, 0]")
-    Iproc /= Iproc.max()
+    scaling_factor = matrix_proc.max()
+    matrix_proc /= scaling_factor
 
-    return Iproc.T, Iproc.tocsc(), RoiI  # noqa
+    if roi_matrix_raw is None:
+        roi_matrix_proc = None
+    else:
+        roi_matrix_proc = _log_transform(roi_matrix_raw) / scaling_factor
+
+    return matrix_proc.T, matrix_proc.tocsc(), roi_matrix_raw, roi_matrix_proc  # noqa
 
 
 def step_2(
@@ -724,8 +741,8 @@ def _plot_local_pseudodistributions_helper(args):
 
 def _plot_local_pseudodistributions(
     result: IO.Result,
-    matrix_lt: Optional[ss.csr_matrix],
-    matrix_ut: Optional[ss.csr_matrix],
+    matrix_lt: Optional[SparseMatrix],
+    matrix_ut: Optional[SparseMatrix],
     resolution: int,
     genomic_belt: int,
     loc_pers_min: float,
@@ -880,10 +897,8 @@ def _plot_stripes(
 def step_5(
     result: IO.Result,
     resolution: int,
-    gw_matrix_proc_lt: Optional[ss.csr_matrix],
-    gw_matrix_proc_ut: Optional[ss.csr_matrix],
-    raw_matrix: NDArray,
-    proc_matrix: Optional[NDArray],
+    raw_matrix: SparseMatrix,
+    proc_matrix: SparseMatrix,
     genomic_belt: int,
     loc_pers_min: float,
     loc_trend_min: float,
@@ -902,21 +917,27 @@ def step_5(
     for directory in ("1_preprocessing", "2_TDA", "3_shape_analysis", "4_biological_analysis"):
         (output_folder / chrom_name / directory).mkdir(parents=True, exist_ok=True)
 
+    i0, i1 = result.roi["matrix"]
+    raw_matrix_cropped = raw_matrix.tocsr()[i0:i1, :].tocsc()[:, i0:i1].toarray()
+    proc_matrix_cropped = proc_matrix.tocsr()[i0:i1, :].tocsc()[:, i0:i1].toarray()
+
     tasks = []
 
     dest = output_folder / chrom_name / "1_preprocessing" / f"raw_matrix_{start}_{end}.jpg"
-    tasks.append(pool.submit(_plot_matrix, *result.chrom, resolution, start, end, raw_matrix, dest, "raw"))
+    tasks.append(pool.submit(_plot_matrix, *result.chrom, resolution, start, end, raw_matrix_cropped, dest, "raw"))
 
     if proc_matrix is not None:
         dest = output_folder / chrom_name / "1_preprocessing" / f"proc_matrix_{start}_{end}.jpg"
-        tasks.append(pool.submit(_plot_matrix, *result.chrom, resolution, start, end, raw_matrix, dest, "processed"))
+        tasks.append(
+            pool.submit(_plot_matrix, *result.chrom, resolution, start, end, proc_matrix_cropped, dest, "processed")
+        )
 
     tasks.append(
         pool.submit(
             _plot_pseudodistribution,
             result,
             resolution,
-            proc_matrix,
+            proc_matrix_cropped,
             output_folder / chrom_name / "2_TDA",
         )
     )
@@ -926,7 +947,7 @@ def step_5(
             _plot_hic_and_hois,
             result,
             resolution,
-            proc_matrix,
+            proc_matrix_cropped,
             output_folder / chrom_name / "3_shape_analysis",
         )
     )
@@ -942,8 +963,8 @@ def step_5(
 
     _plot_local_pseudodistributions(
         result,
-        gw_matrix_proc_lt,
-        gw_matrix_proc_ut,
+        ss.tril(proc_matrix, format="csc"),
+        ss.triu(proc_matrix, format="csc"),
         resolution,
         genomic_belt,
         loc_pers_min,
@@ -956,7 +977,7 @@ def step_5(
     _plot_stripes(
         result,
         resolution,
-        proc_matrix,
+        proc_matrix_cropped,
         output_folder / chrom_name / "4_biological_analysis",
         pool.map,
         logger,
