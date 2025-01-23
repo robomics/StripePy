@@ -21,18 +21,18 @@ from .utils.multiprocess_sparse_matrix import SparseMatrix, get_shared_state
 from .utils.persistence1d import PersistenceTable
 
 
-def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
+def _log_transform(I: SparseMatrix) -> SparseMatrix:
     """
     Apply a log-transform to a sparse matrix ignoring (i.e. dropping) NaNs.
 
     Parameters
     ----------
-    I : ss.csr_matrix
+    I : SparseMatrix
         the sparse matrix to be transformed
 
     Returns
     -------
-    ss.csr_matrix
+    SparseMatrix
         the log-transformed sparse matrix
     """
 
@@ -42,7 +42,7 @@ def _log_transform(I: ss.csr_matrix) -> ss.csr_matrix:
     return Iproc
 
 
-def _band_extraction(matrix: ss.csr_matrix, resolution: int, genomic_belt: int) -> ss.csr_matrix:
+def _band_extraction(matrix: SparseMatrix, resolution: int, genomic_belt: int) -> ss.csr_matrix:
     """
     Given a symmetric sparse matrix in CSR format, do the following:
 
@@ -50,7 +50,7 @@ def _band_extraction(matrix: ss.csr_matrix, resolution: int, genomic_belt: int) 
 
     Parameters
     ----------
-    matrix: ss.csr_matrix
+    matrix: SparseMatrix
         the upper-triangular sparse matrix to be processed
     resolution: int
         the genomic resolution of the sparse matrix I
@@ -104,14 +104,14 @@ def _extract_RoIs(ut_matrix: ss.csr_matrix, RoI: Dict[str, List[int]]) -> Option
 
 
 def _compute_global_pseudodistribution(
-    T: ss.csr_matrix, smooth: bool = True, decimal_places: int = 10
+    T: SparseMatrix, smooth: bool = True, decimal_places: int = 10
 ) -> NDArray[float]:
     """
     Given a sparse matrix T, marginalize it, scale the marginal so that maximum is 1, and then smooth it.
 
     Parameters
     ----------
-    T: ss.csr_matrix
+    T: SparseMatrix
         the sparse matrix to be processed
     smooth: bool
         if set to True, smoothing is applied to the pseudo-distribution (default value is True)
@@ -166,7 +166,7 @@ def _check_neighborhood(
 
 
 def _filter_extrema_by_sparseness(
-    matrix: ss.csr_matrix,
+    matrix: SparseMatrix,
     min_points: pd.Series,
     max_points: pd.Series,
     location: str,
@@ -206,7 +206,9 @@ def _filter_extrema_by_sparseness(
 
 
 def _complement_persistent_minimum_points(
-    pseudodistribution: NDArray[float], persistent_minimum_points: NDArray[int], persistent_maximum_points: NDArray[int]
+    pseudodistribution: NDArray[float],
+    persistent_minimum_points: NDArray[int],
+    persistent_maximum_points: NDArray[int],
 ) -> NDArray[int]:
     """
     TODO
@@ -243,8 +245,12 @@ def _complement_persistent_minimum_points(
 
 
 def step_1(
-    matrix: ss.csr_matrix, genomic_belt: int, resolution: int, roi: Optional[Dict] = None, logger=None
-) -> Tuple[ss.csc_matrix, ss.csr_matrix, Optional[ss.csr_matrix], Optional[ss.csr_matrix]]:
+    matrix: ss.csr_matrix,
+    genomic_belt: int,
+    resolution: int,
+    roi: Optional[Dict] = None,
+    logger=None,
+) -> Tuple[ss.csr_matrix, Optional[ss.csr_matrix], Optional[ss.csr_matrix]]:
     if logger is None:
         logger = structlog.get_logger().bind(step="IO")
 
@@ -281,7 +287,7 @@ def step_1(
     else:
         roi_matrix_proc = _log_transform(roi_matrix_raw) / scaling_factor
 
-    return matrix_proc.T, matrix_proc.tocsc(), roi_matrix_raw, roi_matrix_proc  # noqa
+    return matrix_proc, roi_matrix_raw, roi_matrix_proc  # noqa
 
 
 def step_2(
@@ -455,7 +461,7 @@ def step_3(
 
 def _step_4_helper(
     stripe: stripe.Stripe,
-    matrix: Optional[ss.csr_matrix],
+    matrix: Optional[SparseMatrix],
     matrix_metadata: Optional[Dict],
     window: int,
     location: str,
@@ -473,7 +479,7 @@ def _step_4_helper(
 
 def step_4(
     stripes: List[stripe.Stripe],
-    matrix: Optional[ss.csr_matrix],
+    matrix: Optional[SparseMatrix],
     matrix_metadata: Optional[Dict],
     location: str,
     map_=map,
@@ -651,22 +657,29 @@ def _plot_geo_descriptors(
 
 
 def _marginalize_matrix_lt(
-    matrix: ss.csr_matrix, seed: int, left_bound: int, right_bound: int, max_height: int
+    matrix: SparseMatrix, seed: int, left_bound: int, right_bound: int, max_height: int
 ) -> NDArray:
     i1, i2 = seed, min(seed + max_height, matrix.shape[0])
     j1, j2 = left_bound, right_bound
-    v = np.asarray(matrix[i1:i2, :].tocsc()[:, j1:j2].sum(axis=1)).flatten()
+    if isinstance(matrix, ss.csr_matrix):
+        v = np.asarray(matrix[i1:i2, :].tocsc()[:, j1:j2].sum(axis=1)).flatten()
+    else:
+        v = np.asarray(matrix.tocsc()[:, j1:j2].tocsr()[i1:i2, :].sum(axis=1)).flatten()
     v /= v.max()
 
     return v
 
 
 def _marginalize_matrix_ut(
-    matrix: ss.csr_matrix, seed: int, left_bound: int, right_bound: int, max_height: int
+    matrix: SparseMatrix, seed: int, left_bound: int, right_bound: int, max_height: int
 ) -> NDArray:
     i1, i2 = max(seed - max_height, 0), seed
     j1, j2 = left_bound, right_bound
-    y = np.flip(np.asarray(matrix[i1:i2, :].tocsc()[:, j1:j2].sum(axis=1)).flatten())
+    if isinstance(matrix, ss.csr_matrix):
+        y = np.flip(np.asarray(matrix[i1:i2, :].tocsc()[:, j1:j2].sum(axis=1)).flatten())
+    else:
+        y = np.flip(np.asarray(matrix.tocsc()[:, j1:j2].tocsr()[i1:i2, :].sum(axis=1)).flatten())
+
     y /= y.max()
 
     return y

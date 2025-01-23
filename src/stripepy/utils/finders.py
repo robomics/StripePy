@@ -58,7 +58,7 @@ def find_horizontal_domain(
 
 
 def _extract_standardized_local_1d_pseudodistribution(
-    matrix: Union[ss.csr_matrix, ss.csc_matrix],
+    matrix: SparseMatrix,
     seed_site: int,
     left_bound: int,
     right_bound: int,

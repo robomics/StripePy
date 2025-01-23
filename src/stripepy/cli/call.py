@@ -30,7 +30,7 @@ from stripepy.utils.common import (
     zero_rows,
 )
 from stripepy.utils.multiprocess_sparse_matrix import (
-    SharedSparseMatrix,
+    SharedTriangularSparseMatrix,
     SparseMatrix,
     get_shared_state,
     set_shared_state,
@@ -53,8 +53,8 @@ def _init_mpl_backend(skip: bool):
 
 
 def _init_shared_state(
-    lower_triangular_matrix: Optional[SharedSparseMatrix],
-    upper_triangular_matrix: Optional[SharedSparseMatrix],
+    lower_triangular_matrix: Optional[SharedTriangularSparseMatrix],
+    upper_triangular_matrix: Optional[SharedTriangularSparseMatrix],
     log_queue: mp.Queue,
     init_mpl: bool,
 ):
@@ -108,18 +108,12 @@ class ProcessPoolWrapper(object):
         self._pool = None
         return False
 
-    def _can_rebind_shared_matrices(
-        self, lt_matrix: Union[ss.csr_matrix, ss.csc_matrix], ut_matrix: Union[ss.csr_matrix, ss.csc_matrix]
-    ) -> bool:
-        can_rebind_lt = self._lt_matrix is not None and self._lt_matrix.can_assign(lt_matrix)
-        can_rebind_ut = self._ut_matrix is not None and self._ut_matrix.can_assign(ut_matrix)
-
-        return can_rebind_lt and can_rebind_ut
+    def _can_rebind_shared_matrix(self, ut_matrix: SparseMatrix) -> bool:
+        return self._ut_matrix is not None and self._ut_matrix.can_assign(ut_matrix)
 
     def rebind_shared_matrices(
         self,
         chrom: str,
-        lt_matrix: SparseMatrix,
         ut_matrix: SparseMatrix,
         logger=None,
         max_nnz: Optional[int] = None,
@@ -127,18 +121,21 @@ class ProcessPoolWrapper(object):
         if self._nproc < 2:
             return
 
-        if self._can_rebind_shared_matrices(lt_matrix, ut_matrix):
-            self._lt_matrix.assign(chrom, lt_matrix, logger)
+        if self._can_rebind_shared_matrix(ut_matrix):
             self._ut_matrix.assign(chrom, ut_matrix, logger)
+            self._lt_matrix = self._ut_matrix.T
+
             set_shared_state(self._lt_matrix, self._ut_matrix)
             return
 
         if max_nnz is not None:
-            max_nnz = max(max_nnz, lt_matrix.nnz, ut_matrix.nnz)
+            max_nnz = max(max_nnz, ut_matrix.nnz)
 
         unset_shared_state()
-        self._lt_matrix = SharedSparseMatrix(chrom, lt_matrix, logger, max_nnz) if lt_matrix is not None else None
-        self._ut_matrix = SharedSparseMatrix(chrom, ut_matrix, logger, max_nnz) if ut_matrix is not None else None
+        self._ut_matrix = (
+            SharedTriangularSparseMatrix(chrom, ut_matrix, logger, max_nnz) if ut_matrix is not None else None
+        )
+        self._lt_matrix = self._ut_matrix.T if self._ut_matrix is not None else None
         set_shared_state(self._lt_matrix, self._ut_matrix)
         self._initialize_pool(logger)
 
@@ -255,7 +252,7 @@ class IOManager(object):
         logger = structlog.get_logger().bind(chrom=chrom_name, step=(1,))
         logger.info("data pre-processing")
         t0 = time.time()
-        lt_matrix, ut_matrix, roi_matrix_raw, roi_matrix_proc = stripepy.step_1(
+        ut_matrix, roi_matrix_raw, roi_matrix_proc = stripepy.step_1(
             matrix,
             genomic_belt,
             resolution,
@@ -264,11 +261,11 @@ class IOManager(object):
         )
         logger.info("preprocessing took %s", pretty_format_elapsed_time(t0))
 
-        return lt_matrix, ut_matrix, roi_matrix_raw, roi_matrix_proc
+        return ut_matrix, roi_matrix_raw, roi_matrix_proc
 
     def fetch_interaction_matrix(
         self, chrom_name: str, chrom_size: int
-    ) -> Tuple[SparseMatrix, SparseMatrix, Optional[SparseMatrix], Optional[SparseMatrix]]:
+    ) -> Tuple[SparseMatrix, Optional[SparseMatrix], Optional[SparseMatrix]]:
         data = self.get_interaction_matrix(chrom_name)
         if data is not None:
             structlog.get_logger().bind(chrom=chrom_name, step="IO").info("returning pre-fetched interactions")
@@ -315,7 +312,7 @@ class IOManager(object):
 
     def get_interaction_matrix(
         self, chrom: str
-    ) -> Optional[Tuple[SparseMatrix, SparseMatrix, Optional[SparseMatrix], Optional[SparseMatrix]]]:
+    ) -> Optional[Tuple[SparseMatrix, Optional[SparseMatrix], Optional[SparseMatrix]]]:
         res = self._tasks.pop(chrom, None)
         if res is not None:
             res = res.result()  # noqa
@@ -797,20 +794,21 @@ def run(
             logger.info("begin processing...")
             start_local_time = time.time()
 
-            lt_matrix, ut_matrix, matrix_roi_raw, matrix_roi_proc = io_manager.fetch_interaction_matrix(
-                chrom_name, chrom_size
-            )
+            ut_matrix, matrix_roi_raw, matrix_roi_proc = io_manager.fetch_interaction_matrix(chrom_name, chrom_size)
+
             io_manager.fetch_next_interaction_matrix_async(tasks[i + 1 :])
             if i == 0:
-                max_nnz = _estimate_max_nnz(chrom_name, lt_matrix, chroms)
-                pool.rebind_shared_matrices(chrom_name, lt_matrix, ut_matrix, logger, max_nnz)
+                max_nnz = _estimate_max_nnz(chrom_name, ut_matrix, chroms)
+                pool.rebind_shared_matrices(chrom_name, ut_matrix, logger, max_nnz)
             else:
-                pool.rebind_shared_matrices(chrom_name, lt_matrix, ut_matrix, logger, max_nnz)
+                pool.rebind_shared_matrices(chrom_name, ut_matrix, logger, max_nnz)
 
             if pool.ready:
                 # matrices are stored in the shared global state
                 lt_matrix = None
                 ut_matrix = None
+            else:
+                lt_matrix = ut_matrix.T
 
             progress_bar(progress_weights["step_1"])
 

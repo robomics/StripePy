@@ -9,6 +9,8 @@ import numpy as np
 import scipy.sparse as ss
 from numpy.typing import NDArray
 
+from .multiprocess_sparse_matrix import SparseMatrix
+
 
 class Stripe(object):
     """
@@ -136,7 +138,7 @@ class Stripe(object):
 
         return int(round(cfx1 * self._top_bound + cfx2 * self._bottom_bound))
 
-    def _slice_matrix(self, I: Union[ss.csr_matrix, ss.csc_matrix]) -> NDArray:
+    def _slice_matrix(self, I: SparseMatrix) -> NDArray:
         convex_comb = self._compute_convex_comp()
 
         # TODO do we have an off by one error here?
@@ -357,7 +359,7 @@ class Stripe(object):
 
         self._where = computed_where
 
-    def compute_biodescriptors(self, I: ss.csr_matrix, window: int = 3):
+    def compute_biodescriptors(self, I: SparseMatrix, window: int = 3):
         """
         Use the sparse matrix I to compute various descriptive statistics.
         Statistics are stored in the current Stripe instance.
@@ -365,7 +367,7 @@ class Stripe(object):
 
         Parameters
         ----------
-        I: ss.csr_matrix
+        I: SparseMatrix
             the sparse matrix from which the stripe originated
         window: int
             window size used to compute statistics to the left and right of the stripe

@@ -71,7 +71,7 @@ class _SharedRawArrayWrapper(object):
         return self._shared_buffer
 
 
-class _SharedSparseMatrixBase(object):
+class _SharedTriangularSparseMatrixBase(object):
     def __init__(self, chrom: str, m: SparseMatrix, logger=None, max_nnz: Optional[int] = None):
         assert isinstance(m, ss.csr_matrix) or isinstance(m, ss.csc_matrix)
 
@@ -179,35 +179,99 @@ class _SharedSparseMatrixBase(object):
         }
 
 
-class SharedCSRMatrix(_SharedSparseMatrixBase):
+class SharedTriangularCSRMatrix(_SharedTriangularSparseMatrixBase):
     def __init__(self, chrom: str, m: ss.csr_matrix, logger=None, max_nnz: Optional[int] = None):
         assert isinstance(m, ss.csr_matrix)
         super().__init__(chrom, m, logger, max_nnz)
 
+    @staticmethod
+    def _from_shared_buffers(
+        chrom: str,
+        data: _SharedRawArrayWrapper,
+        indices: _SharedRawArrayWrapper,
+        indptr: _SharedRawArrayWrapper,
+        shape,
+    ):
+        assert shape[0] == shape[1]
+        m = SharedTriangularCSRMatrix(chrom, ss.csr_matrix([], shape=(0, 0), dtype=data.dtype))
+        m._data = data
+        m._indices = indices
+        m._indptr = indptr
+        m._shape = shape
+        m._matrix_type_str = "CSR"
+        m._matrix_type = ss.csr_matrix
 
-class SharedCSCMatrix(_SharedSparseMatrixBase):
+        # Assertion commented out for performance reasons
+        # assert ss.triu(m.get(), k=1).sum() == 0 or ss.tril(m.get(), k=-1).sum() == 0
+
+        return m
+
+    @property
+    def T(self):  # noqa
+        return SharedTriangularCSCMatrix._from_shared_buffers(  # noqa
+            self._chrom,
+            self._data,
+            self._indices,
+            self._indptr,
+            self._shape,
+        )
+
+
+class SharedTriangularCSCMatrix(_SharedTriangularSparseMatrixBase):
     def __init__(self, chrom: str, m: ss.csc_matrix, logger=None, max_nnz: Optional[int] = None):
         assert isinstance(m, ss.csc_matrix)
         super().__init__(chrom, m, logger, max_nnz)
 
+    @staticmethod
+    def _from_shared_buffers(
+        chrom: str,
+        data: _SharedRawArrayWrapper,
+        indices: _SharedRawArrayWrapper,
+        indptr: _SharedRawArrayWrapper,
+        shape,
+    ):
+        assert shape[0] == shape[1]
+        m = SharedTriangularCSCMatrix(chrom, ss.csc_matrix([], shape=(0, 0), dtype=data.dtype))
+        m._data = data
+        m._indices = indices
+        m._indptr = indptr
+        m._shape = shape
+        m._matrix_type_str = "CSC"
+        m._matrix_type = ss.csc_matrix
 
-class SharedSparseMatrix(object):
+        # Assertion commented out for performance reasons
+        # assert ss.triu(m.get(), k=1).sum() == 0 or ss.tril(m.get(), k=-1).sum() == 0
+
+        return m
+
+    @property
+    def T(self):  # noqa
+        return SharedTriangularCSRMatrix._from_shared_buffers(  # noqa
+            self._chrom,
+            self._data,
+            self._indices,
+            self._indptr,
+            self._shape,
+        )
+
+
+class SharedTriangularSparseMatrix(object):
     def __init__(self, chrom: str, m: SparseMatrix, logger=None, max_nnz: Optional[int] = None):
         if isinstance(m, ss.csr_matrix):
-            self._m = SharedCSRMatrix(chrom, m, logger, max_nnz)
+            self._m = SharedTriangularCSRMatrix(chrom, m, logger, max_nnz)
         elif isinstance(m, ss.csc_matrix):
-            self._m = SharedCSCMatrix(chrom, m, logger, max_nnz)
+            self._m = SharedTriangularCSCMatrix(chrom, m, logger, max_nnz)
         else:
-            self._m = SharedCSCMatrix(chrom, ss.csc_matrix(m), logger, max_nnz)
+            self._m = SharedTriangularCSCMatrix(chrom, ss.csc_matrix(m), logger, max_nnz)
 
     def get(self) -> SparseMatrix:
         return self._m.get()
 
     def can_assign(self, m) -> bool:
         if isinstance(m, ss.csr_matrix):
-            return isinstance(self._m, SharedCSRMatrix) and self._m.can_assign(m)
+            return isinstance(self._m, SharedTriangularCSRMatrix) and self._m.can_assign(m)
         if isinstance(m, ss.csc_matrix):
-            return isinstance(self._m, SharedCSCMatrix) and self._m.can_assign(m)
+            return isinstance(self._m, SharedTriangularCSCMatrix) and self._m.can_assign(m)
 
         raise NotImplementedError
 
@@ -222,8 +286,12 @@ class SharedSparseMatrix(object):
     def metadata(self) -> Dict:
         return self._m.metadata
 
+    @property
+    def T(self) -> Union[SharedTriangularCSRMatrix, SharedTriangularCSCMatrix]:
+        return self._m.T
 
-def set_shared_state(lt_matrix: SharedSparseMatrix, ut_matrix: SharedSparseMatrix):
+
+def set_shared_state(lt_matrix: SharedTriangularSparseMatrix, ut_matrix: SharedTriangularSparseMatrix):
     if lt_matrix is not None:
         global _lower_triangular_matrix
         _lower_triangular_matrix = lt_matrix
@@ -258,7 +326,7 @@ def shared_state_avail(key: str) -> bool:
     raise ValueError("Invalid key")
 
 
-def get_shared_state(key: str, metadata: Optional[Dict] = None) -> SharedSparseMatrix:
+def get_shared_state(key: str, metadata: Optional[Dict] = None) -> SharedTriangularSparseMatrix:
     if key in {"lower", "LT"}:
         global _lower_triangular_matrix
         if metadata is not None and _lower_triangular_matrix.metadata != metadata:
