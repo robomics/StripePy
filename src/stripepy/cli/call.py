@@ -536,19 +536,6 @@ def _run_step_4_helper(args) -> Tuple[str, List[stripe.Stripe]]:
     return stripepy.step_4(*args)
 
 
-def _fetch_matrix_metadata(lt_matrix: Optional[SparseMatrix], ut_matrix: Optional[SparseMatrix]) -> Tuple[Dict, Dict]:
-    if lt_matrix is None:
-        lt_matrix_metadata = get_shared_state("lower").metadata
-    else:
-        lt_matrix_metadata = None
-    if ut_matrix is None:
-        ut_matrix_metadata = get_shared_state("upper").metadata
-    else:
-        ut_matrix_metadata = None
-
-    return lt_matrix_metadata, ut_matrix_metadata
-
-
 def _run_step_2(
     chrom_name: str,
     chrom_size: int,
@@ -562,11 +549,9 @@ def _run_step_2(
     logger.info("topological data analysis")
     t0 = time.time()
 
-    lt_matrix_metadata, ut_matrix_metadata = _fetch_matrix_metadata(lt_matrix, ut_matrix)
-
     params = (
-        (chrom_name, chrom_size, lt_matrix, lt_matrix_metadata, min_persistence, "lower"),
-        (chrom_name, chrom_size, ut_matrix, ut_matrix_metadata, min_persistence, "upper"),
+        (chrom_name, chrom_size, lt_matrix, min_persistence, "lower"),
+        (chrom_name, chrom_size, ut_matrix, min_persistence, "upper"),
     )
 
     tasks = pool.map(_run_step_2_helper, params)
@@ -598,13 +583,10 @@ def _run_step_3(
     else:
         executor = functools.partial(pool.map, chunksize=50)
 
-    lt_matrix_metadata, ut_matrix_metadata = _fetch_matrix_metadata(lt_matrix, ut_matrix)
-
     params = (
         (
             result,
             lt_matrix,
-            lt_matrix_metadata,
             resolution,
             genomic_belt,
             max_width,
@@ -617,7 +599,6 @@ def _run_step_3(
         (
             result,
             ut_matrix,
-            ut_matrix_metadata,
             resolution,
             genomic_belt,
             max_width,
@@ -655,11 +636,9 @@ def _run_step_4(
     else:
         executor = functools.partial(pool.map, chunksize=50)
 
-    lt_matrix_metadata, ut_matrix_metadata = _fetch_matrix_metadata(lt_matrix, ut_matrix)
-
     params = (
-        (result.get("stripes", "lower"), lt_matrix, lt_matrix_metadata, "lower", executor, logger),
-        (result.get("stripes", "upper"), ut_matrix, ut_matrix_metadata, "upper", executor, logger),
+        (result.get("stripes", "lower"), lt_matrix, "lower", executor, logger),
+        (result.get("stripes", "upper"), ut_matrix, "upper", executor, logger),
     )
 
     (_, lt_stripes), (_, ut_stripes) = list(tpool.map(_run_step_4_helper, params))

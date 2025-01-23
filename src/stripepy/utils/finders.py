@@ -125,7 +125,6 @@ def _find_v_domain_helper(
 def _find_lower_v_domain(
     coords: Tuple[int, int, int],
     matrix: Optional[SparseMatrix],
-    matrix_metadata: Optional[Dict],
     threshold_cut: float,
     max_height: int,
     min_persistence: float,
@@ -136,8 +135,7 @@ def _find_lower_v_domain(
     # assert left_bound <= seed_site <= right_bound
 
     if matrix is None:
-        assert matrix_metadata is not None
-        matrix = get_shared_state(location, matrix_metadata).get()
+        matrix = get_shared_state(location).get()
 
     profile = _extract_standardized_local_1d_pseudodistribution(
         matrix, seed_site, left_bound, right_bound, max_height, "lower"
@@ -157,7 +155,6 @@ def _find_lower_v_domain(
 def _find_upper_v_domain(
     coords: Tuple[int, int, int],
     matrix: Optional[SparseMatrix],
-    matrix_metadata: Optional[Dict],
     threshold_cut: float,
     max_height: int,
     min_persistence: float,
@@ -168,8 +165,7 @@ def _find_upper_v_domain(
     # assert left_bound <= seed_site <= right_bound
 
     if matrix is None:
-        assert matrix_metadata is not None
-        matrix = get_shared_state(location, matrix_metadata).get()
+        matrix = get_shared_state(location).get()
 
     profile = _extract_standardized_local_1d_pseudodistribution(
         matrix, seed_site, left_bound, right_bound, max_height, "upper"
@@ -244,7 +240,6 @@ def find_VIoIs(
     location: str,
     return_maxima: bool = False,
     map_=map,
-    matrix_metadata: Optional[Dict] = None,
     logger=None,
 ) -> pd.DataFrame:
     assert len(seed_sites) > 0
@@ -267,7 +262,6 @@ def find_VIoIs(
         partial(
             finder,
             matrix=matrix,
-            matrix_metadata=matrix_metadata,
             threshold_cut=threshold_cut,
             max_height=max_height,
             min_persistence=min_persistence,

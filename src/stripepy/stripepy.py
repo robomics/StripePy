@@ -294,7 +294,6 @@ def step_2(
     chrom_name: str,
     chrom_size: int,
     matrix: Optional[SparseMatrix],
-    matrix_metadata: Optional[Dict],
     min_persistence: float,
     location: str,
     logger=None,
@@ -307,8 +306,7 @@ def step_2(
     logger = logger.bind(location="LT" if location == "lower" else "UT")
 
     if matrix is None:
-        assert matrix_metadata is not None
-        matrix = get_shared_state(location, matrix_metadata).get()
+        matrix = get_shared_state(location).get()
 
     result = IO.Result(chrom_name, chrom_size)
 
@@ -364,7 +362,6 @@ def step_2(
 def step_3(
     result: IO.Result,
     matrix: Optional[SparseMatrix],
-    matrix_metadata: Optional[Dict],
     resolution: int,
     genomic_belt: int,
     max_width: int,
@@ -429,7 +426,6 @@ def step_3(
     logger.bind(step=(3, 2, 1)).info("estimating candidate stripe heights")
     vertical_domains = finders.find_VIoIs(
         matrix=matrix,
-        matrix_metadata=matrix_metadata,
         seed_sites=persistent_max_points,
         horizontal_domains=horizontal_domains,
         max_height=int(genomic_belt / resolution),
@@ -462,15 +458,13 @@ def step_3(
 def _step_4_helper(
     stripe: stripe.Stripe,
     matrix: Optional[SparseMatrix],
-    matrix_metadata: Optional[Dict],
     window: int,
     location: str,
 ) -> stripe.Stripe:
     assert window >= 0
 
     if matrix is None:
-        assert matrix_metadata is not None
-        matrix = get_shared_state(location, matrix_metadata).get()
+        matrix = get_shared_state(location).get()
 
     stripe.compute_biodescriptors(matrix, window=window)
 
@@ -480,7 +474,6 @@ def _step_4_helper(
 def step_4(
     stripes: List[stripe.Stripe],
     matrix: Optional[SparseMatrix],
-    matrix_metadata: Optional[Dict],
     location: str,
     map_=map,
     logger=None,
@@ -502,7 +495,6 @@ def step_4(
             functools.partial(
                 _step_4_helper,
                 matrix=matrix,
-                matrix_metadata=matrix_metadata,
                 window=window,
                 location=location,
             ),
