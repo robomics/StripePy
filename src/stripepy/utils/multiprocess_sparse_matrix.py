@@ -271,7 +271,9 @@ class SharedTriangularCSCMatrix(_SharedTriangularSparseMatrixBase):
 
 class SharedTriangularSparseMatrix(object):
     def __init__(self, chrom: str, m: SparseMatrix, logger=None, max_nnz: Optional[int] = None):
-        if isinstance(m, ss.csr_matrix):
+        if m is None:
+            self._m = SharedTriangularCSRMatrix(None, None, None, None)  # noqa
+        elif isinstance(m, ss.csr_matrix):
             self._m = SharedTriangularCSRMatrix(chrom, m, logger, max_nnz)
         elif isinstance(m, ss.csc_matrix):
             self._m = SharedTriangularCSCMatrix(chrom, m, logger, max_nnz)
@@ -279,11 +281,11 @@ class SharedTriangularSparseMatrix(object):
             self._m = SharedTriangularCSCMatrix(chrom, ss.csc_matrix(m), logger, max_nnz)
 
     @staticmethod
-    def _empty(format: str):
+    def _empty(format: str):  # noqa
         if format == "csr":
-            return SharedTriangularSparseMatrix("", ss.csr_matrix([], shape=(0, 0), dtype=float))
+            return SharedTriangularSparseMatrix(None, None, None, None)  # noqa
         if format == "csc":
-            return SharedTriangularSparseMatrix("", ss.csc_matrix([], shape=(0, 0), dtype=float))
+            return SharedTriangularSparseMatrix(None, None, None, None)  # noqa
 
         raise NotImplementedError
 
