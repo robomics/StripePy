@@ -384,7 +384,14 @@ def step_3(
         axis="columns",
     )
 
-    logger.bind(step=(3, 1)).info("width estimation took %s", common.pretty_format_elapsed_time(start_time))
+    domain_widths = horizontal_domains["right_bound"] - horizontal_domains["left_bound"]
+
+    logger.bind(step=(3, 1)).info(
+        "width estimation (mean=%.2f; std=%.2f) took %s",
+        domain_widths.mean(),
+        domain_widths.std(),
+        common.pretty_format_elapsed_time(start_time),
+    )
 
     logger.bind(step=(3, 2)).info("height estimation")
     start_time = time.time()
@@ -402,14 +409,21 @@ def step_3(
         logger=logger,
     )
 
-    logger.bind(step=(3, 1, 2)).info("updating candidate stripes with height information")
+    domain_heights = (vertical_domains["top_bound"] - vertical_domains["bottom_bound"]).abs()
+
+    logger.bind(step=(3, 2, 2)).info("updating candidate stripes with height information")
     stripes = result.get("stripes", location)
     vertical_domains[["top_bound", "bottom_bound"]].apply(
         lambda seed: stripes[seed.name].set_vertical_bounds(seed["top_bound"], seed["bottom_bound"]),
         axis="columns",
     )
 
-    logger.bind(step=(3, 2)).info("height estimation took %s", common.pretty_format_elapsed_time(start_time))
+    logger.bind(step=(3, 2)).info(
+        "height estimation (mean=%.2f; std=%.2f) took %s",
+        domain_heights.mean(),
+        domain_heights.std(),
+        common.pretty_format_elapsed_time(start_time),
+    )
 
     return location, result
 

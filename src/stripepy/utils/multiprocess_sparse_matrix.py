@@ -4,75 +4,129 @@
 
 import gc
 import multiprocessing as mp
+import platform
 import time
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 import numpy.typing as npt
 import scipy.sparse as ss
-import structlog
 
 from .common import pretty_format_elapsed_time
 
 
-def _ctor(m: Union[ss.csr_matrix, ss.csc_matrix]):
-    return (
-        (mp.RawArray(np.ctypeslib.as_ctypes_type(m.data.dtype), len(m.data)), m.data.dtype),
-        (mp.RawArray(np.ctypeslib.as_ctypes_type(m.indices.dtype), len(m.indices)), m.indices.dtype),
-        (mp.RawArray(np.ctypeslib.as_ctypes_type(m.indptr.dtype), len(m.indptr)), m.indptr.dtype),
-        m.shape,
-    )
+class _SharedRawArrayWrapper(object):
+    def __init__(self, data: npt.NDArray, capacity: Optional[int] = None):
+        if capacity is None:
+            capacity = len(data)
+
+        self._dtype = data.dtype
+        self._size = len(data)
+        self._capacity = capacity
+        self._data = mp.RawArray(np.ctypeslib.as_ctypes_type(self._dtype), self._capacity)
+
+        self.assign(data)
+
+    def __len__(self) -> int:
+        return self._size
+
+    def can_assign(self, data: npt.NDArray) -> bool:
+        if len(data) > self._capacity:
+            return False
+
+        if data.dtype != self._dtype:
+            return False
+
+        return True
+
+    def assign(self, data: npt.NDArray):
+        assert self.can_assign(data)
+        self._size = len(data)
+        np.copyto(np.frombuffer(self._data, dtype=data.dtype, count=self._size), data, casting="safe")
+
+    @property
+    def dtype(self) -> npt.DTypeLike:
+        return self._dtype
+
+    @property
+    def capacity(self) -> int:
+        return self._size
+
+    @property
+    def data(self) -> npt.NDArray:
+        return np.frombuffer(self._data, count=self._size, dtype=self._dtype)
+
+    @property
+    def raw_data(self) -> mp.RawArray:
+        return self._data
 
 
-def _copy_data(src: npt.NDArray, dest: mp.RawArray, dtype: npt.DTypeLike):
-    np.copyto(np.frombuffer(dest, dtype=dtype), src, casting="safe")
+class _SharedSparseMatrixBase(object):
+    def __init__(self, m: Union[ss.csr_matrix, ss.csc_matrix], logger=None):
+        assert isinstance(m, ss.csr_matrix) or isinstance(m, ss.csc_matrix)
+
+        t0 = time.time()
+        self._data = _SharedRawArrayWrapper(m.data)
+        self._indices = _SharedRawArrayWrapper(m.indices)
+        self._indptr = _SharedRawArrayWrapper(m.indptr)
+        self._shape = m.shape
+        self._matrix_type_str = "CSR" if isinstance(m, ss.csr_matrix) else "CSC"
+        self._matrix_type = type(m)
+
+        if logger:
+            logger.debug(
+                "allocation and initialization of a %s matrix (%d nnz) in shared memory took %s",
+                self._matrix_type_str,
+                m.nnz,
+                pretty_format_elapsed_time(t0),
+            )
+
+    def get(self) -> Union[ss.csr_matrix, ss.csc_matrix]:
+
+        return self._matrix_type(
+            (self._data.data, self._indices.data, self._indptr.data),
+            shape=self._shape,
+            copy=False,
+        )
+
+    def can_assign(self, m: Union[ss.csr_matrix, ss.csc_matrix]) -> bool:
+        assert isinstance(m, self._matrix_type)
+
+        if platform.system() not in {"Darwin", "Windows"}:
+            return False
+        return all(
+            (
+                self._data.can_assign(m.data),
+                self._indices.can_assign(m.indices),
+                self._indptr.can_assign(m.indptr),
+            )
+        )
+
+    def assign(self, m: Union[ss.csr_matrix, ss.csc_matrix], logger=None):
+        t0 = time.time()
+        self._data.assign(m.data)
+        self._indices.assign(m.indices)
+        self._indptr.assign(m.indptr)
+        self._shape = m.shape
+        if logger:
+            logger.debug(
+                "assigning to a %s matrix (%d nnz) in shared memory took %s",
+                self._matrix_type_str,
+                m.nnz,
+                pretty_format_elapsed_time(t0),
+            )
 
 
-class SharedCSRMatrix(object):
+class SharedCSRMatrix(_SharedSparseMatrixBase):
     def __init__(self, m: ss.csr_matrix, logger=None):
-        t0 = time.time()
-        self._data, self._indices, self._indptr, self._shape = _ctor(m)
-
-        _copy_data(m.data, *self._data)
-        _copy_data(m.indices, *self._indices)
-        _copy_data(m.indptr, *self._indptr)
-        if logger:
-            logger.debug("allocation of CSR matrix in shared memory took %s", pretty_format_elapsed_time(t0))
-
-    def get(self) -> ss.csr_matrix:
-        return ss.csr_matrix(
-            (
-                np.frombuffer(self._data[0], dtype=self._data[1]),
-                np.frombuffer(self._indices[0], dtype=self._indices[1]),
-                np.frombuffer(self._indptr[0], dtype=self._indptr[1]),
-            ),
-            shape=self._shape,
-            copy=False,
-        )
+        assert isinstance(m, ss.csr_matrix)
+        super().__init__(m, logger)
 
 
-class SharedCSCMatrix(object):
+class SharedCSCMatrix(_SharedSparseMatrixBase):
     def __init__(self, m: ss.csc_matrix, logger=None):
-        t0 = time.time()
-        self._data, self._indices, self._indptr, self._shape = _ctor(m)
-
-        _copy_data(m.data, *self._data)
-        _copy_data(m.indices, *self._indices)
-        _copy_data(m.indptr, *self._indptr)
-
-        if logger:
-            logger.debug("allocation of CSR matrix in shared memory took %s", pretty_format_elapsed_time(t0))
-
-    def get(self) -> ss.csc_matrix:
-        return ss.csc_matrix(
-            (
-                np.frombuffer(self._data[0], dtype=self._data[1]),
-                np.frombuffer(self._indices[0], dtype=self._indices[1]),
-                np.frombuffer(self._indptr[0], dtype=self._indptr[1]),
-            ),
-            shape=self._shape,
-            copy=False,
-        )
+        assert isinstance(m, ss.csc_matrix)
+        super().__init__(m, logger)
 
 
 class SharedSparseMatrix(object):
@@ -87,22 +141,42 @@ class SharedSparseMatrix(object):
     def get(self) -> Union[ss.csr_matrix, ss.csc_matrix]:
         return self._m.get()
 
+    def can_assign(self, m) -> bool:
+        if isinstance(m, ss.csr_matrix):
+            return isinstance(self._m, SharedCSRMatrix) and self._m.can_assign(m)
+        if isinstance(m, ss.csc_matrix):
+            return isinstance(self._m, SharedCSCMatrix) and self._m.can_assign(m)
+
+        raise NotImplementedError
+
+    def assign(self, m, logger=None):
+        assert self.can_assign(m) and self._m.can_assign(m)
+        self._m.assign(m, logger)
+
 
 def set_shared_state(lt_matrix: SharedSparseMatrix, ut_matrix: SharedSparseMatrix):
-    global _lower_triangular_matrix
-    global _upper_triangular_matrix
-
-    _lower_triangular_matrix = lt_matrix
-    _upper_triangular_matrix = ut_matrix
+    if lt_matrix is not None:
+        global _lower_triangular_matrix
+        _lower_triangular_matrix = lt_matrix
+    if ut_matrix is not None:
+        global _upper_triangular_matrix
+        _upper_triangular_matrix = ut_matrix
 
 
 def unset_shared_state():
-    global _lower_triangular_matrix
-    global _upper_triangular_matrix
+    call_gc = False
+    if "_lower_triangular_matrix" in globals():
+        global _lower_triangular_matrix
+        del _lower_triangular_matrix
+        call_gc = True
 
-    del _lower_triangular_matrix
-    del _upper_triangular_matrix
-    gc.collect()
+    if "_upper_triangular_matrix" in globals():
+        global _upper_triangular_matrix
+        del _upper_triangular_matrix
+        call_gc = True
+
+    if call_gc:
+        gc.collect()
 
 
 def get_shared_state(key: str):

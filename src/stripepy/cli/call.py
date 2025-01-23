@@ -68,24 +68,25 @@ class ProcessPoolWrapper(object):
         lt_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
         ut_matrix: Union[ss.csc_matrix, ss.csr_matrix, None] = None,
         init_mpl: bool = False,
+        lazy_pool_initialization: bool = True,
         logger=None,
     ):
+        self._nproc = nproc
         self._pool = None
         self._lt_matrix = None
         self._ut_matrix = None
+        self._init_mpl = init_mpl
+        self._log_queue = None
 
         if nproc > 1:
+            self._lock = mp.Lock()
+            self._log_queue = main_logger.log_queue
             if lt_matrix is not None:
                 assert ut_matrix is not None
-                self._lt_matrix = SharedSparseMatrix(lt_matrix, logger)
-                self._ut_matrix = SharedSparseMatrix(ut_matrix, logger)
-                set_shared_state(self._lt_matrix, self._ut_matrix)
+                self.rebind_shared_matrices(lt_matrix, ut_matrix, logger)
 
-            self._pool = concurrent.futures.ProcessPoolExecutor(  # noqa
-                max_workers=nproc,
-                initializer=_init_shared_state,
-                initargs=(self._lt_matrix, self._ut_matrix, main_logger.log_queue, init_mpl),
-            )
+            if self._pool is None and not lazy_pool_initialization:
+                self._initialize_pool(logger)
 
     def __enter__(self):
         return self
@@ -97,7 +98,7 @@ class ProcessPoolWrapper(object):
         if exc_type is not None:
             structlog.get_logger().debug("shutting down process pool due to the following exception: %s", exc_val)
 
-        self._pool.shutdown(wait=True, cancel_futures=True)
+        self._pool.shutdown(wait=True, cancel_futures=exc_type is not None)
         if self._lt_matrix is not None:
             unset_shared_state()
             self._lt_matrix = None
@@ -105,6 +106,58 @@ class ProcessPoolWrapper(object):
 
         self._pool = None
         return False
+
+    def _can_rebind_shared_matrices(
+        self, lt_matrix: Union[ss.csr_matrix, ss.csc_matrix], ut_matrix: Union[ss.csr_matrix, ss.csc_matrix]
+    ) -> bool:
+        can_rebind_lt = self._lt_matrix is not None and self._lt_matrix.can_assign(lt_matrix)
+        can_rebind_ut = self._ut_matrix is not None and self._ut_matrix.can_assign(ut_matrix)
+
+        return can_rebind_lt and can_rebind_ut
+
+    def rebind_shared_matrices(
+        self,
+        lt_matrix: Union[ss.csr_matrix, ss.csc_matrix],
+        ut_matrix: Union[ss.csr_matrix, ss.csc_matrix],
+        logger=None,
+    ):
+        if self._nproc < 2:
+            return
+
+        if self._can_rebind_shared_matrices(lt_matrix, ut_matrix):
+            self._lt_matrix.assign(lt_matrix, logger)
+            self._ut_matrix.assign(ut_matrix, logger)
+            return
+
+        unset_shared_state()
+        self._lt_matrix = SharedSparseMatrix(lt_matrix, logger) if lt_matrix is not None else None
+        self._ut_matrix = SharedSparseMatrix(ut_matrix, logger) if ut_matrix is not None else None
+        set_shared_state(self._lt_matrix, self._ut_matrix)
+        self._initialize_pool(logger)
+
+    def _initialize_pool(
+        self,
+        logger=None,
+    ):
+        if self._nproc < 2:
+            return
+
+        t0 = time.time()
+        if logger is not None:
+            prefix = "re-" if self._pool is not None else ""
+            logger.debug("%sinitializing a process pool of size %d", prefix, self._nproc)
+
+        if self._pool is not None:
+            self._pool.shutdown(wait=True, cancel_futures=False)
+
+        self._pool = concurrent.futures.ProcessPoolExecutor(  # noqa
+            max_workers=self._nproc,
+            initializer=_init_shared_state,
+            initargs=(self._lt_matrix, self._ut_matrix, self._log_queue, self._init_mpl),
+        )
+
+        if logger is not None:
+            logger.debug("pool initialization took %s", pretty_format_elapsed_time(t0))
 
     @property
     def map(self, chunksize: int = 1):
@@ -146,15 +199,18 @@ class IOManager(object):
         self._normalization = "NONE" if normalization is None else normalization
         self._genomic_belt = genomic_belt
         self._roi = region_of_interest
-
-        self._tpool = ProcessPoolWrapper(
-            nproc,
-            main_logger=main_logger,
-            init_mpl=False,
-        )
         self._tasks = {}
 
         logger = structlog.get_logger().bind(step="IO")
+
+        self._tpool = ProcessPoolWrapper(
+            min(nproc, 2),
+            main_logger=main_logger,
+            init_mpl=False,
+            lazy_pool_initialization=False,
+            logger=logger,
+        )
+
         logger.info('initializing result file "%s"...', result_path)
         with IO.ResultFile.create_from_file(
             result_path,
@@ -668,6 +724,17 @@ def run(
             )
         )
 
+        pool = ctx.enter_context(
+            ProcessPoolWrapper(
+                nproc=nproc,
+                lt_matrix=None,
+                ut_matrix=None,
+                main_logger=parent_logger,
+                init_mpl=roi is not None,
+                logger=None,
+            )
+        )
+
         disable_bar = not sys.stderr.isatty()
         progress_weights_df = _compute_progress_bar_weights(chroms, include_plotting=roi is not None, nproc=nproc)
         progress_bar = ctx.enter_context(
@@ -707,90 +774,84 @@ def run(
             LT_Iproc, UT_Iproc, Iproc_RoI = io_manager.fetch_interaction_matrix(chrom_name, chrom_size)
             io_manager.fetch_next_interaction_matrix_async(tasks[i + 1 :])
 
-            with ProcessPoolWrapper(
-                nproc=nproc,
+            pool.rebind_shared_matrices(LT_Iproc, UT_Iproc, logger)
+
+            if pool.ready:
+                # matrices are stored in the shared global state
+                LT_Iproc = None
+                UT_Iproc = None
+
+            progress_bar(progress_weights["step_1"])
+
+            result = _run_step_2(
+                chrom_name=chrom_name,
+                chrom_size=chrom_size,
                 lt_matrix=LT_Iproc,
                 ut_matrix=UT_Iproc,
-                main_logger=parent_logger,
-                init_mpl=roi is not None,
+                min_persistence=glob_pers_min,
+                tpool=tpool,
+                pool=pool,
                 logger=logger,
-            ) as pool:
-                if pool.ready:
-                    # matrices are stored in the shared global state
-                    LT_Iproc = None
-                    UT_Iproc = None
+            )
+            progress_bar(progress_weights["step_2"])
 
-                progress_bar(progress_weights["step_1"])
-                logger.info("preprocessing took %s", pretty_format_elapsed_time(start_local_time))
+            result = _run_step_3(
+                result=result,
+                lt_matrix=LT_Iproc,
+                ut_matrix=UT_Iproc,
+                resolution=resolution,
+                genomic_belt=genomic_belt,
+                max_width=max_width,
+                loc_pers_min=loc_pers_min,
+                loc_trend_min=loc_trend_min,
+                tpool=tpool,
+                pool=pool,
+                logger=logger,
+            )
+            progress_bar(progress_weights["step_3"])
 
-                result = _run_step_2(
-                    chrom_name=chrom_name,
-                    chrom_size=chrom_size,
-                    lt_matrix=LT_Iproc,
-                    ut_matrix=UT_Iproc,
-                    min_persistence=glob_pers_min,
-                    tpool=tpool,
+            result = _run_step_4(
+                result=result,
+                lt_matrix=LT_Iproc,
+                ut_matrix=UT_Iproc,
+                tpool=tpool,
+                pool=pool,
+                logger=logger,
+            )
+            progress_bar(progress_weights["step_4"])
+
+            logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
+
+            io_manager.write_results(result)
+            progress_bar(progress_weights["output"])
+
+            if Iproc_RoI is not None:
+                RoI = others.define_RoI(roi, chrom_size, resolution)
+                logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *RoI["genomic"])
+                result.set_roi(RoI)
+                start_time = time.time()
+                logger = logger.bind(step=(5,))
+                logger.info("generating plots")
+                query = f"{chrom_name}:{result.roi['genomic'][0]}-{result.roi['genomic'][1]}"
+                stripepy.step_5(
+                    result,
+                    resolution,
+                    LT_Iproc,
+                    UT_Iproc,
+                    f.fetch(query, normalization=normalization).to_numpy("full"),
+                    Iproc_RoI,
+                    genomic_belt,
+                    loc_pers_min,
+                    loc_trend_min,
+                    plot_dir,
                     pool=pool,
-                    logger=logger,
                 )
-                progress_bar(progress_weights["step_2"])
 
-                result = _run_step_3(
-                    result=result,
-                    lt_matrix=LT_Iproc,
-                    ut_matrix=UT_Iproc,
-                    resolution=resolution,
-                    genomic_belt=genomic_belt,
-                    max_width=max_width,
-                    loc_pers_min=loc_pers_min,
-                    loc_trend_min=loc_trend_min,
-                    tpool=tpool,
-                    pool=pool,
-                    logger=logger,
-                )
-                progress_bar(progress_weights["step_3"])
+                progress_bar(progress_weights["step_5"])
+                logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
 
-                result = _run_step_4(
-                    result=result,
-                    lt_matrix=LT_Iproc,
-                    ut_matrix=UT_Iproc,
-                    tpool=tpool,
-                    pool=pool,
-                    logger=logger,
-                )
-                progress_bar(progress_weights["step_4"])
-
-                io_manager.write_results(result)
-                progress_bar(progress_weights["output"])
-                logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
-
-                if Iproc_RoI is not None:
-                    RoI = others.define_RoI(roi, chrom_size, resolution)
-                    logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *RoI["genomic"])
-                    result.set_roi(RoI)
-                    start_time = time.time()
-                    logger = logger.bind(step=(5,))
-                    logger.info("generating plots")
-                    query = f"{chrom_name}:{result.roi['genomic'][0]}-{result.roi['genomic'][1]}"
-                    stripepy.step_5(
-                        result,
-                        resolution,
-                        LT_Iproc,
-                        UT_Iproc,
-                        f.fetch(query, normalization=normalization).to_numpy("full"),
-                        Iproc_RoI,
-                        genomic_belt,
-                        loc_pers_min,
-                        loc_trend_min,
-                        plot_dir,
-                        pool=pool,
-                    )
-
-                    progress_bar(progress_weights["step_5"])
-                    logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
-
-        main_logger.bind(step="IO").info('finalizing file "%s"...', output_file)
-        io_manager.finalize_results()
+    main_logger.bind(step="IO").info('finalizing file "%s"...', output_file)
+    io_manager.finalize_results()
 
     main_logger.info("DONE!")
     main_logger.info("processed %d chromosomes in %s", len(chroms), pretty_format_elapsed_time(start_global_time))
