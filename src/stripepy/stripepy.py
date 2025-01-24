@@ -284,7 +284,7 @@ def step_3(
     )
 
     # DataFrame with the left and right boundaries for each seed site
-    horizontal_domains = finders.find_HIoIs(
+    horizontal_domains = finders.find_horizontal_intervals_of_interest(
         pseudodistribution=pseudodistribution,
         seed_sites=persistent_max_points,
         seed_site_bounds=persistent_min_points_bounded,
@@ -313,7 +313,7 @@ def step_3(
     start_time = time.time()
 
     logger.bind(step=(3, 3)).info("estimating candidate stripe heights")
-    vertical_domains = finders.find_VIoIs(
+    vertical_domains = finders.find_vertical_intervals_of_interest(
         matrix=matrix,
         seed_sites=persistent_max_points,
         horizontal_domains=horizontal_domains,
