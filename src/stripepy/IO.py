@@ -479,6 +479,9 @@ class ResultFile(object):
 
             df = self.get(chrom, "stripes", location)
 
+            if len(df) == 0:
+                continue
+
             stripes = []
 
             cols = [
