@@ -105,7 +105,8 @@ python_files = [
   "test/integration/test*.py",
 ]
 testpaths = [
-  "test/"
+  "test/integration",
+  "test/unit",
 ]
 
 [tool.coverage.run]

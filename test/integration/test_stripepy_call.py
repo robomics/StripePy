@@ -39,11 +39,6 @@ class TestStripePyCall:
     @staticmethod
     def _run_stripepy_call(tmpdir, nproc: int = 1, min_chrom_size: Optional[int] = None, with_roi: bool = False):
         assert nproc > 0
-        if nproc > 1:
-            import multiprocessing as mp
-
-            if mp.get_start_method() == "fork":
-                mp.set_start_method("spawn", force=True)
         tmpdir = pathlib.Path(tmpdir)
         testfile = testdir / "data" / "4DNFI9GMP2J8.mcool"
         result_file = testdir / "data" / "results_4DNFI9GMP2J8_v2.hdf5"
