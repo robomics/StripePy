@@ -94,8 +94,8 @@ test/integration/test_stripepy_view.py::TestStripePyView::test_view PASSED      
 If you need to collect coverage information use the following
 
 ```bash
-venv/bin/pytest -v --cov --cov-report term --cov-report html --cov-reset -m unit
-venv/bin/pytest -v --cov --cov-report term --cov-report html -m end2end
+venv/bin/pytest -v --cov --cov-report term --cov-report html -m unit
+venv/bin/pytest -v --cov --cov-report term --cov-report html --cov-append -m end2end
 ```
 
 The HTML coverage will be located under `coverage/html/index.html`.
