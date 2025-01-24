@@ -310,6 +310,35 @@ class ResultFile(object):
     """
     A class used to read and write StripePy results to a HDF5 file.
 
+    There are 3 main use cases:
+        - Open the file in read mode:
+            with ResultFile("results.hdf5") as h5:
+                ...
+
+        - Open file in write mode:
+            - if all data will be written to the file before the file is closed:
+                with ResultFile.create("results.hdf5", mode="w", ...) as h5:
+                    h5.write_descriptors(res1)
+                    h5.write_descriptors(res2)
+                    ...
+
+            - if the data will be added progressively:
+                with ResultFile.create("results.hdf5", mode="a", ...) as h5:
+                    h5.write_descriptors(res1)  # not mandatory, it is also possible to create the
+                                                # file and close it immediately
+                ...
+                with ResultFile.append("results.hdf5") as h5:
+                    h5.write_descriptors(res2)
+                    h5.write_descriptors(res3)
+                ...
+                with ResultFile.append("results.hdf5") as h5:
+                    h5.write_descriptors(res4)
+                    h5.finalize()  # IMPORTANT!
+                                   # Without the above line you'll get an error when trying to open
+                                   # the file in read mode
+
+    When opening or creating a ResultFile write or append mode, a context manager (e.g. with:) must be used
+
     Attributes
     ----------
     path: pathlib.Path
@@ -338,34 +367,6 @@ class ResultFile(object):
     # This is just a private member used to ensure that files are initialized correctly when mode != "r"
     __create_key = object()
 
-    @staticmethod
-    def _open_in_read_mode(path: pathlib.Path) -> Tuple[h5py.File, str, int]:
-        h5 = h5py.File(path, "r")
-        ResultFile._validate(h5)
-
-        return h5, "r", h5.attrs["format-version"]
-
-    @staticmethod
-    def _open_in_append_mode(path: pathlib.Path, mode: str) -> Tuple[h5py.File, str, int]:
-        new_file = not path.is_file()
-        h5 = h5py.File(path, mode)
-        if not new_file:
-            ResultFile._validate(h5, skip_index_validation=True, skip_version_check=True)
-
-        # Negative version numbers mark files that have not yet been finalized.
-        # A version value of -2 marks a v2 file that is being constructed
-        version = h5.attrs.get("format-version", -2)  # noqa
-        if version >= 0:
-            raise RuntimeError("cannot append to a file that has already been finalized!")
-        if version != -2:
-            raise RuntimeError("can only append to v2 files")
-
-        return h5, mode, version
-
-    @staticmethod
-    def _open_in_write_mode(path: pathlib.Path) -> Tuple[h5py.File, str, int]:
-        return h5py.File(path, "w-"), "w", 2
-
     def __init__(self, path: pathlib.Path, mode: str = "r", _create_key: Optional[object] = None):
         if mode != "r" and _create_key != ResultFile.__create_key:
             raise RuntimeError(
@@ -389,26 +390,6 @@ class ResultFile(object):
         self._attrs = dict(self._h5.attrs)  # noqa
 
     @staticmethod
-    def create_from_file(
-        path: pathlib.Path,
-        mode: str,
-        matrix_file: hictkpy.File,
-        normalization: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        compression_lvl: int = 9,
-    ):
-        return ResultFile.create(
-            path,
-            mode,
-            matrix_file.chromosomes(include_ALL=False),
-            matrix_file.resolution(),
-            normalization,
-            matrix_file.attributes().get("assembly", "unknown"),
-            metadata,
-            compression_lvl,
-        )
-
-    @staticmethod
     def create(
         path: pathlib.Path,
         mode: str,
@@ -419,6 +400,9 @@ class ResultFile(object):
         metadata: Optional[Dict[str, Any]] = None,
         compression_lvl: int = 9,
     ):
+        """
+        Create a ResultFile using the provided information.
+        """
 
         if normalization is None:
             normalization = "NONE"
@@ -439,7 +423,34 @@ class ResultFile(object):
         return f
 
     @staticmethod
+    def create_from_file(
+        path: pathlib.Path,
+        mode: str,
+        matrix_file: hictkpy.File,
+        normalization: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        compression_lvl: int = 9,
+    ):
+        """
+        Create a ResultFile using information from the given matrix file.
+        """
+        return ResultFile.create(
+            path,
+            mode,
+            matrix_file.chromosomes(include_ALL=False),
+            matrix_file.resolution(),
+            normalization,
+            matrix_file.attributes().get("assembly", "unknown"),
+            metadata,
+            compression_lvl,
+        )
+
+    @staticmethod
     def append(path: pathlib.Path):
+        """
+        Append to an existing ResultFile.
+        IMPORTANT: the file must have been created with create() or create_from_file() with mode="a"
+        """
         return ResultFile(path, mode="a", _create_key=ResultFile.__create_key)
 
     def __enter__(self):
@@ -542,6 +553,12 @@ class ResultFile(object):
 
         return res
 
+    def finalize(self):
+        """
+        Finalize a file opened in append mode.
+        """
+        self._finalize(abs(self._version))
+
     @property
     def path(self) -> pathlib.Path:
         return self._path
@@ -588,6 +605,189 @@ class ResultFile(object):
     @property
     def chromosomes(self) -> Dict[str, int]:
         return self._chroms
+
+    def get_min_persistence(self, chrom: str) -> float:
+        """
+        Get the minimum persistence associated with the given chromosome.
+
+        Parameters
+        ----------
+        chrom: str
+            chromosome name
+
+        Returns
+        -------
+            the minimum persistence
+        """
+        if chrom not in self._chroms:
+            raise KeyError(f'File "{self.path}" does not have data for chromosome "{chrom}"')
+
+        if self._version == 1:
+            return self._get_min_persistence_v1(chrom)
+        return self._get_min_persistence_v2(chrom)
+
+    def get(self, chrom: Optional[str], field: str, location: str) -> pd.DataFrame:
+        """
+        Get the data associated with the given chromosome, field, and location.
+
+        Parameters
+        ----------
+        chrom: Optional[str]
+            chromosome name.
+            when not provided, return data for the entire genome.
+        field: str
+            name of the field to be fetched.
+            Supported names:
+                * pseudodistribution
+                * all_minimum_points
+                * persistence_of_all_minimum_points
+                * all_maximum_points
+                * persistence_of_all_maximum_points
+                * geo_descriptors
+                * bio_descriptors
+        location: str
+            location of the attribute to be registered. Should be "LT" or "UT"
+
+        Returns
+        -------
+            the data associated with the given chromosome, field, and location
+        """
+        if chrom is None:
+            dfs = []
+            for chrom in self._chroms:
+                df = self.get(chrom, field, location)
+                df["chrom"] = chrom
+                dfs.append(df)
+
+            df = pd.concat(dfs).reset_index()
+            df["chrom"] = df["chrom"].astype("category")
+            cols = df.columns.tolist()
+            cols.insert(0, cols.pop(cols.index("chrom")))
+
+            return df[cols]
+
+        if chrom not in self._chroms:
+            raise KeyError(f'File "{self.path}" does not have data for chromosome "{chrom}"')
+
+        if location not in {"LT", "UT"}:
+            raise ValueError("Location should be UT or LT")
+
+        if self._version == 1:
+            return self._get_v1(chrom, field, location)
+        return self._get_v2(chrom, field, location)
+
+    def write_descriptors(self, result: Result):
+        """
+        Read the descriptors from the given Result object and write them to the opened file.
+
+        Parameters
+        ----------
+        result: Result
+            results to be added to the opened file
+        """
+        chrom = result.chrom[0]
+        self._write_min_persistence(chrom, result.min_persistence)
+
+        for location in ("LT", "UT"):
+            self._append_pseudodistribution(chrom, result.get("pseudodistribution", location), location)
+            self._append_persistence(
+                chrom,
+                result.get("all_minimum_points", location),
+                result.get("persistence_of_all_minimum_points", location),
+                "min",
+                location,
+            )
+            self._append_persistence(
+                chrom,
+                result.get("all_maximum_points", location),
+                result.get("persistence_of_all_maximum_points", location),
+                "max",
+                location,
+            )
+            self._append_stripes(chrom, result.get("stripes", location), location)
+
+    def _get_v1(self, chrom: str, field: str, location: str) -> pd.DataFrame:
+        mappings = {
+            "pseudodistribution": f"/{chrom}/global-pseudo-distributions/{location}/pseudo-distribution",
+            "all_minimum_points": f"/{chrom}/global-pseudo-distributions/{location}/minima_pts_and_persistence",
+            "persistence_of_all_minimum_points": f"/{chrom}/global-pseudo-distributions/{location}/minima_pts_and_persistence",
+            "all_maximum_points": f"/{chrom}/global-pseudo-distributions/{location}/maxima_pts_and_persistence",
+            "persistence_of_all_maximum_points": f"/{chrom}/global-pseudo-distributions/{location}/maxima_pts_and_persistence",
+            "geo_descriptors": f"/{chrom}/stripes/{location}/geo-descriptors",
+            "bio_descriptors": f"/{chrom}/stripes/{location}/bio-descriptors",
+            "stripes": None,
+        }
+
+        if field not in mappings:
+            raise KeyError(f"Unknown field \"{field}\". Valid fields are {', '.join(mappings.keys())}")
+
+        if field == "stripes":
+            df1 = self._get_v1(chrom, "geo_descriptors", location)
+            df2 = self._get_v1(chrom, "bio_descriptors", location)
+            return pd.concat((df1, df2), axis="columns")
+
+        path = mappings[field]
+
+        if field not in {"geo_descriptors", "bio_descriptors"}:
+            data = self._h5[path][:]
+            if field.startswith("persistence"):
+                data = data[1, :]
+            elif field.endswith("points"):
+                data = data[0, :].astype(int)
+            return pd.DataFrame({field: data})
+
+        df = pd.DataFrame(data=self._h5[path], columns=self._h5[path].attrs["col_names"])
+
+        if field == "geo_descriptors":
+            df = df.rename(
+                columns={
+                    "seed persistence": "top_persistence",
+                    "L-boundary": "left_bound",
+                    "R_boundary": "right_bound",
+                    "U-boundary": "top_bound",
+                    "D-boundary": "bottom_bound",
+                }
+            )
+            for col in ("seed", "left_bound", "right_bound", "top_bound", "bottom_bound"):
+                df[col] = df[col].astype(int)
+            return df
+
+        return df.rename(
+            columns={
+                "inner mean": "inner_mean",
+                "outer mean": "outer_mean",
+                "relative change": "rel_change",
+                "standard deviation": "inner_std",
+            }
+        )
+
+    @staticmethod
+    def _open_in_read_mode(path: pathlib.Path) -> Tuple[h5py.File, str, int]:
+        h5 = h5py.File(path, "r")
+        ResultFile._validate(h5)
+
+        return h5, "r", h5.attrs["format-version"]
+
+    @staticmethod
+    def _open_in_append_mode(path: pathlib.Path, mode: str) -> Tuple[h5py.File, str, int]:
+        new_file = not path.is_file()
+        h5 = h5py.File(path, mode)
+        if not new_file:
+            ResultFile._validate(h5, skip_index_validation=True, skip_version_check=True)
+
+        # Negative version numbers mark files that have not yet been finalized.
+        # A version value of -2 marks a v2 file that is being constructed
+        version = h5.attrs.get("format-version", -2)  # noqa
+        if version >= 0:
+            raise RuntimeError("cannot append to a file that has already been finalized!")
+        if version != -2:
+            raise RuntimeError("can only append to v2 files")
+
+        return h5, mode, version
+
+    @staticmethod
+    def _open_in_write_mode(path: pathlib.Path) -> Tuple[h5py.File, str, int]:
+        return h5py.File(path, "w-"), "w", 2
 
     @staticmethod
     def _validate_index(h5: h5py.File):
@@ -660,81 +860,6 @@ class ResultFile(object):
 
     def _get_min_persistence_v2(self, chrom: str) -> float:
         return self._read_min_persistence_values()[chrom]
-
-    def get_min_persistence(self, chrom: str) -> float:
-        """
-        Get the minimum persistence associated with the given chromosome.
-
-        Parameters
-        ----------
-        chrom: str
-            chromosome name
-
-        Returns
-        -------
-            the minimum persistence
-        """
-        if chrom not in self._chroms:
-            raise KeyError(f'File "{self.path}" does not have data for chromosome "{chrom}"')
-
-        if self._version == 1:
-            return self._get_min_persistence_v1(chrom)
-        return self._get_min_persistence_v2(chrom)
-
-    def _get_v1(self, chrom: str, field: str, location: str) -> pd.DataFrame:
-        mappings = {
-            "pseudodistribution": f"/{chrom}/global-pseudo-distributions/{location}/pseudo-distribution",
-            "all_minimum_points": f"/{chrom}/global-pseudo-distributions/{location}/minima_pts_and_persistence",
-            "persistence_of_all_minimum_points": f"/{chrom}/global-pseudo-distributions/{location}/minima_pts_and_persistence",
-            "all_maximum_points": f"/{chrom}/global-pseudo-distributions/{location}/maxima_pts_and_persistence",
-            "persistence_of_all_maximum_points": f"/{chrom}/global-pseudo-distributions/{location}/maxima_pts_and_persistence",
-            "geo_descriptors": f"/{chrom}/stripes/{location}/geo-descriptors",
-            "bio_descriptors": f"/{chrom}/stripes/{location}/bio-descriptors",
-            "stripes": None,
-        }
-
-        if field not in mappings:
-            raise KeyError(f"Unknown field \"{field}\". Valid fields are {', '.join(mappings.keys())}")
-
-        if field == "stripes":
-            df1 = self._get_v1(chrom, "geo_descriptors", location)
-            df2 = self._get_v1(chrom, "bio_descriptors", location)
-            return pd.concat((df1, df2), axis="columns")
-
-        path = mappings[field]
-
-        if field not in {"geo_descriptors", "bio_descriptors"}:
-            data = self._h5[path][:]
-            if field.startswith("persistence"):
-                data = data[1, :]
-            elif field.endswith("points"):
-                data = data[0, :].astype(int)
-            return pd.DataFrame({field: data})
-
-        df = pd.DataFrame(data=self._h5[path], columns=self._h5[path].attrs["col_names"])
-
-        if field == "geo_descriptors":
-            df = df.rename(
-                columns={
-                    "seed persistence": "top_persistence",
-                    "L-boundary": "left_bound",
-                    "R_boundary": "right_bound",
-                    "U-boundary": "top_bound",
-                    "D-boundary": "bottom_bound",
-                }
-            )
-            for col in ("seed", "left_bound", "right_bound", "top_bound", "bottom_bound"):
-                df[col] = df[col].astype(int)
-            return df
-
-        return df.rename(
-            columns={
-                "inner mean": "inner_mean",
-                "outer mean": "outer_mean",
-                "relative change": "rel_change",
-                "standard deviation": "inner_std",
-            }
-        )
 
     @functools.cache
     def _read_index(self, name: str, location: str) -> npt.NDArray[int]:
@@ -843,56 +968,6 @@ class ResultFile(object):
             df.loc[df["outer_mean"] <= 0, "rel_change"] = -1.0
 
             return df
-
-    def get(self, chrom: Optional[str], field: str, location: str) -> pd.DataFrame:
-        """
-        Get the data associated with the given chromosome, field, and location.
-
-        Parameters
-        ----------
-        chrom: Optional[str]
-            chromosome name.
-            when not provided, return data for the entire genome.
-        field: str
-            name of the field to be fetched.
-            Supported names:
-                * pseudodistribution
-                * all_minimum_points
-                * persistence_of_all_minimum_points
-                * all_maximum_points
-                * persistence_of_all_maximum_points
-                * geo_descriptors
-                * bio_descriptors
-        location: str
-            location of the attribute to be registered. Should be "LT" or "UT"
-
-        Returns
-        -------
-            the data associated with the given chromosome, field, and location
-        """
-        if chrom is None:
-            dfs = []
-            for chrom in self._chroms:
-                df = self.get(chrom, field, location)
-                df["chrom"] = chrom
-                dfs.append(df)
-
-            df = pd.concat(dfs).reset_index()
-            df["chrom"] = df["chrom"].astype("category")
-            cols = df.columns.tolist()
-            cols.insert(0, cols.pop(cols.index("chrom")))
-
-            return df[cols]
-
-        if chrom not in self._chroms:
-            raise KeyError(f'File "{self.path}" does not have data for chromosome "{chrom}"')
-
-        if location not in {"LT", "UT"}:
-            raise ValueError("Location should be UT or LT")
-
-        if self._version == 1:
-            return self._get_v1(chrom, field, location)
-        return self._get_v2(chrom, field, location)
 
     def _init_attributes(self, resolution: int, assembly: str, normalization: Optional[str], metadata: Dict[str, Any]):
         if normalization is None:
@@ -1106,36 +1181,6 @@ class ResultFile(object):
             location=location,
         )
 
-    def write_descriptors(self, result: Result):
-        """
-        Read the descriptors from the given Result object and write them to the opened file.
-
-        Parameters
-        ----------
-        result: Result
-            results to be added to the opened file
-        """
-        chrom = result.chrom[0]
-        self._write_min_persistence(chrom, result.min_persistence)
-
-        for location in ("LT", "UT"):
-            self._append_pseudodistribution(chrom, result.get("pseudodistribution", location), location)
-            self._append_persistence(
-                chrom,
-                result.get("all_minimum_points", location),
-                result.get("persistence_of_all_minimum_points", location),
-                "min",
-                location,
-            )
-            self._append_persistence(
-                chrom,
-                result.get("all_maximum_points", location),
-                result.get("persistence_of_all_maximum_points", location),
-                "max",
-                location,
-            )
-            self._append_stripes(chrom, result.get("stripes", location), location)
-
     def _finalize(self, format_version: Optional[int] = None):
         if self._version > 0 and self._mode != "w":
             raise RuntimeError("file cannot be finalized: file was not opened in append mode")
@@ -1155,9 +1200,6 @@ class ResultFile(object):
         self._mode = "r"
         self._h5.close()
         self._h5 = h5py.File(self._path, "r")
-
-    def finalize(self):
-        self._finalize(abs(self._version))
 
 
 def _compare_result_file_attributes(f1: ResultFile, f2: ResultFile, raise_on_exception: bool) -> Dict[str, Any]:
@@ -1246,6 +1288,31 @@ def compare_result_files(
     chroms: Optional[Sequence[str]] = None,
     raise_on_exception: bool = False,
 ) -> Dict[str, Any]:
+    """
+    Utility function to compare two result files.
+
+    Parameters
+    ----------
+    reference: pathlib.Path
+        path to the file to use as reference
+    found: pathlib.Path
+        path to the file to be compared with the reference
+    chroms: Optional[Sequence[str]]
+        one or more chromosomes to be compared.
+        When not provided, all chromosomes will be compared.
+    raise_on_exception: bool
+        whether to raise an exception as soon as an error occurs.
+
+    Returns
+    -------
+    Dict[str, Any]
+
+    A dictionary with the outcome of the comparison.
+    The files are identical if result["success"] is True.
+    Otherwise, result["exception"] will contain the unhandled exception that caused the comparison
+    to fail (if any), and result["chroms"] contains a dictionary with an entry for each chromosome
+    compared. Each entry contains detailed information on the differences between the two files.
+    """
     report = {"success": True, "exception": None, "chroms": {}}
 
     try:
