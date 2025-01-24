@@ -185,9 +185,10 @@ def _configure_logger_columns(
             max_step_nest_levels,
         )
 
-    level_to_color = (
-        structlog.dev.ConsoleRenderer().get_default_level_styles(colors) if level_styles is None else level_styles,
-    )
+    if level_styles is None:
+        level_to_color = structlog.dev.ConsoleRenderer().get_default_level_styles(colors)
+    else:
+        level_to_color = level_styles
 
     if hasattr(structlog.dev, "_EVENT_WIDTH"):
         pad_event = structlog.dev._EVENT_WIDTH  # noqa
