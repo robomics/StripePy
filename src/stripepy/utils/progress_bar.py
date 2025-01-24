@@ -12,7 +12,7 @@ class _DummyProgressBar(object):
         pass
 
     def __enter__(self):
-        def callable(*args, **kwargs):
+        def callable(*args, **kwargs):  # noqa
             pass
 
         return callable
