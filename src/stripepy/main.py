@@ -2,12 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
-import multiprocessing as mp
-import platform
 import sys
-from typing import List, Union
-
-from .cli import call, download, logging, plot, setup, view
+from typing import List, Optional
 
 
 def _setup_matplotlib(subcommand: str, **kwargs):
@@ -33,7 +29,9 @@ def _setup_matplotlib(subcommand: str, **kwargs):
     plt.set_loglevel(level="warning")
 
 
-def main(args: Union[List[str], None] = None):
+def main(args: Optional[List[str]] = None):
+    from stripepy.cli import call, download, logging, plot, setup, view
+
     subcommand, kwargs, verbosity = setup.parse_args(sys.argv[1:] if args is None else args)
 
     log_file = kwargs.get("log_file")
@@ -80,10 +78,4 @@ def main(args: Union[List[str], None] = None):
 
 
 if __name__ == "__main__":
-    if platform.system() == "Linux":
-        mp.set_start_method("forkserver")
-        mp.set_forkserver_preload(("numpy", "pandas", "scipy.sparse", "structlog"))
-    else:
-        mp.set_start_method("spawn")
-
     sys.exit(main())

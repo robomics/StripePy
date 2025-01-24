@@ -13,10 +13,10 @@ import pandas as pd
 import scipy.sparse as ss
 import structlog
 
-from .common import pretty_format_elapsed_time
-from .multiprocess_sparse_matrix import SparseMatrix, get_shared_state
-from .persistence1d import PersistenceTable
-from .regressions import _compute_wQISA_predictions
+from stripepy.utils.common import pretty_format_elapsed_time
+from stripepy.utils.multiprocess_sparse_matrix import SparseMatrix, get_shared_state
+from stripepy.utils.persistence1d import PersistenceTable
+from stripepy.utils.regressions import _compute_wQISA_predictions
 
 
 def find_horizontal_domain(

@@ -87,7 +87,7 @@ dev = [
 ]
 
 [project.scripts]
-stripepy = "stripepy:main"
+stripepy = "stripepy.main:main"
 
 [project.urls]
 Homepage = "https://github.com/paulsengroup/StripePy"

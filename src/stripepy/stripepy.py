@@ -14,11 +14,11 @@ import scipy.sparse as ss
 import structlog
 from numpy.typing import NDArray
 
-from . import IO, plot
-from .utils import common, finders, regressions, stripe
-from .utils.common import pretty_format_elapsed_time, zero_columns, zero_rows
-from .utils.multiprocess_sparse_matrix import SparseMatrix, get_shared_state
-from .utils.persistence1d import PersistenceTable
+from stripepy import IO, plot
+from stripepy.utils import common, finders, regressions, stripe
+from stripepy.utils.common import pretty_format_elapsed_time, zero_columns, zero_rows
+from stripepy.utils.multiprocess_sparse_matrix import SparseMatrix, get_shared_state
+from stripepy.utils.persistence1d import PersistenceTable
 
 
 def _log_transform(I: SparseMatrix) -> SparseMatrix:

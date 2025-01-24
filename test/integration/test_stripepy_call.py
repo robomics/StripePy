@@ -9,7 +9,7 @@ from typing import Optional
 import hictkpy
 import pytest
 
-from stripepy import main
+from stripepy.main import main
 
 from .common import (
     check_results_are_empty,

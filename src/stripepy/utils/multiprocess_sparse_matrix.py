@@ -12,7 +12,7 @@ import numpy as np
 import numpy.typing as npt
 import scipy.sparse as ss
 
-from .common import pretty_format_elapsed_time
+from stripepy.utils.common import pretty_format_elapsed_time
 
 SparseMatrix = Union[ss.csr_matrix, ss.csc_matrix]
 

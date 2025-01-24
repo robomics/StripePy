@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from .unionfind import UnionFind
+from stripepy.utils.unionfind import UnionFind
 
 
 class PersistenceTable(object):
