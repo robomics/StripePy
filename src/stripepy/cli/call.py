@@ -394,7 +394,7 @@ class IOManager(object):
             structlog.get_logger().bind(chrom=chrom_name, step="IO").info("returning pre-fetched interactions")
             return data
 
-        roi = others.define_RoI(self._roi, chrom_size, self._resolution)
+        roi = others.define_region_of_interest(self._roi, chrom_size, self._resolution)
         return IOManager._fetch(  # noqa
             self._path,
             self._resolution,
@@ -417,7 +417,7 @@ class IOManager(object):
 
         assert chrom_name not in self._tasks
 
-        roi = others.define_RoI(self._roi, chrom_size, self._resolution)
+        roi = others.define_region_of_interest(self._roi, chrom_size, self._resolution)
         self._tasks[chrom_name] = self._pool.submit(
             IOManager._fetch,
             self._path,
@@ -1154,7 +1154,7 @@ def run(
 
             if matrix_roi_raw is not None:
                 assert matrix_roi_proc is not None
-                chrom_roi = others.define_RoI(roi, chrom_size, resolution)
+                chrom_roi = others.define_region_of_interest(roi, chrom_size, resolution)
 
                 logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *chrom_roi["genomic"])
                 result.set_roi(chrom_roi)
