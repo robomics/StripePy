@@ -84,7 +84,7 @@ class TestStripePyCall:
             if not matplotlib_avail():
                 with pytest.raises(ImportError):
                     main(args)
-                    pytest.skip("matplotlib not available")
+                pytest.skip("matplotlib not available")
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=UserWarning)
                 main(args)
