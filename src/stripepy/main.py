@@ -30,24 +30,26 @@ def _setup_matplotlib(subcommand: str, **kwargs):
 
 
 def main(args: Optional[List[str]] = None):
+    # It is important that stripepy is not imported in the global namespace to enable coverage
+    # collection when using multiprocessing
     from stripepy.cli import call, download, logging, plot, setup, view
 
+    # Parse CLI args
     subcommand, kwargs, verbosity = setup.parse_args(sys.argv[1:] if args is None else args)
 
-    log_file = kwargs.get("log_file")
-    force = kwargs.get("force")
-    matrix_file = kwargs.get("contact_map")
+    # Set up the main logger
     with logging.ProcessSafeLogger(
         verbosity,
-        log_file,
-        force,
-        matrix_file,
+        path=kwargs.get("log_file"),
+        force=kwargs.get("force"),
+        matrix_file=kwargs.get("contact_map"),
         print_welcome_message=subcommand != "view",
     ) as main_logger:
         try:
             _setup_matplotlib(subcommand, **kwargs)
             kwargs["main_logger"] = main_logger
 
+            # Call the appropriate entrypoint
             if subcommand == "call":
                 return call.run(**kwargs, verbosity=verbosity)
             if subcommand == "download":
@@ -62,6 +64,8 @@ def main(args: Optional[List[str]] = None):
         except FileExistsError as e:
             import structlog
 
+            # Do not print the full stack trace in case of FileExistsError
+            # This make it easier to spot the names of the file(s) causing problems
             structlog.get_logger().error(e)
 
             if args is not None:
@@ -71,10 +75,21 @@ def main(args: Optional[List[str]] = None):
         except (RuntimeError, ImportError) as e:
             import structlog
 
+            # Log the exception including its stack trace
             structlog.get_logger().exception(e)
             if args is not None:
                 raise
             return 1
+
+        except Exception as e:  # noqa
+            # Under normal operating conditions, StripePy should not raise exceptions other than
+            # FileExistsError, RuntimeError, and ImportError.
+            # Should that happen, log the exception with its stack trace and then re-raise it
+            import structlog
+
+            structlog.get_logger().exception(e)
+
+            raise
 
 
 if __name__ == "__main__":
