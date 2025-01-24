@@ -108,6 +108,27 @@ testpaths = [
   "test/"
 ]
 
+[tool.coverage.run]
+branch = true
+concurrency = ["multiprocessing", "thread"]
+data_file = "coverage/data/stripepy.cov"
+# debug = ["callers", "config", "pytest"]
+# debug_file = "coverage/debug.txt"
+parallel = true
+source_pkgs = ["stripepy"]
+
+[tool.coverage.html]
+directory = "coverage/html/"
+title = "StripePy coverage report"
+
+[tool.coverage.json]
+output = "coverage/stripepy.json"
+
+[tool.coverage.lcov]
+output = "coverage/stripepy.lcov"
+
+[tool.coverage.xml]
+output = "coverage/stripepy.xml"
 
 [tool.hatch.version]
 source = "vcs"
