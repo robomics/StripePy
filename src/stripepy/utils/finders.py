@@ -16,7 +16,7 @@ import structlog
 from stripepy.utils.common import pretty_format_elapsed_time
 from stripepy.utils.multiprocess_sparse_matrix import SparseMatrix, get_shared_state
 from stripepy.utils.persistence1d import PersistenceTable
-from stripepy.utils.regressions import _compute_wQISA_predictions
+from stripepy.utils.regressions import compute_wQISA_predictions
 
 
 def find_horizontal_domain(
@@ -114,7 +114,7 @@ def _find_v_domain_helper(
     if len(max_points) > 1:
         return max_points.max(), max_points[:-1]  # drop global maximum
 
-    approximated_profile = _compute_wQISA_predictions(profile, 5)
+    approximated_profile = compute_wQISA_predictions(profile, 5)
     candida_bound = int(np.argmax(approximated_profile < threshold_cut))
     if approximated_profile[candida_bound] >= threshold_cut:
         candida_bound = len(profile) - 1
