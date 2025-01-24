@@ -16,7 +16,7 @@ def _raise_invalid_bin_type_except(f: hictkpy.File):
 def open_matrix_file_checked(path: os.PathLike, resolution: int, logger=None) -> hictkpy.File:
     if logger is None:
         logger = structlog.get_logger()
-    logger.info('validating file "%s" (%dbp)...', path, resolution)
+    logger.info('validating file "%s" (%dbp)', path, resolution)
 
     try:
         if not isinstance(resolution, int):

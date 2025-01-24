@@ -340,7 +340,7 @@ class IOManager(object):
             logger=logger,
         )
 
-        logger.info('initializing result file "%s"...', result_path)
+        logger.info('initializing result file "%s"', result_path)
         with IO.ResultFile.create_from_file(
             result_path,
             mode="a",
@@ -358,7 +358,7 @@ class IOManager(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._pool.__exit__(exc_type, exc_val, exc_tb)
 
-        structlog.get_logger().bind(step="IO").info('finalizing file "%s"...', self._h5_path)
+        structlog.get_logger().bind(step="IO").info('finalizing file "%s"', self._h5_path)
         self._wait_on_io_on_results_file()
         with IO.ResultFile.append(self._h5_path) as h5:
             h5.finalize()
@@ -692,12 +692,12 @@ def _remove_existing_output_files(
     Preemptively remove existing output files.
     """
     logger = structlog.get_logger().bind(step="main")
-    logger.debug("removing %s...", output_file)
+    logger.debug("removing %s", output_file)
     output_file.unlink(missing_ok=True)
     if plot_dir is not None:
         for path in plot_dir.glob("*"):
             if path.stem in chromosomes:
-                logger.debug("removing %s...", path)
+                logger.debug("removing %s", path)
                 if path.is_dir():
                     shutil.rmtree(path)
                 else:
@@ -1084,11 +1084,11 @@ def run(
             start_local_time = time.time()
 
             logger = main_logger.bind(chrom=chrom_name)
-            logger.info("begin processing...")
+            logger.info("begin processing")
 
             if skip:
                 # Nothing to do here: write an empty entry for the current chromosome and continue
-                logger.warning("writing an empty entry for chromosome %s...", chrom_name)
+                logger.warning("writing an empty entry for chromosome %s", chrom_name)
                 io_manager.write_results(_generate_empty_result(chrom_name, chrom_size, resolution))
                 progress_bar(max(progress_weights.values()))
                 continue
