@@ -35,8 +35,8 @@ class _TeePipeWriter(object):
     """
     This class implements the bare minimum functionality to model a tee-pipe where one end is connected
     to the console while the other is connected to a file.
-    If the console and/or file passed on construction are None, then the write method acts as if that handle is redirected to /dev/null.
-
+    If the console and/or file passed on construction are None, then the write method acts as if that
+    handle is redirected to /dev/null.
     """
 
     def __init__(self, console, file):
@@ -122,6 +122,10 @@ class _StructLogPlainStyles(object):
 class _StructLogColorfulStyles(object):
     @staticmethod
     def _try_get_color(key: str):
+        """
+        Get the requested key (i.e. color) if colorama is available.
+        Return "" (i.e. no color) otherwise.
+        """
         try:
             import colorama
 
@@ -158,19 +162,31 @@ def _configure_logger_columns(
     pad_level: bool = True,
     longest_chrom_name: str = "chrXX",
     max_step_nest_levels: int = 3,
-) -> List:
+) -> List[structlog.dev.Column]:
     """
-    The body of this function is an extension of the structlog.dev.ConsoleRenderer:
+    The body of this function is an extension of the structlog.dev.ConsoleRenderer.
+    In brief, this function configures the columns that will be used to render log messages.
+
+    Log entries will look something like this:
+    2025-01-24 16:55:32.910578 [debug    ] [chr1 ] [step 1    ] [LT] my custom message
+
+    See the following link for the original implementation:
     https://github.com/hynek/structlog/blob/a60ce7bbb50451ed786ace3c3893fb3a6a01df0a/src/structlog/dev.py#L433
     """
 
     if colors and importlib.util.find_spec("colorama") is None:
         return _configure_logger_columns(
-            False, level_styles, event_key, timestamp_key, pad_level, longest_chrom_name, max_step_nest_levels
+            False,
+            level_styles,
+            event_key,
+            timestamp_key,
+            pad_level,
+            longest_chrom_name,
+            max_step_nest_levels,
         )
 
     level_to_color = (
-        structlog.dev.ConsoleRenderer().get_default_level_styles(colors) if level_styles is None else level_styles
+        structlog.dev.ConsoleRenderer().get_default_level_styles(colors) if level_styles is None else level_styles,
     )
 
     if hasattr(structlog.dev, "_EVENT_WIDTH"):
@@ -196,7 +212,7 @@ def _configure_logger_columns(
     else:
         styles = _StructLogPlainStyles()
 
-    def step_formatter(data):
+    def step_formatter(data) -> str:
         if isinstance(data, str) and (data.startswith("IO") or data == "main"):
             return data
         if isinstance(data, collections.abc.Sequence):
@@ -215,7 +231,11 @@ def _configure_logger_columns(
         ),
         structlog.dev.Column(
             "level",
-            structlog.dev.LogLevelColumnFormatter(level_to_color, reset_style=styles.reset, width=level_width),
+            structlog.dev.LogLevelColumnFormatter(
+                level_to_color,  # noqa
+                reset_style=styles.reset,
+                width=level_width,
+            ),
         ),
         structlog.dev.Column(
             "chrom",
@@ -235,7 +255,7 @@ def _configure_logger_columns(
                 key_style=None,
                 value_style=styles.step,
                 reset_style=styles.reset,
-                value_repr=step_formatter,
+                value_repr=step_formatter,  # noqa
                 width=pad_step,
                 prefix="[",
                 postfix="]",
@@ -266,7 +286,10 @@ def _configure_logger_columns(
         structlog.dev.Column(
             "",
             structlog.dev.KeyValueColumnFormatter(
-                key_style=None, value_style=styles.dim, reset_style=styles.reset, value_repr=str
+                key_style=None,
+                value_style=styles.dim,
+                reset_style=styles.reset,
+                value_repr=str,
             ),
         ),
     ]
@@ -290,7 +313,7 @@ def _get_longest_chrom_name(path: pathlib.Path) -> str:
 class ProcessSafeLogger(object):
     """
     This class implements a process-safe logger that writes messages to stderr and optionally a file.
-    IMPORTANT: this class should only be used from a context manager.
+    IMPORTANT: this class should only be used from a context manager (e.g. with:).
 
     Here's an overview of how the class works:
     - The constructor does nothing interesting: it just stores a copy of the given params and
@@ -319,6 +342,19 @@ class ProcessSafeLogger(object):
         matrix_file: Optional[pathlib.Path] = None,
         print_welcome_message: bool = True,
     ):
+        """
+        level: str
+            level used to filter messages printed to the console (does not affect entries written to the log file)
+        path: Optional[pathlib.Path]
+            path where to write the log file
+        force: bool
+            when True, overwrite existing files (if any)
+        matrix_file: Optional[pathlib.Path]
+            path to the matrix file.
+            Used to configure log columns such that chromosome names are aligned nicely.
+        print_welcome_message: bool
+            control whether the welcome message with StripePy's version should be printed as soon as the logger is ready.
+        """
         self._level = level
         self._path = path
         self._force = force
@@ -371,11 +407,17 @@ class ProcessSafeLogger(object):
 
     @property
     def log_queue(self) -> Optional[mp.Queue]:
+        """
+        Return the log message queue.
+        """
         assert self._object_owned_by_a_context_manager
         return self._queue
 
     @staticmethod
     def setup_logger(queue: mp.Queue):
+        """
+        Set up the logger for the current process such that log messages are placed on the log queue.
+        """
         timestamper = structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S.%f")
         processors = [
             timestamper,
@@ -550,6 +592,9 @@ def _warning_handler(message, category, filename, lineno, file=None, line=None):
 
 
 def install_custom_warning_handler():
+    """
+    Override the function used to print Python warnings such that warnings are sent to the logger.
+    """
     import warnings
 
     warnings.showwarning = _warning_handler
