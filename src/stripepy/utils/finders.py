@@ -14,7 +14,7 @@ import scipy.sparse as ss
 import structlog
 
 from stripepy.utils.common import pretty_format_elapsed_time
-from stripepy.utils.persistence1d import PersistenceTable
+from stripepy.utils.persistence1d import Persistence1DTable
 from stripepy.utils.regressions import compute_wQISA_predictions
 from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
 
@@ -180,7 +180,7 @@ def _find_v_domain_helper(
         max_points = tuple()
     else:
         max_points = (
-            PersistenceTable.calculate_persistence(profile, min_persistence=min_persistence)
+            Persistence1DTable.calculate_persistence(profile, min_persistence=min_persistence)
             .max.sort_values(kind="stable")
             .index.to_numpy()
         )

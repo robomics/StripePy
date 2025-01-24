@@ -12,12 +12,41 @@ import pandas as pd
 from stripepy.utils.unionfind import UnionFind
 
 
-class PersistenceTable(object):
+class Persistence1DTable(object):
     """
-    TODO document
+    Class to compute and represent a table of 1D persistence values.
+
+    A typical use of this class is as follows:
+
+    persistence = Persistence1DTable.calculate_persistence(...)
+    persistence.filter(1, "greater")  # drop points associated with persistence values > 1
+    persistence.sort("persistence")  # sort based on persistence values
+
+    persistence.min  # access the sorted and filtered minimum points
+    persistence.max  # access the sorted and filtered maximum points
+
+    Attributes
+    ----------
+    global_minimum: int
+        the global minimum of the persistence values
+    global_maximum: int
+        the global maximum of the persistence values
+    min: pd.Series
+        persistence values for the minimum points.
+        Returns a pd.Series with points as index and persistence as values.
+    max: pd.Series
+        persistence values for the maximum points
+        Returns a pd.Series with points as index and persistence as values.
+    level_sets: str
+        level sets used to compute the persistence values
     """
 
-    def __init__(self, pers_of_min_points: pd.Series, pers_of_max_points: pd.Series, level_sets: str):
+    def __init__(
+        self,
+        pers_of_min_points: pd.Series,
+        pers_of_max_points: pd.Series,
+        level_sets: str,
+    ):
         assert level_sets in {"lower", "upper"}
 
         self._min = pers_of_min_points.copy()
@@ -35,11 +64,35 @@ class PersistenceTable(object):
         min_persistence: Optional[float] = None,
         sort_by: Optional[str] = None,
     ):
+        """
+        Construct an instance of Persistence1DTable by calculating persistence values for the given data.
+
+        Parameters
+        ----------
+        data : npt.NDArray
+            a 1D numeric vector
+        level_sets : str
+            should be either "lower" or "upper"
+        min_persistence : Optional[float]
+            minimum persistence value.
+            Values below this cutoff are dropped before constructing the table.
+        sort_by : str
+            sort values in the table by the given key.
+
+        Returns
+        -------
+        Persistence1DTable
+            table with the calculated persistence values.
+        """
         if level_sets not in {"lower", "upper"}:
             raise ValueError("level_sets should be 'lower' or 'upper'")
 
-        pers_of_min_points, pers_of_max_points = PersistenceTable._compute_persistence(data, level_sets)
-        table = cls(pers_of_min_points=pers_of_min_points, pers_of_max_points=pers_of_max_points, level_sets=level_sets)
+        pers_of_min_points, pers_of_max_points = Persistence1DTable._compute_persistence(data, level_sets)
+        table = cls(
+            pers_of_min_points=pers_of_min_points,
+            pers_of_max_points=pers_of_max_points,
+            level_sets=level_sets,
+        )
 
         if min_persistence is not None:
             table.filter(min_persistence, method="greater")
@@ -74,9 +127,26 @@ class PersistenceTable(object):
         return self._level_sets
 
     def copy(self):
-        return PersistenceTable(pers_of_min_points=self._min, pers_of_max_points=self._max, level_sets=self._level_sets)
+        """
+        Return a copy of the current instance.
+        """
+        return Persistence1DTable(
+            pers_of_min_points=self._min,
+            pers_of_max_points=self._max,
+            level_sets=self._level_sets,
+        )
 
     def filter(self, persistence: float, method: str = "greater"):
+        """
+        Remove persistence values from the current table based on the given parameters.
+
+        Parameters
+        ----------
+        persistence : float
+            persistence cutoff
+        method : str
+            filtering method. Should be one of "greater", "greater_equal", "smaller", "smaller_equal"
+        """
         if method == "greater":
             self._min = self._min[self._min > persistence]
             self._max = self._max[self._max > persistence]
@@ -93,6 +163,17 @@ class PersistenceTable(object):
             raise ValueError("method should be one of: greater, greater_equal, smaller, smaller_equal")
 
     def sort(self, by: str, ascending: bool = True):
+        """
+        In-place sort the table based on the given key
+
+        Parameters
+        ----------
+        by : str
+            sorting key.
+            Should be one of "persistence", "min", "max", or "position".
+        ascending : bool
+            controls sorting order
+        """
         if by == "persistence":
             self._min.sort_values(ascending=ascending, inplace=True, kind="stable")
             self._max.sort_values(ascending=ascending, inplace=True, kind="stable")
@@ -104,7 +185,7 @@ class PersistenceTable(object):
             self.sort(by="min", ascending=ascending)
             self.sort(by="max", ascending=ascending)
         else:
-            raise ValueError("unknown sorting key. Valid values are: min, max, persistence")
+            raise ValueError("unknown sorting key. Valid values are: min, max, persistence, or position.")
 
     # Implementation adapted from the library by Tino Weinkauf downloadable at:
     # https://www.csc.kth.se/~weinkauf/notes/persistence1d.html
@@ -127,7 +208,7 @@ class PersistenceTable(object):
 
         Short explanation for the case of level_sets=="lower" (the case of level_sets="upper" is analogous).
 
-        This function returns a PersistenceTable object.
+        This function returns a Persistence1DTable object.
 
         Original implementation by Tino Weinkauf
         Modified implementation by Andrea Raffo and Roberto Rossini
@@ -144,9 +225,6 @@ class PersistenceTable(object):
         uf = UnionFind(num_elements)
 
         # Extrema paired with topological persistence:
-        min_points = []
-        max_points = []
-        persistence_values = []
         min_points = np.empty(num_elements + 1, dtype=int)
         max_points = np.empty(num_elements + 1, dtype=int)
         persistence_values = np.empty(num_elements + 1, dtype=float)
@@ -208,15 +286,29 @@ class PersistenceTable(object):
             min_points[value_idx] = uf.Find(0)
             value_idx += 1
             return (
-                pd.Series(index=min_points[:value_idx], data=persistence_values[:value_idx], name="persistence"),
                 pd.Series(
-                    index=max_points[: value_idx - 1], data=persistence_values[: value_idx - 1], name="persistence"
+                    index=min_points[:value_idx],
+                    data=persistence_values[:value_idx],
+                    name="persistence",
+                ),
+                pd.Series(
+                    index=max_points[: value_idx - 1],
+                    data=persistence_values[: value_idx - 1],
+                    name="persistence",
                 ),
             )
 
         max_points[value_idx] = uf.Find(0)
         value_idx += 1
         return (
-            pd.Series(index=min_points[: value_idx - 1], data=persistence_values[: value_idx - 1], name="persistence"),
-            pd.Series(index=max_points[:value_idx], data=persistence_values[:value_idx], name="persistence"),
+            pd.Series(
+                index=min_points[: value_idx - 1],
+                data=persistence_values[: value_idx - 1],
+                name="persistence",
+            ),
+            pd.Series(
+                index=max_points[:value_idx],
+                data=persistence_values[:value_idx],
+                name="persistence",
+            ),
         )

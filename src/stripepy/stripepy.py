@@ -17,7 +17,7 @@ from numpy.typing import NDArray
 from stripepy import IO, plot
 from stripepy.utils import common, finders, regressions, stripe
 from stripepy.utils.common import pretty_format_elapsed_time, zero_columns, zero_rows
-from stripepy.utils.persistence1d import PersistenceTable
+from stripepy.utils.persistence1d import Persistence1DTable
 from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
 
 
@@ -168,7 +168,7 @@ def step_2(
     logger.bind(step=(2, 2, 0)).info("detection of persistent maxima and corresponding minima")
 
     logger.bind(step=(2, 2, 1)).info("computing persistence")
-    persistence = PersistenceTable.calculate_persistence(pseudodistribution, min_persistence=0, sort_by="persistence")
+    persistence = Persistence1DTable.calculate_persistence(pseudodistribution, min_persistence=0, sort_by="persistence")
     result.set("all_minimum_points", persistence.min.index.to_numpy(copy=True), location)
     result.set("all_maximum_points", persistence.max.index.to_numpy(copy=True), location)
     result.set("persistence_of_all_minimum_points", persistence.min.to_numpy(copy=True), location)
@@ -185,7 +185,7 @@ def step_2(
         max_points=persistence.max,
         logger=logger,
     )
-    persistence = PersistenceTable(pers_of_min_points=data[0], pers_of_max_points=data[1], level_sets="upper")
+    persistence = Persistence1DTable(pers_of_min_points=data[0], pers_of_max_points=data[1], level_sets="upper")
     result.set("persistent_minimum_points", persistence.min.index.to_numpy(), location)
     result.set("persistent_maximum_points", persistence.max.index.to_numpy(), location)
     result.set("persistence_of_minimum_points", persistence.min.to_numpy(), location)
@@ -1003,7 +1003,7 @@ def _plot_local_pseudodistributions_helper(args):
     x = np.arange(seed, seed + len(y))
     y_hat = finders.compute_wQISA_predictions(y, 5)  # Basically: average of a 2-"pixel" neighborhood
 
-    loc_maxima = PersistenceTable.calculate_persistence(
+    loc_maxima = Persistence1DTable.calculate_persistence(
         y, min_persistence=min_persistence, sort_by="persistence"
     ).max.index.to_numpy()
     candidate_bound = [loc_maxima.max()]
