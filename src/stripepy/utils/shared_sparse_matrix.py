@@ -14,11 +14,20 @@ import scipy.sparse as ss
 
 from stripepy.utils.common import pretty_format_elapsed_time
 
+# Generic SparseMatrix type used throughout the codebase
 SparseMatrix = Union[ss.csr_matrix, ss.csc_matrix]
 
 
-class _SharedRawArrayWrapper(object):
-    def __init__(self, data: Union[bytes, npt.NDArray], capacity: Optional[int] = None):
+class _SharedTypedBuffer(object):
+    """
+    Wrapper class for mp.RawArray that supports efficient assignment and resize without re-allocation.
+    """
+
+    def __init__(
+        self,
+        data: Union[bytes, npt.NDArray],
+        capacity: Optional[int] = None,
+    ):
         if capacity is None:
             capacity = len(data)
 
@@ -27,11 +36,15 @@ class _SharedRawArrayWrapper(object):
         self._dtype = bytes if isinstance(data, bytes) else data.dtype
         self._capacity = capacity
         self._size = mp.RawValue(ctypes.c_int, 0)
+
         if len(data) == 0:
+            # Empty buffer optimization
             self._shared_buffer = None
         elif self._dtype == bytes:
+            # Allocate a char buffer
             self._shared_buffer = mp.RawArray(ctypes.c_char, self._capacity)
         else:
+            # Allocate a numeric buffer
             self._shared_buffer = mp.RawArray(np.ctypeslib.as_ctypes_type(self._dtype), self._capacity)
 
         self.assign(data)
@@ -39,7 +52,13 @@ class _SharedRawArrayWrapper(object):
     def __len__(self) -> int:
         return int(self._size.value)
 
-    def can_assign(self, data: Union[bytes, npt.NDArray]) -> bool:
+    def can_assign(
+        self,
+        data: Union[bytes, npt.NDArray],
+    ) -> bool:
+        """
+        Check whether the data can be assigned to the current buffer without re-allocation.
+        """
         if len(data) > self._capacity:
             return False
 
@@ -48,13 +67,13 @@ class _SharedRawArrayWrapper(object):
 
         return data.dtype == self._dtype
 
-    def _assign_empty(self):
-        self._size.value = 0
-
     def assign(self, data: Union[bytes, npt.NDArray]):
+        """
+        Copy values from data into the shared buffer (shrinking the buffer if necessary).
+        """
         assert self.can_assign(data)
         if len(data) == 0:
-            self._assign_empty()
+            self._resize_to_zero()
             return
 
         new_size = len(data)
@@ -63,11 +82,15 @@ class _SharedRawArrayWrapper(object):
         else:
             dest = np.frombuffer(self._shared_buffer, dtype=self._dtype, count=new_size)
             np.copyto(dest, data, casting="safe")
-        self._size.value = new_size
 
-    def shrink(self, new_size: int):
+        self.resize(new_size)
+
+    def resize(self, new_size: int):
+        """
+        Resize underlying buffer without re-allocation.
+        """
         if new_size == 0:
-            self._assign_empty()
+            self._resize_to_zero()
             return
 
         assert new_size <= self._capacity
@@ -83,18 +106,36 @@ class _SharedRawArrayWrapper(object):
 
     @property
     def data(self) -> Union[bytes, npt.NDArray]:
-
+        """
+        Get the underlying data as a read-only numpy array (without copying the data).
+        If the data is an array of chars return it as a bytes object (with copy).
+        """
         if self._dtype == bytes:
             return bytes(self._shared_buffer[: len(self)])
-        return np.frombuffer(self._shared_buffer, dtype=self._dtype, count=len(self))
+        v = np.frombuffer(self._shared_buffer, dtype=self._dtype, count=len(self))
+        v.flags.writeable = False
+        return v
 
     @property
     def raw_data(self) -> mp.RawArray:
         return self._shared_buffer
 
+    def _resize_to_zero(self):
+        self._size.value = 0
 
-class _SharedTriangularSparseMatrixBase(object):
-    def __init__(self, chrom: Optional[str], m: Optional[SparseMatrix], logger=None, max_nnz: Optional[int] = None):
+
+class _SharedTriangularSparseMatrixBase(object):  # noqa
+    """
+    Base class modeling a triangular sparse matrix stored in shared memory.
+    """
+
+    def __init__(
+        self,
+        chrom: Optional[str],
+        m: Optional[SparseMatrix],
+        logger=None,
+        max_nnz: Optional[int] = None,
+    ):
         assert isinstance(m, ss.csr_matrix) or isinstance(m, ss.csc_matrix) or m is None
 
         if chrom is None:
@@ -123,11 +164,11 @@ class _SharedTriangularSparseMatrixBase(object):
             capacity_indptr = int(np.ceil(len(m.indptr) * spare_capacity_pct))
 
         t0 = time.time()
-        self._chrom = _SharedRawArrayWrapper(chrom.encode("ascii"), capacity_chrom)
-        self._data = _SharedRawArrayWrapper(m.data, capacity_data)
-        self._indices = _SharedRawArrayWrapper(m.indices, capacity_indices)
-        self._indptr = _SharedRawArrayWrapper(m.indptr, capacity_indptr)
-        self._shape = _SharedRawArrayWrapper(np.array(m.shape), 2)
+        self._chrom = _SharedTypedBuffer(chrom.encode("ascii"), capacity_chrom)
+        self._data = _SharedTypedBuffer(m.data, capacity_data)
+        self._indices = _SharedTypedBuffer(m.indices, capacity_indices)
+        self._indptr = _SharedTypedBuffer(m.indptr, capacity_indptr)
+        self._shape = _SharedTypedBuffer(np.array(m.shape), 2)
         self._matrix_type_str = "CSR" if isinstance(m, ss.csr_matrix) else "CSC"
         self._matrix_type = type(m)
 
@@ -141,6 +182,9 @@ class _SharedTriangularSparseMatrixBase(object):
             )
 
     def get(self) -> SparseMatrix:
+        """
+        Get the sparse matrix without copying the data.
+        """
         return self._matrix_type(
             (self._data.data, self._indices.data, self._indptr.data),
             shape=self._shape.data,
@@ -148,6 +192,10 @@ class _SharedTriangularSparseMatrixBase(object):
         )
 
     def can_assign(self, m: SparseMatrix) -> bool:
+        """
+        Check whether the given sparse matrix can be assigned to the current matrix instance
+        without incurring in shared memory re-allocation.
+        """
         assert isinstance(m, self._matrix_type)
 
         return all(
@@ -159,6 +207,9 @@ class _SharedTriangularSparseMatrixBase(object):
         )
 
     def assign(self, chrom: str, m: SparseMatrix, logger=None):
+        """
+        Assign the given SparseMatrix to the current matrix instance without re-allocations.
+        """
         assert self.can_assign(m)
 
         chrom_ascii = chrom.encode("ascii")
@@ -192,19 +243,60 @@ class _SharedTriangularSparseMatrixBase(object):
 
 
 class SharedTriangularCSRMatrix(_SharedTriangularSparseMatrixBase):
-    def __init__(self, chrom: str, m: ss.csr_matrix, logger=None, max_nnz: Optional[int] = None):
+    """
+    Class modeling a triangular CSR matrix stored in shared memory.
+    """
+
+    def __init__(
+        self,
+        chrom: str,
+        m: ss.csr_matrix,
+        logger=None,
+        max_nnz: Optional[int] = None,
+    ):
+        """
+        Parameters
+        ----------
+        chrom: str
+            name of the chromosome to which the matrix refers to.
+        m: ss.csr_matrix
+            sparse matrix in CSR format.
+        logger:
+            logger
+        max_nnz: Optional[int]
+            when provided, use this number to attempt to allocate enough space to store a matrix
+            with the given number of non-zero entries.
+        """
         assert isinstance(m, ss.csr_matrix) or m is None
         super().__init__(chrom, m, logger, max_nnz)
 
+    @property
+    def T(self):  # noqa
+        """
+        Transpose the matrix without copying the data.
+
+        Returns
+        -------
+        SharedTriangularCSCMatrix
+            the transposed matrix in CSC format.
+        """
+        return SharedTriangularCSCMatrix._from_shared_buffers(  # noqa
+            self._chrom,
+            self._data,
+            self._indices,
+            self._indptr,
+            self._shape,
+        )
+
     @staticmethod
     def _from_shared_buffers(
-        chrom: _SharedRawArrayWrapper,
-        data: _SharedRawArrayWrapper,
-        indices: _SharedRawArrayWrapper,
-        indptr: _SharedRawArrayWrapper,
-        shape: _SharedRawArrayWrapper,
+        chrom: _SharedTypedBuffer,
+        data: _SharedTypedBuffer,
+        indices: _SharedTypedBuffer,
+        indptr: _SharedTypedBuffer,
+        shape: _SharedTypedBuffer,
     ):
-        assert shape.data[0] == shape.data[1]
+        assert shape.data[0] == shape.data[1]  # noqa
         m = SharedTriangularCSRMatrix(None, None, None, None)  # noqa
         m._chrom = chrom
         m._data = data
@@ -219,9 +311,42 @@ class SharedTriangularCSRMatrix(_SharedTriangularSparseMatrixBase):
 
         return m
 
+
+class SharedTriangularCSCMatrix(_SharedTriangularSparseMatrixBase):
+    def __init__(
+        self,
+        chrom: str,
+        m: ss.csc_matrix,
+        logger=None,
+        max_nnz: Optional[int] = None,
+    ):
+        """
+        Parameters
+        ----------
+        chrom: str
+            name of the chromosome to which the matrix refers to.
+        m: ss.ccr_matrix
+            sparse matrix in CSC format.
+        logger:
+            logger
+        max_nnz: Optional[int]
+            when provided, use this number to attempt to allocate enough space to store a matrix
+            with the given number of non-zero entries.
+        """
+        assert isinstance(m, ss.csc_matrix) or m is None
+        super().__init__(chrom, m, logger, max_nnz)
+
     @property
     def T(self):  # noqa
-        return SharedTriangularCSCMatrix._from_shared_buffers(  # noqa
+        """
+        Transpose the matrix without copying the data.
+
+        Returns
+        -------
+        SharedTriangularCSRMatrix
+            the transposed matrix in CSR format.
+        """
+        return SharedTriangularCSRMatrix._from_shared_buffers(  # noqa
             self._chrom,
             self._data,
             self._indices,
@@ -229,21 +354,15 @@ class SharedTriangularCSRMatrix(_SharedTriangularSparseMatrixBase):
             self._shape,
         )
 
-
-class SharedTriangularCSCMatrix(_SharedTriangularSparseMatrixBase):
-    def __init__(self, chrom: str, m: ss.csc_matrix, logger=None, max_nnz: Optional[int] = None):
-        assert isinstance(m, ss.csc_matrix) or m is None
-        super().__init__(chrom, m, logger, max_nnz)
-
     @staticmethod
     def _from_shared_buffers(
-        chrom: _SharedRawArrayWrapper,
-        data: _SharedRawArrayWrapper,
-        indices: _SharedRawArrayWrapper,
-        indptr: _SharedRawArrayWrapper,
-        shape: _SharedRawArrayWrapper,
+        chrom: _SharedTypedBuffer,
+        data: _SharedTypedBuffer,
+        indices: _SharedTypedBuffer,
+        indptr: _SharedTypedBuffer,
+        shape: _SharedTypedBuffer,
     ):
-        assert shape.data[0] == shape.data[1]
+        assert shape.data[0] == shape.data[1]  # noqa
         m = SharedTriangularCSCMatrix(None, None, None, None)  # noqa
         m._chrom = chrom
         m._data = data
@@ -258,19 +377,34 @@ class SharedTriangularCSCMatrix(_SharedTriangularSparseMatrixBase):
 
         return m
 
-    @property
-    def T(self):  # noqa
-        return SharedTriangularCSRMatrix._from_shared_buffers(  # noqa
-            self._chrom,
-            self._data,
-            self._indices,
-            self._indptr,
-            self._shape,
-        )
 
+class SharedTriangularSparseMatrix(object):  # noqa
+    """
+    Generic class used to represent a sparse matrix in CSR or CSC format using shared memory.
+    Under the hood, this class uses SharedTriangularCSRMatrix and SharedTriangularCSCMatrix.
+    """
 
-class SharedTriangularSparseMatrix(object):
-    def __init__(self, chrom: str, m: SparseMatrix, logger=None, max_nnz: Optional[int] = None):
+    def __init__(
+        self,
+        chrom: str,
+        m: SparseMatrix,
+        logger=None,
+        max_nnz: Optional[int] = None,
+    ):
+        """
+        Parameters
+        ----------
+        chrom: str
+            name of the chromosome to which the matrix refers to.
+        m: SparseMatrix
+            sparse matrix in CSR or CSC format.
+            The format provided here will determine the class used to represent the matrix in shared memory.
+        logger:
+            logger
+        max_nnz: Optional[int]
+            when provided, use this number to attempt to allocate enough space to store a matrix
+            with the given number of non-zero entries.
+        """
         if m is None:
             self._m = SharedTriangularCSRMatrix(None, None, None, None)  # noqa
         elif isinstance(m, ss.csr_matrix):
@@ -280,19 +414,17 @@ class SharedTriangularSparseMatrix(object):
         else:
             self._m = SharedTriangularCSCMatrix(chrom, ss.csc_matrix(m), logger, max_nnz)
 
-    @staticmethod
-    def _empty(format: str):  # noqa
-        if format == "csr":
-            return SharedTriangularSparseMatrix(None, None, None, None)  # noqa
-        if format == "csc":
-            return SharedTriangularSparseMatrix(None, None, None, None)  # noqa
-
-        raise NotImplementedError
-
     def get(self) -> SparseMatrix:
+        """
+        Get the sparse matrix without copying the data.
+        """
         return self._m.get()
 
     def can_assign(self, m) -> bool:
+        """
+        Check whether the given sparse matrix can be assigned to the current matrix instance
+        without incurring in shared memory re-allocation.
+        """
         if isinstance(m, ss.csr_matrix):
             return isinstance(self._m, SharedTriangularCSRMatrix) and self._m.can_assign(m)
         if isinstance(m, ss.csc_matrix):
@@ -301,21 +433,50 @@ class SharedTriangularSparseMatrix(object):
         raise NotImplementedError
 
     def assign(self, chrom: str, m: SparseMatrix, logger=None):
+        """
+        Assign the given SparseMatrix to the current matrix instance without re-allocations.
+        """
         assert self.can_assign(m) and self._m.can_assign(m)
         self._m.assign(chrom, m, logger)
 
     @property
     def T(self):  # noqa
+        """
+        Transpose the matrix without copying the data.
+        """
         if isinstance(self._m, SharedTriangularCSRMatrix):
-            m = SharedTriangularSparseMatrix._empty("csc")
+            m = SharedTriangularSparseMatrix._initialize_empty("csc")
         else:
-            m = SharedTriangularSparseMatrix._empty("csr")
+            m = SharedTriangularSparseMatrix._initialize_empty("csr")
 
         m._m = self._m.T
         return m
 
+    @staticmethod
+    def _initialize_empty(format: str):  # noqa
+        if format == "csr":
+            return SharedTriangularSparseMatrix(None, None, None, None)  # noqa
+        if format == "csc":
+            return SharedTriangularSparseMatrix(None, None, None, None)  # noqa
 
-def set_shared_state(lt_matrix: SharedTriangularSparseMatrix, ut_matrix: SharedTriangularSparseMatrix):
+        raise NotImplementedError
+
+
+def set_shared_state(
+    lt_matrix: Optional[SharedTriangularSparseMatrix],
+    ut_matrix: Optional[SharedTriangularSparseMatrix],
+):
+    """
+    Register the given matrices in the global namespace.
+
+    Parameters
+    ----------
+    lt_matrix: Optional[SharedTriangularSparseMatrix]
+        a lower-triangular sparse matrix
+
+    ut_matrix: Optional[SharedTriangularSparseMatrix]
+        a upper-triangular sparse matrix
+    """
     if lt_matrix is not None:
         global _lower_triangular_matrix  # noqa
         _lower_triangular_matrix = lt_matrix
@@ -324,7 +485,10 @@ def set_shared_state(lt_matrix: SharedTriangularSparseMatrix, ut_matrix: SharedT
         _upper_triangular_matrix = ut_matrix
 
 
-def unset_shared_state():
+def unset_shared_state():  # noqa
+    """
+    Remove the matrices registered by set_shared_state() from the global namespace.
+    """
     call_gc = False
     if shared_state_avail("lower"):
         global _lower_triangular_matrix  # noqa
@@ -341,6 +505,19 @@ def unset_shared_state():
 
 
 def shared_state_avail(key: str) -> bool:
+    """
+    Check whether the lower- or upper-triangular sparse matrices are available in the global namespace.
+
+    Parameters
+    ----------
+    key: str
+        matrix location. Should be one of "lower", "LT", "upper", or "UT".
+
+    Returns
+    -------
+    bool
+        True if the requested matrix is available, False otherwise.
+    """
     if key in {"lower", "LT"}:
         return "_lower_triangular_matrix" in globals()
 
@@ -351,6 +528,21 @@ def shared_state_avail(key: str) -> bool:
 
 
 def get_shared_state(key: str) -> SharedTriangularSparseMatrix:
+    """
+    Fetch the matrix corresponding to the given key from the global namespace.
+    Fails if matrices have not been registered by calling set_shared_state()
+
+    Parameters
+    ----------
+    key: str
+        matrix location. Should be one of "lower", "LT", "upper", or "UT".
+
+    Returns
+    -------
+    SharedTriangularSparseMatrix
+        the requested sparse matrix.
+
+    """
     if key in {"lower", "LT"}:
         global _lower_triangular_matrix  # noqa
         return _lower_triangular_matrix

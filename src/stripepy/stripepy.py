@@ -17,8 +17,8 @@ from numpy.typing import NDArray
 from stripepy import IO, plot
 from stripepy.utils import common, finders, regressions, stripe
 from stripepy.utils.common import pretty_format_elapsed_time, zero_columns, zero_rows
-from stripepy.utils.multiprocess_sparse_matrix import SparseMatrix, get_shared_state
 from stripepy.utils.persistence1d import PersistenceTable
+from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
 
 
 def step_1(

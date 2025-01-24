@@ -22,13 +22,13 @@ from stripepy import IO, others, stripepy
 from stripepy.cli import logging
 from stripepy.utils import stripe
 from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time  # noqa
-from stripepy.utils.multiprocess_sparse_matrix import (
+from stripepy.utils.progress_bar import initialize_progress_bar
+from stripepy.utils.shared_sparse_matrix import (
     SharedTriangularSparseMatrix,
     SparseMatrix,
     set_shared_state,
     unset_shared_state,
 )
-from stripepy.utils.progress_bar import initialize_progress_bar
 
 
 def _init_shared_state(
