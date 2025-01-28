@@ -674,8 +674,7 @@ def _compute_progress_bar_weights(
         weights.extend((size * w for w in step_weights.values()))
 
     weights = np.array(weights)
-    weights /= weights.sum()
-    weights = np.minimum(weights.cumsum(), 1.0)
+    weights = weights / weights.sum()
 
     shape = (len(chrom_sizes), len(step_weights))
     df = pd.DataFrame(weights.reshape(shape), columns=list(step_weights.keys()))
@@ -1053,22 +1052,18 @@ def run(
             concurrent.futures.ThreadPoolExecutor(max_workers=min(nproc, 2)),
         )
 
-        # Set up the progress bar when appropriate
-        disable_bar = not sys.stderr.isatty()
+        # Set up the progress bar
         progress_weights_df = _compute_progress_bar_weights(chroms, include_plotting=roi is not None, nproc=nproc)
-        progress_bar = ctx.enter_context(
-            initialize_progress_bar(
-                total=sum(chroms.values()),
-                manual=True,
-                disable=disable_bar,
-                enrich_print=False,
-                file=sys.stderr,
-                receipt=False,
-                refresh_secs=0.05,
-                monitor="{percent:.2%}",
-                unit="bp",
-                scale="SI",
-            )
+        progress_bar = parent_logger.progress_bar
+        progress_bar.add_task(
+            task_id="total",
+            chrom="unknown",
+            step="unknown",
+            name="total",
+            description="",
+            start=True,
+            total=progress_weights_df.sum().sum(),
+            visible=True,
         )
 
         if normalization is None:
@@ -1090,7 +1085,12 @@ def run(
                 # Nothing to do here: write an empty entry for the current chromosome and continue
                 logger.warning("writing an empty entry for chromosome %s", chrom_name)
                 io_manager.write_results(_generate_empty_result(chrom_name, chrom_size, resolution))
-                progress_bar(max(progress_weights.values()))
+                progress_bar.update(
+                    task_id="total",
+                    advance=(max(progress_weights.values())),
+                    chrom=chrom_name,
+                    step="IO",
+                )
                 continue
 
             ut_matrix, matrix_roi_raw, matrix_roi_proc = _fetch_interactions(
@@ -1109,7 +1109,12 @@ def run(
             else:
                 lt_matrix = ut_matrix.T
 
-            progress_bar(progress_weights["step_1"])
+            progress_bar.update(
+                task_id="total",
+                advance=progress_weights["step_1"],
+                chrom=chrom_name,
+                step="step 1",
+            )
 
             result = _run_step_2(
                 chrom_name=chrom_name,
@@ -1120,7 +1125,12 @@ def run(
                 pool=pool,
                 logger=logger,
             )
-            progress_bar(progress_weights["step_2"])
+            progress_bar.update(
+                task_id="total",
+                advance=progress_weights["step_2"],
+                chrom=chrom_name,
+                step="step 2",
+            )
 
             result = _run_step_3(
                 result=result,
@@ -1135,7 +1145,12 @@ def run(
                 pool=pool,
                 logger=logger,
             )
-            progress_bar(progress_weights["step_3"])
+            progress_bar.update(
+                task_id="total",
+                advance=progress_weights["step_3"],
+                chrom=chrom_name,
+                step="step 3",
+            )
 
             result = _run_step_4(
                 result=result,
@@ -1145,12 +1160,22 @@ def run(
                 pool=pool,
                 logger=logger,
             )
-            progress_bar(progress_weights["step_4"])
+            progress_bar.update(
+                task_id="total",
+                advance=progress_weights["step_4"],
+                chrom=chrom_name,
+                step="step 4",
+            )
 
             logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
 
             io_manager.write_results(result)
-            progress_bar(progress_weights["output"])
+            progress_bar.update(
+                task_id="total",
+                advance=progress_weights["output"],
+                chrom=chrom_name,
+                step="IO",
+            )
 
             if matrix_roi_raw is not None:
                 assert matrix_roi_proc is not None
@@ -1173,7 +1198,12 @@ def run(
                     pool=pool,
                 )
 
-                progress_bar(progress_weights["step_5"])
+                progress_bar.update(
+                    task_id="total",
+                    advance=progress_weights["step_5"],
+                    chrom=chrom_name,
+                    step="step 5",
+                )
                 logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
 
     main_logger.info("DONE!")
