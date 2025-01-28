@@ -10,11 +10,36 @@ import importlib.util
 import multiprocessing as mp
 import pathlib
 import platform
-import sys
 from typing import Dict, List, Optional
 
 import hictkpy
 import structlog
+
+from stripepy.IO import get_stderr
+from stripepy.utils.progress_bar import initialize_progress_bar
+
+
+class _ProgressBarProxy(object):
+    def __init__(self, event_queue: mp.Queue):
+        self._queue = event_queue
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+    def add_task(self, *args, **kwargs):
+        assert "task_id" in kwargs
+        kwargs["__event_type"] = "progress_bar_add_task"
+        kwargs["args"] = args
+        self._queue.put(kwargs)
+
+    def update(self, *args, **kwargs):
+        assert "task_id" in kwargs
+        kwargs["__event_type"] = "progress_bar_update"
+        kwargs["args"] = args
+        self._queue.put(kwargs)
 
 
 @functools.cache
@@ -43,17 +68,35 @@ class _TeePipeWriter(object):
         self._console = console
         self._file = file
 
+        if hasattr(console, "out"):
+            self._write_to_console = _TeePipeWriter._write_to_console_rich
+        else:
+            self._write_to_console = _TeePipeWriter._write_to_console_plain
+
+    @staticmethod
+    def _write_to_file(message: Optional[str], f):
+        if f is not None and message is not None:
+            print(message, file=f)
+
+    @staticmethod
+    def _write_to_console_plain(message: Optional[str], f):
+        if f is not None and message is not None:
+            print(message, file=f)
+
+    @staticmethod
+    def _write_to_console_rich(message: Optional[str], f):
+        if f is not None and message is not None:
+            f.out(message, style=None, highlight=False)
+
     def write(self, file_message: Optional[str], console_message: Optional[str]):
-        if self._file is not None and file_message is not None:
-            print(file_message, file=self._file)
-        if self._console is not None and console_message is not None:
-            print(console_message, file=self._console, flush=True)
+        self._write_to_console(console_message, self._console)
+        self._write_to_file(file_message, self._file)
 
     def flush(self):
-        if self._console is not None:
-            self._console.flush()
         if self._file is not None:
             self._file.flush()
+        if hasattr(self._console, "flush"):
+            self._console.flush()
 
 
 class _TeeLogger(object):
@@ -339,6 +382,7 @@ class ProcessSafeLogger(object):
         self,
         level: str,
         path: Optional[pathlib.Path],
+        progress_bar_type: str,
         force: bool = False,
         matrix_file: Optional[pathlib.Path] = None,
         print_welcome_message: bool = True,
@@ -358,6 +402,7 @@ class ProcessSafeLogger(object):
         """
         self._level = level
         self._path = path
+        self._progress_bar_type = progress_bar_type
         self._force = force
         self._queue = None
         self._listener = None
@@ -388,6 +433,7 @@ class ProcessSafeLogger(object):
                 self._longest_chrom_name,
                 self._queue,
                 self._print_welcome_message,
+                self._progress_bar_type,
             ),
         )
         self._listener.start()
@@ -438,6 +484,13 @@ class ProcessSafeLogger(object):
 
         install_custom_warning_handler()
 
+    @property
+    def progress_bar(self) -> _ProgressBarProxy:
+        """
+        Get a proxy to the progress bar managed by the logger.
+        """
+        return _ProgressBarProxy(self._queue)
+
     @staticmethod
     def _listener(
         path: pathlib.Path,
@@ -446,6 +499,7 @@ class ProcessSafeLogger(object):
         longest_chrom_name: str,
         queue: mp.Queue,
         print_welcome_message: bool,
+        progress_bar_type: str,
     ):
         proc = mp.current_process()
         with contextlib.ExitStack() as ctx:
@@ -472,7 +526,7 @@ class ProcessSafeLogger(object):
             ProcessSafeLogger._setup_logger_for_listener(
                 log_level_console,
                 log_level_file,
-                console_handle=sys.stderr,
+                console_handle=get_stderr(),
                 file_handle=log_file,
                 longest_chrom_name=longest_chrom_name,
             )
@@ -492,6 +546,15 @@ class ProcessSafeLogger(object):
                     assert path.is_file()
                     logger.debug('%s (PID=%d) successfully initialized log file "%s"', proc.name, proc.pid, path)
 
+            progress_bar = ctx.enter_context(
+                initialize_progress_bar(
+                    progress_bar_type,
+                    longest_chrom_name=longest_chrom_name,
+                    longest_step_name="step 5",
+                )
+            )
+            progress_bar_tasks = {}
+
             log_level_mapper = _map_log_level_to_levelno
 
             while True:
@@ -499,8 +562,22 @@ class ProcessSafeLogger(object):
                 if event_dict is None:
                     logger.debug("%s (PID=%d): processed all log messages: returning!", proc.name, proc.pid)
                     return
-                event_dict["level"] = log_level_mapper(event_dict.pop("level", "notset"))
-                logger.log(**event_dict)
+
+                event_type = event_dict.pop("__event_type")
+                if event_type == "log_message":
+                    event_dict["level"] = log_level_mapper(event_dict.pop("level", "notset"))
+                    logger.log(**event_dict)
+                elif event_type == "progress_bar_update":
+                    task_id = progress_bar_tasks[event_dict.pop("task_id")]
+                    args = event_dict.pop("args", [])
+                    progress_bar.update(*args, task_id=task_id, **event_dict)
+                elif event_type == "progress_bar_add_task":
+                    task_id = event_dict.pop("task_id")
+                    args = event_dict.pop("args", [])
+                    progress_bar_tasks[task_id] = progress_bar.add_task(*args, **event_dict)
+                    logger.debug("successfully added task %s to progress bar", task_id)
+                else:
+                    raise NotImplementedError
 
     @staticmethod
     def _setup_logger_for_listener(
@@ -521,7 +598,7 @@ class ProcessSafeLogger(object):
         plain_renderer = structlog.dev.ConsoleRenderer(
             columns=_configure_logger_columns(colors=False, longest_chrom_name=longest_chrom_name),
         )
-        if console_handle is None or not console_handle.isatty():
+        if console_handle is None:
             colored_renderer = None
         else:
             colored_renderer = structlog.dev.ConsoleRenderer(
@@ -567,6 +644,7 @@ class ProcessSafeLogger(object):
 
     @staticmethod
     def _queue_logger_helper(_, method_name, event_dict, queue: mp.Queue) -> str:
+        event_dict["__event_type"] = "log_message"
         queue.put(event_dict)
         return ""
 
