@@ -638,7 +638,30 @@ def _check_neighborhood(
     threshold_percentage: float = 0.85,
 ) -> NDArray[bool]:
     """
-    # TODO rea1991: document
+    Given a 1D profile, it compute a mask of False values and True values where:
+    a False represents a bin surrounded by a sparse region and a True represents
+    a bin surrounded by a dense region.
+
+    Parameters
+    ----------
+    values : NDArray[float]
+        1D array representing a uniformly-sample scalar function works
+    min_value: float
+        threshold used to find sparse bins.
+    neighborhood_size: int
+        for each bin, it is used as neighborhood radius: it serves to determine a
+        neighborhood which is used to establish whether the bin is in a sparse
+        region.
+    threshold_percentage: float
+        if, for the current neighborhood, the fraction of bins with values below min_value
+        is above threshold_percentage, then the region is sparse.
+
+    Returns
+    -------
+    NDArray[bool]
+        A 1D array of booleans, having the same length of the array named values:
+        - False values represent bins surrounded by sparse regions.
+        - True values represent bins surrounded by dense regions.
     # TODO rea1991: change neighborhood size from "matrix" to "genomic" (eg, default of 1 Mb)
     """
 
@@ -672,8 +695,30 @@ def _filter_extrema_by_sparseness(
     logger=None,
 ) -> Tuple[pd.Series, pd.Series]:
     """
-    TODO rea1991: document
+    This function filters out extrema surrounded by sparse regions.
+    It marginalizes and smooths an input sparse matrix, then applies
+    the function _check_neighborhood to determine bins surrounded by
+    sparse regions. Finally, input maxima and minimum points are filtered
+    to remove extrema surrounded by sparse regions.
+
+    Parameters
+    ----------
+    matrix : SparseMatrix
+        sparse matrix, which can be a contact map (but this is not
+        strictly necessary).
+    min_points: pd.Series
+        1D array containing the minimum points.
+    max_points: pd.Series
+        1D array containing the maximum points.
+
+    Returns
+    -------
+    Tuple[pd.Series, pd.Series]
+        A tuple containing:
+        - Minimum points that survived the filtering.
+        - Maximum points that survived the filtering.
     """
+
     # The following asserts are disabled for performance reasons
     # assert matrix.shape[0] == matrix.shape[1]
     # assert len(min_points) + 1 == len(max_points)
