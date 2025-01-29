@@ -10,10 +10,13 @@ from importlib.metadata import version
 from typing import Any, Dict, List, Tuple, Union
 
 
-# Create a custom formatter to allow multiline and bulleted descriptions
-class CustomFormatter(argparse.RawTextHelpFormatter):
-    def _fill_text(self, text, width, indent):
-        return "".join([indent + line + "\n" for line in text.splitlines()])
+class _CustomFormatter(argparse.RawTextHelpFormatter):
+    """
+    A custom formatter that enables multiline and bulleted descriptions
+    """
+
+    def _fill_text(self, text, width, indent) -> str:
+        return text
 
 
 def _num_cpus(arg: str) -> int:
@@ -64,11 +67,12 @@ def _positive_int(arg) -> float:
 def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "call",
-        help="stripepy works in four consecutive steps: \n"
+        help="stripepy works in four consecutive steps:\n"
         "• Step 1: Pre-processing\n"
         "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
         "• Step 3: Shape analysis (i.e., width and height estimation)\n"
         "• Step 4: Signal analysis\n",
+        formatter_class=_CustomFormatter,
     )
 
     sc.add_argument(
@@ -87,7 +91,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "-n",
         "--normalization",
         type=str,
-        help="Normalization to fetch (default: 'None').",
+        help="Normalization to fetch (default: %(default)s).",
     )
 
     sc.add_argument(
@@ -95,14 +99,14 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "--genomic-belt",
         type=int,
         default=5_000_000,
-        help="Radius of the band, centred around the diagonal, where the search is restricted to (in bp, default: 5000000).",
+        help="Radius of the band, centred around the diagonal, where the search is restricted to (in bp, default: %(default)s).",
     )
 
     sc.add_argument(
         "--roi",
         type=str,
         choices={"middle", "start"},
-        help="Criterion used to select a region from each chromosome used to generate diagnostic plots (default: None).\n"
+        help="Criterion used to select a region from each chromosome used to generate diagnostic plots (default: %(default)s).\n"
         "Requires --plot-dir.",
     )
 
@@ -110,6 +114,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "-o",
         "--output-file",
         type=pathlib.Path,
+        required=True,
         help="Path where to store the output HDF5 file.\n"
         "When not specified, the output file will be saved in the current working directory with a named based on the name of input matrix file.",
     )
@@ -132,7 +137,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "--max-width",
         type=int,
         default=100_000,
-        help="Maximum stripe width, in bp.",
+        help="Maximum stripe width, in bp (default: %(default)s).",
     )
 
     sc.add_argument(
@@ -140,14 +145,14 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         type=_probability,
         default=0.05,
         help="Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest, "
-        "aka seeds (default: 0.2).",
+        "aka seeds (default: %(default)s).",
     )
 
     sc.add_argument(
         "--constrain-heights",
         action="store_true",
         default=False,
-        help="Use peaks in signal to constrain the stripe height (default: 'False')",
+        help="Use peaks in signal to constrain the stripe height (default: %(default)s).",
     )
 
     sc.add_argument(
@@ -155,14 +160,14 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         type=_probability,
         default=0.33,
         help="Threshold value between 0 and 1 to find peaks in signal in a horizontal domain while estimating the "
-        "height of a stripe; when --constrain-heights is set to 'False', it is not used (default: 0.2).",
+        "height of a stripe; when --constrain-heights is set to 'False', it is not used (default: %(default)s).",
     )
 
     sc.add_argument(
         "--loc-trend-min",
         type=_probability,
         default=0.25,
-        help="Threshold value between 0 and 1 to estimate the height of a stripe (default: 0.1); "
+        help="Threshold value between 0 and 1 to estimate the height of a stripe (default: %(default)s); "
         "the higher this value, the shorter the stripe; it is always used when --constrain-heights is set to "
         "'False', but could be necessary also when --constrain-heights is 'True' and no persistent maximum other "
         "than the global maximum is found.",
@@ -173,7 +178,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         default=False,
-        help="Overwrite existing file(s).",
+        help="Overwrite existing file(s) (default: %(default)s).",
     )
 
     sc.add_argument(
@@ -181,7 +186,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         type=str,
         choices=["debug", "info", "warning", "error", "critical"],
         default="info",
-        help="Set verbosity of output to the console.",
+        help="Set verbosity of output to the console (default: %(default)s).",
     )
 
     sc.add_argument(
@@ -189,14 +194,14 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "--nproc",
         type=_num_cpus,
         default=1,
-        help="Maximum number of parallel processes to use.",
+        help="Maximum number of parallel processes to use (default: %(default)s).",
     )
 
     sc.add_argument(
         "--min-chrom-size",
         type=int,
         default=2_000_000,
-        help="Minimum size, in bp, for a chromosome to be analysed (default: 2 Mbp).",
+        help="Minimum size, in bp, for a chromosome to be analysed (default: %(default)s).",
     )
 
     return sc
@@ -206,6 +211,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "download",
         help="Helper command to simplify downloading datasets that can be used to test StripePy.",
+        formatter_class=_CustomFormatter,
     )
 
     def get_avail_ref_genomes():
@@ -234,7 +240,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         "--list-only",
         action="store_true",
         default=False,
-        help="Print the list of available datasets and return.",
+        help="Print the list of available datasets and return (default: %(default)s).",
     )
 
     grp_ = sc.add_mutually_exclusive_group(required=False)
@@ -260,34 +266,34 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         "--include-private",
         action="store_true",
         default=False,
-        help="Include datasets used for internal testing.",
+        help="Include datasets used for internal testing (default: %(default)s).",
     )
     sc.add_argument(
         "--max-size",
         type=_positive_float,
         default=512.0,
-        help="Upper bound for the size of the files to be considered when --name is not provided.",
+        help="Upper bound for the size of the files to be considered when --name is not provided (default: %(default)s).",
     )
     sc.add_argument(
         "-o",
         "--output",
         type=pathlib.Path,
         dest="output_path",
-        help="Path where to store the downloaded file.",
+        help="Path where to store the downloaded file (default: %(default)s).",
     )
     sc.add_argument(
         "-f",
         "--force",
         action="store_true",
         default=False,
-        help="Overwrite existing file(s).",
+        help="Overwrite existing file(s) (default: %(default)s).",
     )
     sc.add_argument(
         "--verbosity",
         type=str,
         choices=["debug", "info", "warning", "error", "critical"],
         default="info",
-        help="Set verbosity of output to the console.",
+        help="Set verbosity of output to the console (default: %(default)s).",
     )
 
     return sc
@@ -297,6 +303,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
     subparser = main_parser.add_parser(
         "plot",
         help="Generate various static plots useful to visually inspect the output produced by stripepy call.",
+        formatter_class=_CustomFormatter,
     ).add_subparsers(title="plot_subcommands", dest="plot_type", required=True, help="List of available subcommands:")
 
     def add_common_options(sc, region_is_randomized: bool):
@@ -322,33 +329,33 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
             "--dpi",
             type=_positive_int,
             default=300,
-            help="DPI of the generated plot (ignored when the output format is a vector graphic).",
+            help="DPI of the generated plot (default: %(default)s; ignored when the output format is a vector graphic).",
         )
         sc.add_argument(
             "--seed",
             type=int,
             default=7606490399616306585,
-            help="Seed for random number generation.",
+            help="Seed for random number generation (default: %(default)s).",
         )
         sc.add_argument(
             "-n",
             "--normalization",
             type=str,
-            help="Normalization to fetch (default: 'None').",
+            help="Normalization to fetch (default: %(default)s).",
         )
         sc.add_argument(
             "-f",
             "--force",
             action="store_true",
             default=False,
-            help="Overwrite existing file(s).",
+            help="Overwrite existing file(s) (default: %(default)s).",
         )
         sc.add_argument(
             "--verbosity",
             type=str,
             choices=["debug", "info", "warning", "error", "critical"],
             default="info",
-            help="Set verbosity of output to the console.",
+            help="Set verbosity of output to the console (default: %(default)s).",
         )
 
     def add_stripepy_hdf5_option(sc):
@@ -362,6 +369,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "contact-map",
         help="Plot stripes and other features over the Hi-C matrix.",
         aliases=["cm"],
+        formatter_class=_CustomFormatter,
     )
     sc.add_argument(
         "contact-map",
@@ -377,13 +385,13 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--stripepy-hdf5",
         type=_existing_file,
-        help="Path to the .hdf5 generated by stripepy call. Required when highlighting stripes or seeds.",
+        help="Path to the .hdf5 generated by stripepy call.\n" "Required when highlighting stripes or seeds.",
     )
 
     sc.add_argument(
         "--relative-change-threshold",
         type=_positive_float,
-        help="Cutoff for the relative change.\n"
+        help="Cutoff for the relative change (default: %(default)s).\n"
         "Only used when highlighting architectural stripes.\n"
         "The relative change is computed as the ratio between the average number of interactions "
         "found inside a stripe and the number of interactions in a neighborhood outside of the stripe.",
@@ -394,25 +402,26 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "--highlight-seeds",
         action="store_true",
         default=False,
-        help="Highlight the stripe seeds.",
+        help="Highlight the stripe seeds (default: %(default)s).",
     )
     grp.add_argument(
         "--highlight-stripes",
         action="store_true",
         default=False,
-        help="Highlight the architectural stripes.",
+        help="Highlight the architectural stripes (default: %(default)s).",
     )
     sc.add_argument(
         "--ignore-stripe-heights",
         action="store_true",
         default=False,
-        help="Ignore the stripes height. Has no effect when --highlight-stripes is not specified.",
+        help="Ignore the stripes height (default: %(default)s).\n"
+        "Has no effect when --highlight-stripes is not specified.",
     )
     sc.add_argument(
         "--cmap",
         type=str,
         default="fruit_punch",
-        help="Color map used to plot Hi-C interactions.\n"
+        help="Color map used to plot Hi-C interactions (default: %(default)s).\n"
         "Can be any of the color maps supported by matplotlib as well as: fall, fruit_punch, "
         "blues, acidblues, and nmeth.",
     )
@@ -422,14 +431,15 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "--linear-scale",
         action="store_false",
         dest="log_scale",
-        help="Plot interactions in linear scale.",
+        default=False,
+        help="Plot interactions in linear scale (default: %(default)s).",
     )
     grp.add_argument(
         "--log-scale",
         action="store_true",
         dest="log_scale",
         default=True,
-        help="Plot interactions in log scale.",
+        help="Plot interactions in log scale (default: %(default)s).",
     )
 
     add_common_options(sc, region_is_randomized=True)
@@ -438,6 +448,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "pseudodistribution",
         help="Plot the pseudo-distribution over the given region of interest.",
         aliases=["pd"],
+        formatter_class=_CustomFormatter,
     )
     add_stripepy_hdf5_option(sc)
     add_common_options(sc, region_is_randomized=True)
@@ -446,6 +457,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "stripe-hist",
         help="Generate and plot the histograms showing the distribution of the stripe heights and widths.",
         aliases=["hist"],
+        formatter_class=_CustomFormatter,
     )
     add_stripepy_hdf5_option(sc)
     add_common_options(sc, region_is_randomized=False)
@@ -457,6 +469,7 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "view",
         help="Fetch stripes from the HDF5 file produced by stripepy call.",
+        formatter_class=_CustomFormatter,
     )
 
     sc.add_argument(
@@ -470,7 +483,7 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
         "--relative-change-threshold",
         type=float,
         default=5.0,
-        help="Cutoff for the relative change.\n"
+        help="Cutoff for the relative change (default: %(default)s).\n"
         "The relative change is computed as the ratio between the average number of interactions\n"
         "found inside a stripe and the number of interactions in a neighborhood outside of the stripe.",
     )
@@ -478,16 +491,16 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--transform",
         type=str,
-        choices=["transpose_to_ut", "transpose_to_lt", None],
+        choices={"transpose_to_ut", "transpose_to_lt", None},
         default=None,
-        help="Control if and how stripe coordinates should be transformed.",
+        help="Control if and how stripe coordinates should be transformed (default: %(default)s).",
     )
     sc.add_argument(
         "--verbosity",
         type=str,
         choices=["debug", "info", "warning", "error", "critical"],
         default="info",
-        help="Set verbosity of output to the console.",
+        help="Set verbosity of output to the console (default: %(default)s).",
     )
 
     return sc
@@ -496,8 +509,8 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
 def _make_cli() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(
         description="stripepy is designed to recognize linear patterns in contact maps (.hic, .mcool, .cool) "
-        "through the geometric reasoning, including topological persistence and quasi-interpolation. ",
-        formatter_class=CustomFormatter,
+        "through the geometric reasoning, including topological persistence and quasi-interpolation.",
+        formatter_class=_CustomFormatter,
     )
 
     sub_parser = cli.add_subparsers(
