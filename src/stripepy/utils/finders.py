@@ -174,7 +174,31 @@ def _find_v_domain_helper(
 ) -> Tuple[int, Optional[npt.NDArray[int]]]:
     """
     Helper function for the _find_*_v_domain() functions.
-    # TODO rea1991: document
+    It computes the bound of the profile using one of the two following criteria:
+    - if min_persistence is provided, it finds persistent maximum points by thresholding
+      topological persistence. If at least two persistent maxima are found, it returns
+      as bound the rightmost persistent maximum point
+    - if min_persistence is not provided or the previous condition does not hold,
+      it finds the bound as the index from where the (smoothed) profile is identically
+      below threshold_cut
+
+
+    Parameters
+    ----------
+    profile : npt.NDArray[float]
+        1D array representing a uniformly-sample scalar function works
+    threshold_cut: float
+        threshold used to determine the span of vertical domains.
+        Higher values will lead to shorter domains.
+    min_persistence: Optional[float]
+        threshold used to find peaks in the profile associated with a horizontal domain.
+
+    Returns
+    -------
+    Tuple[int, Optional[npt.NDArray[int]]]
+        A tuple with the following entries:
+        - the bound of the domain
+        - the array of maximum points (optional, when min_persistence is provided)
     """
     if min_persistence is None:
         max_points = tuple()
