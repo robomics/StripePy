@@ -102,18 +102,6 @@ class Persistence1DTable(object):
 
         return table
 
-    @functools.cached_property
-    def global_minimum(self) -> int:
-        if self._level_sets == "lower":
-            return self._min.max()
-        return self._max.min()
-
-    @functools.cached_property
-    def global_maximum(self) -> int:
-        if self._level_sets == "lower":
-            return self._max.max()
-        return self._min.min()
-
     @property
     def min(self) -> pd.Series:
         return self._min
