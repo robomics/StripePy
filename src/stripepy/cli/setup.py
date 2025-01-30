@@ -431,8 +431,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "--linear-scale",
         action="store_false",
         dest="log_scale",
-        default=False,
-        help="Plot interactions in linear scale (default: %(default)s).",
+        help="Plot interactions in linear scale (default: False).",
     )
     grp.add_argument(
         "--log-scale",
