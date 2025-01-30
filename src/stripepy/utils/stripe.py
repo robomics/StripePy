@@ -400,13 +400,12 @@ class Stripe(object):
     def _slice_matrix(self, matrix: SparseMatrix) -> NDArray:
         convex_comb = self._compute_convex_comp()
 
-        # TODO do we have an off by one error here?
         if self.lower_triangular:
-            i0, i1 = convex_comb, self._bottom_bound
-            j0, j1 = self._left_bound, self._right_bound
+            i0, i1 = convex_comb, min(self._bottom_bound + 1, matrix.shape[0])
+            j0, j1 = self._left_bound, min(self._right_bound + 1, matrix.shape[1])
         else:
-            i0, i1 = self._top_bound, convex_comb
-            j0, j1 = self._left_bound, self._right_bound
+            i0, i1 = self._top_bound, min(convex_comb + 1, matrix.shape[0])
+            j0, j1 = self._left_bound, min(self._right_bound + 1, matrix.shape[1])
 
         if isinstance(matrix, ss.csr_matrix):
             return matrix[i0:i1, :].tocsc()[:, j0:j1].toarray()
