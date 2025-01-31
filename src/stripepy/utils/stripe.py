@@ -322,7 +322,11 @@ class Stripe(object):
             self._outer_rmean = -1.0
             return
 
-        self._five_number, self._inner_mean, self._inner_std = self._compute_inner_descriptors(restrI)
+        if self.lower_triangular:
+            flat_stripe = Stripe._flatten_stripe_lower(restrI, self._seed)
+        else:
+            flat_stripe = Stripe._flatten_stripe_upper(restrI, self._seed)
+        self._five_number, self._inner_mean, self._inner_std = self._compute_inner_descriptors(flat_stripe)
 
         # Mean intensity - left and right neighborhoods:
         self._outer_lmean = self._compute_lmean(matrix, window)
@@ -411,6 +415,26 @@ class Stripe(object):
             return matrix[i0:i1, :].tocsc()[:, j0:j1].toarray()
 
         return matrix[:, j0:j1].tocsr()[i0:i1, :].toarray()
+
+    @staticmethod
+    def _flatten_stripe_upper(matrix: NDArray, seed: int) -> NDArray:
+        idx1, idx2 = np.tril_indices(n=matrix.shape[0], m=matrix.shape[1], k=seed - matrix.shape[1] - 1)
+        matrix = matrix.copy()
+        matrix[idx1, idx2] = np.nan
+        matrix = matrix.flatten()
+        matrix = matrix[np.isfinite(matrix)]
+        assert matrix.size > 0
+        return matrix
+
+    @staticmethod
+    def _flatten_stripe_lower(matrix: NDArray, seed: int) -> NDArray:
+        idx1, idx2 = np.triu_indices(n=matrix.shape[0], m=matrix.shape[1], k=seed)
+        matrix = matrix.copy()
+        matrix[idx1, idx2] = np.nan
+        matrix = matrix.flatten()
+        matrix = matrix[np.isfinite(matrix)]
+        assert matrix.size > 0
+        return matrix
 
     @staticmethod
     def _compute_inner_descriptors(matrix: NDArray) -> Tuple[NDArray[float], float, float]:
