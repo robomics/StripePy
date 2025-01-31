@@ -440,15 +440,16 @@ class Stripe(object):
         """
         assert window >= 0
 
-        new_bound = min(matrix.shape[1], self._right_bound + window)
+        new_left_bound = min(matrix.shape[1], self._right_bound + 1)
+        new_right_bound = min(matrix.shape[1], self._right_bound + 1 + window)
 
-        if new_bound == self._right_bound:
+        if new_left_bound == new_right_bound:
             return math.nan
 
         convex_comb = self._compute_convex_comp()
         if self.lower_triangular:
-            submatrix = matrix[convex_comb : self._bottom_bound, self._right_bound : new_bound]
+            submatrix = matrix[convex_comb : self._bottom_bound, new_left_bound:new_right_bound]
         else:
-            submatrix = matrix[self._top_bound : convex_comb, self._right_bound : new_bound]
+            submatrix = matrix[self._top_bound : convex_comb, new_left_bound:new_right_bound]
 
         return submatrix.mean()
