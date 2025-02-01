@@ -11,6 +11,17 @@ import scipy.sparse as ss
 from numpy.typing import NDArray
 
 
+def pretty_format_genomic_distance(distance: int) -> str:
+    if distance < 1e3:
+        return f"{distance} bp"
+    if distance < 1e6:
+        return f"{distance / 1e3:.1f} kbp"
+    if distance < 1e9:
+        return f"{distance / 1e6:.1f} Mbp"
+
+    return f"{distance / 1e9:.1f} Gbp"
+
+
 def pretty_format_elapsed_time(
     t0: float,
     t1: Optional[float] = None,

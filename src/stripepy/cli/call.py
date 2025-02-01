@@ -9,20 +9,22 @@ import json
 import multiprocessing as mp
 import pathlib
 import shutil
-import sys
 import time
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import hictkpy
 import numpy as np
-import pandas as pd
 import structlog
 
 from stripepy import IO, others, stripepy
 from stripepy.cli import logging
 from stripepy.utils import stripe
-from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time  # noqa
-from stripepy.utils.progress_bar import initialize_progress_bar
+from stripepy.utils.common import _import_matplotlib  # noqa
+from stripepy.utils.common import (
+    pretty_format_elapsed_time,
+    pretty_format_genomic_distance,
+)
+from stripepy.utils.progress_bar import get_stripepy_call_progress_bar_weights
 from stripepy.utils.shared_sparse_matrix import (
     SharedTriangularSparseMatrix,
     SparseMatrix,
@@ -630,58 +632,6 @@ def _write_param_summary(
     logger.info(f"CONFIG:\n{config_str}")
 
 
-def _compute_progress_bar_weights(
-    chrom_sizes: Dict[str, int],
-    include_plotting: bool,
-    nproc: int,
-) -> pd.DataFrame:
-    """
-    Compute the weights used to update the progress bar.
-
-    Returns
-    -------
-    pd.DataFrame
-        A DataFrame with the following columns:
-        index) chrom
-        0) input
-        1) step_1
-        2) step_2
-        3) step_3
-        4) step_4
-        5) output
-        6) step_5
-    """
-    # These weights have been computed on a Linux machine (Ryzen 9 7950X3D) using 1 core to process
-    # 4DNFI9GMP2J8.mcool at 10kbp
-    step_weights = {
-        "input": 0.035557,
-        "step_1": 0.018159,
-        "step_2": 0.015722,
-        "step_3": 0.301879,
-        "step_4": 0.051055,
-        "output": 0.054285,
-        "step_5": 0.523344 / nproc,
-    }
-
-    if not include_plotting:
-        step_weights["step_5"] = 0.0
-
-    tot = sum(step_weights.values())
-    step_weights = {k: v / tot for k, v in step_weights.items()}
-
-    weights = []
-    for size in chrom_sizes.values():
-        weights.extend((size * w for w in step_weights.values()))
-
-    weights = np.array(weights)
-    weights = weights / weights.sum()
-
-    shape = (len(chrom_sizes), len(step_weights))
-    df = pd.DataFrame(weights.reshape(shape), columns=list(step_weights.keys()))
-    df["chrom"] = list(chrom_sizes.keys())
-    return df.set_index(["chrom"])
-
-
 def _remove_existing_output_files(
     output_file: pathlib.Path,
     plot_dir: Optional[pathlib.Path],
@@ -1052,25 +1002,29 @@ def run(
             concurrent.futures.ThreadPoolExecutor(max_workers=min(nproc, 2)),
         )
 
-        # Set up the progress bar
-        progress_weights_df = _compute_progress_bar_weights(chroms, include_plotting=roi is not None, nproc=nproc)
-        progress_bar = parent_logger.progress_bar
-        progress_bar.add_task(
-            task_id="total",
-            chrom="unknown",
-            step="unknown",
-            name="total",
-            description="",
-            start=True,
-            total=progress_weights_df.sum().sum(),
-            visible=True,
-        )
-
         if normalization is None:
             normalization = "NONE"
 
         # Generate a plan for the work to be done
         tasks = _plan_tasks(chroms, min_chrom_size, main_logger)
+
+        # Set up the progress bar
+        progress_weights_df = get_stripepy_call_progress_bar_weights(
+            tasks,
+            include_plotting=roi is not None,
+            nproc=nproc,
+        )
+        progress_bar = parent_logger.progress_bar
+        progress_bar.add_task(
+            task_id="total",
+            chrom="unknown",
+            step="unknown",
+            name=f"{contact_map.stem} • {pretty_format_genomic_distance(resolution)}",
+            description="",
+            start=True,
+            total=progress_weights_df.sum().sum(),
+            visible=True,
+        )
 
         # Loop over the planned tasks
         for i, (chrom_name, chrom_size, skip) in enumerate(tasks):
@@ -1087,12 +1041,18 @@ def run(
                 io_manager.write_results(_generate_empty_result(chrom_name, chrom_size, resolution))
                 progress_bar.update(
                     task_id="total",
-                    advance=(max(progress_weights.values())),
+                    advance=sum(progress_weights.values()),
                     chrom=chrom_name,
                     step="IO",
                 )
                 continue
 
+            progress_bar.update(
+                task_id="total",
+                advance=0,
+                chrom=chrom_name,
+                step="step 1",
+            )
             ut_matrix, matrix_roi_raw, matrix_roi_proc = _fetch_interactions(
                 i,
                 io_manager,
@@ -1113,7 +1073,7 @@ def run(
                 task_id="total",
                 advance=progress_weights["step_1"],
                 chrom=chrom_name,
-                step="step 1",
+                step="step 2",
             )
 
             result = _run_step_2(
@@ -1129,7 +1089,7 @@ def run(
                 task_id="total",
                 advance=progress_weights["step_2"],
                 chrom=chrom_name,
-                step="step 2",
+                step="step 3",
             )
 
             result = _run_step_3(
@@ -1149,7 +1109,7 @@ def run(
                 task_id="total",
                 advance=progress_weights["step_3"],
                 chrom=chrom_name,
-                step="step 3",
+                step="step 4",
             )
 
             result = _run_step_4(
@@ -1164,25 +1124,19 @@ def run(
                 task_id="total",
                 advance=progress_weights["step_4"],
                 chrom=chrom_name,
-                step="step 4",
+                step="step 4" if matrix_roi_raw is None else "step 5",
             )
 
             logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
 
             io_manager.write_results(result)
-            progress_bar.update(
-                task_id="total",
-                advance=progress_weights["output"],
-                chrom=chrom_name,
-                step="IO",
-            )
 
             if matrix_roi_raw is not None:
                 assert matrix_roi_proc is not None
                 chrom_roi = others.define_region_of_interest(roi, chrom_size, resolution)
 
                 logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *chrom_roi["genomic"])
-                result.set_roi(chrom_roi)
+                result.set_roi(chrom_roi)  # noqa
                 start_time = time.time()
                 logger = logger.bind(step=(5,))
                 logger.info("generating plots")
