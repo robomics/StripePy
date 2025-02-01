@@ -15,11 +15,11 @@ def pretty_format_genomic_distance(distance: int) -> str:
     if distance < 1e3:
         return f"{distance} bp"
     if distance < 1e6:
-        return f"{distance / 1e3:.1f} kbp"
+        return f"{distance / 1e3:.2g} kbp"
     if distance < 1e9:
-        return f"{distance / 1e6:.1f} Mbp"
+        return f"{distance / 1e6:.2g} Mbp"
 
-    return f"{distance / 1e9:.1f} Gbp"
+    return f"{distance / 1e9:.2g} Gbp"
 
 
 def pretty_format_elapsed_time(
