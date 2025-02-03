@@ -133,30 +133,29 @@ def _lookup_dataset(
     return key, dsets[key]
 
 
-def _hash_file(path: pathlib.Path, chunk_size=16 << 20) -> str:
+def _hash_file(path: pathlib.Path, progress_bar, chunk_size: int = 16 << 20) -> str:
     file_size = path.stat().st_size
-    disable_bar = not sys.stderr.isatty() or file_size < (256 << 20)
+    disable_progress_bar = file_size < (256 << 20)
+    progress_bar_task_id = str(path.stem)
 
-    with initialize_progress_bar(
+    logger = structlog.get_logger()
+    logger.info('computing MD5 digest for file "%s"...', path)
+    progress_bar.add_task(
+        task_id=progress_bar_task_id,
+        name=f"{path.stem}: checksumming",
+        description="",
+        start=True,
         total=file_size,
-        disable=disable_bar,
-        enrich_print=False,
-        file=sys.stderr,
-        receipt=False,
-        monitor="{percent:.2%}",
-        unit="B",
-        scale="SI2",
-    ) as bar:
-        logger = structlog.get_logger()
-        logger.info('computing MD5 digest for file "%s"...', path)
-        with path.open("rb") as f:
-            hasher = hashlib.md5()
-            while True:
-                chunk = f.read(chunk_size)
-                if not chunk:
-                    return hasher.hexdigest()
-                hasher.update(chunk)
-                bar(len(chunk))
+        visible=not disable_progress_bar,
+    )
+    with path.open("rb") as f:
+        hasher = hashlib.md5()
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                return hasher.hexdigest()
+            hasher.update(chunk)
+            progress_bar.update(task_id=progress_bar_task_id, advance=len(chunk))
 
 
 def _fetch_remote_file_size(url: str) -> Optional[int]:
@@ -167,19 +166,27 @@ def _fetch_remote_file_size(url: str) -> Optional[int]:
         return None
 
 
-def _download_progress_reporter(chunk_no, max_chunk_size, download_size):
-    if _download_progress_reporter.bar is not None:
-        _download_progress_reporter.bar(
-            min(chunk_no * max_chunk_size, download_size) / _download_progress_reporter.total
-        )
+def _download_progress_reporter(
+    chunk_no,
+    max_chunk_size,
+    download_size,
+    progress_bar,
+    progress_bar_task_id,
+    total,
+):
+    bytes_downloaded = min(chunk_no * max_chunk_size, total)
+    progress_bar.update(
+        task_id=progress_bar_task_id,
+        advance=min(max_chunk_size, total - bytes_downloaded),
+    )
 
 
-# this is Python's way of defining static variables inside functions
-_download_progress_reporter.bar = None
-_download_progress_reporter.total = None
-
-
-def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
+def _download_and_checksum(
+    name: str,
+    dset: Dict[str, Any],
+    dest: pathlib.Path,
+    progress_bar,
+):
     with tempfile.NamedTemporaryFile(dir=dest.parent, prefix=f"{dest.stem}.") as tmpfile:
         logger = structlog.get_logger()
         tmpfile.close()
@@ -189,30 +196,37 @@ def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
         md5sum = dset["md5"]
         assembly = dset.get("assembly", "unknown")
         size = _fetch_remote_file_size(url)
+        disable_progress_bar = size is None
 
-        disable_bar = not sys.stderr.isatty() or size is None
-
-        with initialize_progress_bar(
+        logger.info('downloading dataset "%s" (assembly=%s)...', name, assembly)
+        t0 = time.time()
+        progress_bar_task_id = name
+        progress_bar.add_task(
+            task_id=progress_bar_task_id,
+            name=f"{name}: downloading",
+            description="",
+            start=True,
             total=size,
-            manual=True,
-            disable=disable_bar,
-            enrich_print=False,
-            file=sys.stderr,
-            receipt=False,
-            refresh_secs=0.05,
-            monitor="{percent:.2%}",
-            unit="B",
-            scale="SI2",
-        ) as bar:
-            _download_progress_reporter.bar = bar
-            _download_progress_reporter.total = size
+            visible=not disable_progress_bar,
+        )
 
-            logger.info('downloading dataset "%s" (assembly=%s)...', name, assembly)
-            t0 = time.time()
-            urllib.request.urlretrieve(url, tmpfile, reporthook=_download_progress_reporter)
-            logger.info('DONE! Downloading dataset "%s" took %s.', name, pretty_format_elapsed_time(t0))
+        urllib.request.urlretrieve(
+            url,
+            tmpfile,
+            reporthook=functools.partial(
+                _download_progress_reporter,
+                progress_bar=progress_bar,
+                progress_bar_task_id=progress_bar_task_id,
+                total=size,
+            ),
+        )
 
-        digest = _hash_file(tmpfile)
+        logger.info('DONE! Downloading dataset "%s" took %s.', name, pretty_format_elapsed_time(t0))
+
+        digest = _hash_file(
+            tmpfile,
+            progress_bar,
+        )
         if digest == md5sum:
             logger.info("MD5 checksum match!")
             return tmpfile.rename(dest)
@@ -222,7 +236,11 @@ def _download_and_checksum(name: str, dset: Dict[str, Any], dest: pathlib.Path):
         )
 
 
-def _download_multiple(names: Sequence[str], output_paths: Sequence[pathlib.Path]):
+def _download_multiple(
+    names: Sequence[str],
+    output_paths: Sequence[pathlib.Path],
+    progress_bar,
+):
     assert len(names) == len(output_paths)
 
     logger = structlog.get_logger()
@@ -239,13 +257,13 @@ def _download_multiple(names: Sequence[str], output_paths: Sequence[pathlib.Path
                 continue
         output_path.unlink(missing_ok=True)
 
-        dest = _download_and_checksum(dset_name, config, output_path)
+        dest = _download_and_checksum(dset_name, config, output_path, progress_bar)
         t1 = time.time()
         logger.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
-        logger.info(f"file size: %.2fMB. Elapsed time: %.2fs", dest.stat().st_size / (1024 << 10), t1 - t0)
+        logger.info(f"file size: %.2f MiB. Elapsed time: %.2fs", dest.stat().st_size / (1024 << 10), t1 - t0)
 
 
-def _download_data_for_unit_tests():
+def _download_data_for_unit_tests(progress_bar):
     output_dir = pathlib.Path("test/data")
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -256,11 +274,11 @@ def _download_data_for_unit_tests():
         "__stripepy_plot_images": pathlib.Path("test/data/stripepy-plot-test-images.tar.xz"),
     }
 
-    _download_multiple(list(names.keys()), list(names.values()))
+    _download_multiple(list(names.keys()), list(names.values()), progress_bar)
 
 
-def _download_data_for_end2end_tests():
-    _download_data_for_unit_tests()
+def _download_data_for_end2end_tests(*args, **kwargs):
+    _download_data_for_unit_tests(*args, **kwargs)
 
 
 def run(
@@ -273,6 +291,7 @@ def run(
     name: Optional[str] = None,
     output_path: Optional[pathlib.Path] = None,
     assembly: Optional[str] = None,
+    main_logger=None,
 ) -> int:
     t0 = time.time()
     if list_only:
@@ -280,11 +299,11 @@ def run(
         return 0
 
     if unit_test:
-        _download_data_for_unit_tests()
+        _download_data_for_unit_tests(progress_bar=main_logger.progress_bar)
         return 0
 
     if end2end_test:
-        _download_data_for_end2end_tests()
+        _download_data_for_end2end_tests(progress_bar=main_logger.progress_bar)
         return 0
 
     do_random_sample = name is None and assembly is None
@@ -301,15 +320,20 @@ def run(
             output_path = pathlib.Path(f"{dset_name}.{config['format']}")
 
     if output_path.exists() and not force:
-        raise RuntimeError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")
+        raise FileExistsError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")
     output_path.unlink(missing_ok=True)
 
-    dest = _download_and_checksum(dset_name, config, output_path)
+    dest = _download_and_checksum(
+        dset_name,
+        config,
+        output_path,
+        progress_bar=main_logger.progress_bar,
+    )
 
     logger = structlog.get_logger()
     logger.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
     logger.info(
-        f"file size: %.2fMB. Elapsed time: %s", dest.stat().st_size / (1024 << 10), pretty_format_elapsed_time(t0)
+        f"file size: %.2f MiB. Elapsed time: %s", dest.stat().st_size / (1024 << 10), pretty_format_elapsed_time(t0)
     )
 
     return 0

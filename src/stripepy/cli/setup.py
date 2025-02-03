@@ -214,7 +214,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     )
 
     def get_avail_ref_genomes():
-        from .download import _get_datasets
+        from stripepy.cli.download import _get_datasets  # noqa
 
         return {
             record["assembly"]
