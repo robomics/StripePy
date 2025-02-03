@@ -114,7 +114,6 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "-o",
         "--output-file",
         type=pathlib.Path,
-        required=True,
         help="Path where to store the output HDF5 file.\n"
         "When not specified, the output file will be saved in the current working directory with a named based on the name of input matrix file.",
     )
