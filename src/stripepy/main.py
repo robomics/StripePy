@@ -44,6 +44,7 @@ def main(args: Optional[List[str]] = None):
         force=kwargs.get("force"),
         matrix_file=kwargs.get("contact_map"),
         print_welcome_message=subcommand != "view",
+        progress_bar_type=subcommand,
     ) as main_logger:
         try:
             _setup_matplotlib(subcommand, **kwargs)
