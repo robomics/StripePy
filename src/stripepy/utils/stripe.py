@@ -361,20 +361,11 @@ class Stripe(object):
             raise ValueError("window cannot be negative")
 
         left_submatrix, stripe_submatrix, right_submatrix = self._slice_matrix(matrix, window)
-
-        if self.lower_triangular:
-            flat_left_stripe = Stripe._flatten_stripe_lower(left_submatrix, self._seed)
-            flat_stripe = Stripe._flatten_stripe_lower(stripe_submatrix, self._seed)
-            flat_right_stripe = Stripe._flatten_stripe_lower(right_submatrix, self._seed)
-        else:
-            flat_left_stripe = Stripe._flatten_stripe_upper(left_submatrix, self._seed)
-            flat_stripe = Stripe._flatten_stripe_upper(stripe_submatrix, self._seed)
-            flat_right_stripe = Stripe._flatten_stripe_upper(right_submatrix, self._seed)
-        self._five_number, self._inner_mean, self._inner_std = self._compute_inner_descriptors(flat_stripe)
+        self._five_number, self._inner_mean, self._inner_std = self._compute_inner_descriptors(stripe_submatrix)
 
         # Compute outer descriptors
-        self._outer_lsum, self._outer_lsize = self._compute_outer_left_descriptors(flat_left_stripe, window)
-        self._outer_rsum, self._outer_rsize = self._compute_outer_right_descriptors(flat_right_stripe, window)
+        self._outer_lsum, self._outer_lsize = self._compute_outer_descriptors(left_submatrix)
+        self._outer_rsum, self._outer_rsize = self._compute_outer_descriptors(right_submatrix)
 
     def set_biodescriptors(
         self,
@@ -467,98 +458,115 @@ class Stripe(object):
         convex_comb = self._compute_convex_comp()
         if self.lower_triangular:
             # convex_comb replaces _top_bound
+            convex_comb = self._top_bound
             i0 = j0
             i1 = min(j1 + (self._bottom_bound - convex_comb), matrix.shape[0])
         else:
             # convex_comb replaces _bottom_bound
+            convex_comb = self._bottom_bound
             i0 = max(0, j0 - (convex_comb - self._top_bound))
             i1 = min(j1, matrix.shape[0])
         return i0, i1
 
     def _slice_matrix(self, matrix: SparseMatrix, padding: int) -> Tuple[NDArray, NDArray, NDArray]:
+        """
+        Extract the minimum-bounding matrix containing the sub-matrices corresponding to: the current stripe, as well
+        as its left and right neighbors; values outside the sub-matrices are initialized to np.nan. These sub-matrices
+        are computed as k diagonals around the main diagonal (either in the lower or the upper triangular part), where
+        k is the height of the stripe.
+
+        Parameters
+        ----------
+        matrix: SparseMatrix
+            matrix to be sliced
+        padding: int
+            width of the left and right neighborhoods
+
+        Returns
+        -------
+        NDArray
+            The matrix left neighborhood
+        NDArray
+            The matrix stripe
+        NDArray
+            The matrix right neighborhood
+        """
+        stripe_height = self._bottom_bound - self._top_bound + 1
+
+        # Compute the indices for the minimum-bounding matrix
         j0, j1 = self._pad_horizontal_domain(matrix, padding)
         i0, i1 = self._pad_vertical_domain(matrix, j0, j1)
-        effective_left_padding = self._left_bound - j0
-        effective_right_padding = j1 - self._right_bound - 1
 
+        # The sub-matrix we here obtained is the smallest rectangular matrix enclosing the desired matrices
         if isinstance(matrix, ss.csr_matrix):
             submatrix = matrix[i0:i1, :].tocsc()[:, j0:j1].toarray()
         else:
             submatrix = matrix[:, j0:j1].tocsr()[i0:i1, :].toarray()
 
-        left_submatrix = submatrix[:, :effective_left_padding]
-        stripe_submatrix = submatrix[:, effective_left_padding:-effective_right_padding]
-        right_submatrix = submatrix[:, -effective_right_padding:]
+        # Compute the padded matrix shape
+        expected_top_padding = self._seed - self._left_bound + padding
+        expected_bottom_padding = self._right_bound - self._seed + padding
+        expected_width = self._right_bound - self._left_bound + 1 + 2 * padding
+        expected_height = expected_top_padding + stripe_height + expected_bottom_padding
+
+        # Initialized the padded sub-matrix to nan. Note that the previously sliced sub-matrix will fit into this
+        # matrix.
+        padded_submatrix = np.full((expected_height, expected_width), np.nan)
+
+        # Compute the number of rows/columns that we can expand through (around the stripe) in the original matrix.
+        # This can be less than the expected padding when we are at the left/right ends of the chromosome matrix.
+        effective_top_padding = self._top_bound - i0
+        effective_left_padding = self._left_bound - j0
+        effective_right_padding = j1 - self._right_bound - 1
+        effective_bottom_padding = i1 - self._bottom_bound - 1
+
+        # Compute the offsets used to assign the sliced sub-matrix to the padded sub-matrix
+        offset_top_rows = expected_top_padding - effective_top_padding
+        offset_left_cols = padding - effective_left_padding
+        offset_right_cols = effective_right_padding - padding + padded_submatrix.shape[1]
+        offset_bottom_rows = effective_bottom_padding - expected_bottom_padding + padded_submatrix.shape[0]
+
+        assert offset_bottom_rows >= offset_top_rows
+        assert offset_right_cols >= offset_left_cols
+
+        # Fill the padded sub-matrix
+        padded_submatrix[offset_top_rows:offset_bottom_rows, offset_left_cols:offset_right_cols] = submatrix
+
+        # Mask values outside the diagonal window, i.e., the stripe height
+        idx1, idx2 = np.triu_indices(
+            n=padded_submatrix.shape[0],
+            m=padded_submatrix.shape[1],
+            k=1,
+        )
+        idx3, idx4 = np.tril_indices(
+            n=padded_submatrix.shape[0],
+            m=padded_submatrix.shape[1],
+            k=self._top_bound - self._bottom_bound - 1,
+        )
+        padded_submatrix[idx1, idx2] = np.nan
+        padded_submatrix[idx3, idx4] = np.nan
+
+        # Extract the three sub-matrices
+        left_submatrix = submatrix[:, :padding]
+        stripe_submatrix = submatrix[:, padding:-padding]
+        right_submatrix = submatrix[:, -padding:]
 
         return left_submatrix, stripe_submatrix, right_submatrix
-
-    @staticmethod
-    def _flatten_stripe_upper(matrix: NDArray, seed: int) -> NDArray:
-        idx1, idx2 = np.tril_indices(n=matrix.shape[0], m=matrix.shape[1], k=seed - matrix.shape[1] - 1)
-        matrix = matrix.copy()
-        matrix[idx1, idx2] = np.nan
-        matrix = matrix.flatten()
-        matrix = matrix[np.isfinite(matrix)]
-        assert matrix.size > 0
-        return matrix
-
-    @staticmethod
-    def _flatten_stripe_lower(matrix: NDArray, seed: int) -> NDArray:
-        idx1, idx2 = np.triu_indices(n=matrix.shape[0], m=matrix.shape[1], k=seed)
-        matrix = matrix.copy()
-        matrix[idx1, idx2] = np.nan
-        matrix = matrix.flatten()
-        matrix = matrix[np.isfinite(matrix)]
-        assert matrix.size > 0
-        return matrix
 
     @staticmethod
     def _compute_inner_descriptors(matrix: NDArray) -> Tuple[NDArray[float], float, float]:
         if matrix.size == 0:
             return np.full(5, -1.0), -1.0, -1.0
 
-        return np.percentile(matrix, [0, 25, 50, 75, 100]), np.mean(matrix), np.std(matrix)  # noqa
+        return np.nanpercentile(matrix, [0, 25, 50, 75, 100]), np.nanmean(matrix), np.nanstd(matrix)  # noqa
 
-    def _compute_outer_left_descriptors(self, matrix: NDArray, window: int) -> Tuple[float, int]:
+    @staticmethod
+    def _compute_outer_descriptors(matrix: NDArray) -> Tuple[float, int]:
         """
         Compute the sum and number of entries in the outer-left neighborhood
         """
-        assert window >= 0
 
         if matrix.size == 0:
             return -1.0, 0
 
-        new_bound = max(0, self._left_bound - window)
-        if new_bound == self._left_bound:
-            return -1.0, 0
-
-        convex_comb = self._compute_convex_comp()
-        if self.lower_triangular:
-            submatrix = matrix[convex_comb : self._bottom_bound, new_bound : self._left_bound]
-        else:
-            submatrix = matrix[self._top_bound : convex_comb, new_bound : self._left_bound]
-
-        return submatrix.sum(), submatrix.size
-
-    def _compute_outer_right_descriptors(self, matrix: NDArray, window: int) -> Tuple[float, int]:
-        """
-        Compute the sum and number of entries in the outer-right neighborhood
-        """
-        assert window >= 0
-
-        if matrix.size == 0:
-            return -1.0, 0
-
-        new_left_bound = min(matrix.shape[1], self._right_bound + 1)
-        new_right_bound = min(matrix.shape[1], self._right_bound + 1 + window)
-
-        if new_left_bound == new_right_bound:
-            return -1.0, 0
-
-        convex_comb = self._compute_convex_comp()
-        if self.lower_triangular:
-            submatrix = matrix[convex_comb : self._bottom_bound, new_left_bound:new_right_bound]
-        else:
-            submatrix = matrix[self._top_bound : convex_comb, new_left_bound:new_right_bound]
-
-        return submatrix.sum(), submatrix.size
+        return np.nansum(matrix), np.isfinite(matrix).sum()
