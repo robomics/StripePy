@@ -53,6 +53,14 @@ class Stripe(object):
         the standard deviation of the number of interactions within the stripe
     five_number: NDArray[float]
         a vector of five numbers corresponding to the 0, 25, 50, 75, and 100 percentiles of the number of within-stripe interactions
+    outer_lsum: float
+        the sum of interactions in the band to the left of the stripe
+    outer_rsum: float
+        the sum of interactions in the band to the right of the stripe
+    outer_lsize float
+        the number of entries in the band to the left of the stripe
+    outer_rsize float
+        the number of entries in the band to the right of the stripe
     outer_lmean: float
         the average number of interactions in the band to the left of the stripe
     outer_rmean: float
@@ -114,8 +122,10 @@ class Stripe(object):
         self._five_number = None
         self._inner_mean = None
         self._inner_std = None
-        self._outer_lmean = None
-        self._outer_rmean = None
+        self._outer_lsum = None
+        self._outer_rsum = None
+        self._outer_lsize = None
+        self._outer_rsize = None
 
     @property
     def seed(self) -> int:
@@ -185,43 +195,82 @@ class Stripe(object):
         return self._five_number
 
     @property
+    def outer_lsum(self) -> float:
+        if self._outer_lsum is None:
+            raise RuntimeError(
+                "caught an attempt to access outer_lsum property before compute_biodescriptors() was called"
+            )
+
+        return self._outer_lsum
+
+    @property
+    def outer_rsum(self) -> float:
+        if self._outer_rsum is None:
+            raise RuntimeError(
+                "caught an attempt to access outer_rsum property before compute_biodescriptors() was called"
+            )
+
+        return self._outer_rsum
+
+    @property
+    def outer_lsize(self) -> float:
+        if self._outer_lsize is None:
+            raise RuntimeError(
+                "caught an attempt to access outer_lsize property before compute_biodescriptors() was called"
+            )
+
+        return self._outer_lsize
+
+    @property
+    def outer_rsize(self) -> float:
+        if self._outer_rsize is None:
+            raise RuntimeError(
+                "caught an attempt to access outer_rsize property before compute_biodescriptors() was called"
+            )
+
+        return self._outer_rsize
+
+    @property
     def outer_lmean(self) -> float:
-        if self._outer_lmean is None:
+        if self._outer_lsum is None or self._outer_lsize is None:
             raise RuntimeError(
                 "caught an attempt to access outer_lmean property before compute_biodescriptors() was called"
             )
 
-        return self._outer_lmean
+        if self._outer_lsize == 0:
+            return -1.0
+        return self._outer_lsum / self._outer_lsize
 
     @property
     def outer_rmean(self) -> float:
-        if self._outer_rmean is None:
+        if self._outer_rsum is None or self._outer_rsize is None:
             raise RuntimeError(
                 "caught an attempt to access outer_rmean property before compute_biodescriptors() was called"
             )
 
-        return self._outer_rmean
+        if self._outer_rsize == 0:
+            return -1.0
+
+        return self._outer_rsum / self._outer_rsize
 
     @property
     def outer_mean(self) -> float:
-        if self.outer_rmean == -1:
-            assert self.outer_lmean == -1
-            return -1.0
-
-        if math.isnan(self.outer_rmean):
+        if self.outer_rsum == -1:
             return self.outer_lmean
-
-        if math.isnan(self.outer_lmean):
+        if self.outer_lsum == -1:
             return self.outer_rmean
 
-        return (self.outer_lmean + self.outer_rmean) / 2
+        return (self.outer_lsum + self.outer_rsum) / (self._outer_lsize + self._outer_rsize)
 
     @property
     def rel_change(self) -> float:
-        if self.outer_mean <= 0:
+        outer_mean = self.outer_mean
+        if outer_mean < 0:
             return -1.0
+        if outer_mean == 0:
+            return math.inf
 
-        return abs(self.inner_mean - self.outer_mean) / self.outer_mean * 100
+        return abs(self.inner_mean - outer_mean) / outer_mean * 100
 
     def set_horizontal_bounds(self, left_bound: int, right_bound: int):
         """
@@ -311,29 +360,27 @@ class Stripe(object):
         if window < 0:
             raise ValueError("window cannot be negative")
 
-        restrI = self._slice_matrix(matrix)
-
-        # ATT This can avoid empty stripes, which can occur e.g. when the column has (approximately) constant entries
-        if np.prod(restrI.size) == 0:
-            self._five_number = np.array([-1.0] * 5)
-            self._inner_mean = -1.0
-            self._inner_std = -1.0
-            self._outer_lmean = -1.0
-            self._outer_rmean = -1.0
-            return
+        submatrix = self._slice_matrix(matrix)
 
         if self.lower_triangular:
-            flat_stripe = Stripe._flatten_stripe_lower(restrI, self._seed)
+            flat_stripe = Stripe._flatten_stripe_lower(submatrix, self._seed)
         else:
-            flat_stripe = Stripe._flatten_stripe_upper(restrI, self._seed)
+            flat_stripe = Stripe._flatten_stripe_upper(submatrix, self._seed)
         self._five_number, self._inner_mean, self._inner_std = self._compute_inner_descriptors(flat_stripe)
 
-        # Mean intensity - left and right neighborhoods:
-        self._outer_lmean = self._compute_lmean(matrix, window)
-        self._outer_rmean = self._compute_rmean(matrix, window)
+        # Compute outer descriptors
+        self._outer_lsum, self._outer_lsize = self._compute_outer_left_descriptors(flat_stripe, window)
+        self._outer_rsum, self._outer_rsize = self._compute_outer_right_descriptors(flat_stripe, window)
 
     def set_biodescriptors(
-        self, inner_mean: float, inner_std: float, outer_lmean: float, outer_rmean: float, five_number: NDArray[float]
+        self,
+        inner_mean: float,
+        inner_std: float,
+        outer_lsum: float,
+        outer_lsize: int,
+        outer_rsum: float,
+        outer_rsize: int,
+        five_number: NDArray[float],
     ):
         """
         Set the stripe biodescriptors based on pre-computed statistics.
@@ -342,9 +389,13 @@ class Stripe(object):
 
         inner_std: float
 
-        outer_lmean: float
+        outer_lsum: float
 
-        outer_rmean: float
+        outer_lsize: int
+
+        outer_rsum: float
+
+        outer_rsize: int
 
         five_number: NDArray[float]
         """
@@ -353,8 +404,10 @@ class Stripe(object):
 
         self._inner_mean = inner_mean
         self._inner_std = inner_std
-        self._outer_lmean = outer_lmean
-        self._outer_rmean = outer_rmean
+        self._outer_lsum = outer_lsum
+        self._outer_lsize = outer_lsize
+        self._outer_rsum = outer_rsum
+        self._outer_rsize = outer_rsize
         self._five_number = five_number
 
     @staticmethod
@@ -438,17 +491,23 @@ class Stripe(object):
 
     @staticmethod
     def _compute_inner_descriptors(matrix: NDArray) -> Tuple[NDArray[float], float, float]:
+        if matrix.size == 0:
+            return np.full(5, -1.0), -1.0, -1.0
+
         return np.percentile(matrix, [0, 25, 50, 75, 100]), np.mean(matrix), np.std(matrix)  # noqa
 
-    def _compute_lmean(self, matrix: SparseMatrix, window: int) -> float:
+    def _compute_outer_left_descriptors(self, matrix: NDArray, window: int) -> Tuple[float, int]:
         """
-        Compute the mean intensity for the left neighborhood
+        Compute the sum and number of entries in the outer-left neighborhood
         """
         assert window >= 0
 
+        if matrix.size == 0:
+            return -1.0, 0
+
         new_bound = max(0, self._left_bound - window)
         if new_bound == self._left_bound:
-            return math.nan
+            return -1.0, 0
 
         convex_comb = self._compute_convex_comp()
         if self.lower_triangular:
@@ -456,19 +515,22 @@ class Stripe(object):
         else:
             submatrix = matrix[self._top_bound : convex_comb, new_bound : self._left_bound]
 
-        return submatrix.mean()
+        return submatrix.sum(), submatrix.size
 
-    def _compute_rmean(self, matrix: SparseMatrix, window: int) -> float:
+    def _compute_outer_right_descriptors(self, matrix: NDArray, window: int) -> Tuple[float, int]:
         """
-        Compute the mean intensity for the right neighborhood
+        Compute the sum and number of entries in the outer-right neighborhood
         """
         assert window >= 0
+
+        if matrix.size == 0:
+            return -1.0, 0
 
         new_left_bound = min(matrix.shape[1], self._right_bound + 1)
         new_right_bound = min(matrix.shape[1], self._right_bound + 1 + window)
 
         if new_left_bound == new_right_bound:
-            return math.nan
+            return -1.0, 0
 
         convex_comb = self._compute_convex_comp()
         if self.lower_triangular:
@@ -476,4 +538,4 @@ class Stripe(object):
         else:
             submatrix = matrix[self._top_bound : convex_comb, new_left_bound:new_right_bound]
 
-        return submatrix.mean()
+        return submatrix.sum(), submatrix.size
