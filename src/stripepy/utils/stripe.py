@@ -360,17 +360,21 @@ class Stripe(object):
         if window < 0:
             raise ValueError("window cannot be negative")
 
-        submatrix = self._slice_matrix(matrix)
+        left_submatrix, stripe_submatrix, right_submatrix = self._slice_matrix(matrix, window)
 
         if self.lower_triangular:
-            flat_stripe = Stripe._flatten_stripe_lower(submatrix, self._seed)
+            flat_left_stripe = Stripe._flatten_stripe_lower(left_submatrix, self._seed)
+            flat_stripe = Stripe._flatten_stripe_lower(stripe_submatrix, self._seed)
+            flat_right_stripe = Stripe._flatten_stripe_lower(right_submatrix, self._seed)
         else:
-            flat_stripe = Stripe._flatten_stripe_upper(submatrix, self._seed)
+            flat_left_stripe = Stripe._flatten_stripe_upper(left_submatrix, self._seed)
+            flat_stripe = Stripe._flatten_stripe_upper(stripe_submatrix, self._seed)
+            flat_right_stripe = Stripe._flatten_stripe_upper(right_submatrix, self._seed)
         self._five_number, self._inner_mean, self._inner_std = self._compute_inner_descriptors(flat_stripe)
 
         # Compute outer descriptors
-        self._outer_lsum, self._outer_lsize = self._compute_outer_left_descriptors(flat_stripe, window)
-        self._outer_rsum, self._outer_rsize = self._compute_outer_right_descriptors(flat_stripe, window)
+        self._outer_lsum, self._outer_lsize = self._compute_outer_left_descriptors(flat_left_stripe, window)
+        self._outer_rsum, self._outer_rsize = self._compute_outer_right_descriptors(flat_right_stripe, window)
 
     def set_biodescriptors(
         self,
@@ -454,20 +458,39 @@ class Stripe(object):
 
         return int(round(cfx1 * self._top_bound + cfx2 * self._bottom_bound))
 
-    def _slice_matrix(self, matrix: SparseMatrix) -> NDArray:
-        convex_comb = self._compute_convex_comp()
+    def _pad_horizontal_domain(self, matrix: SparseMatrix, padding: int) -> Tuple[int, int]:
+        j0 = max(0, self._left_bound - padding)
+        j1 = min(self._right_bound + padding + 1, matrix.shape[1])
+        return j0, j1
 
+    def _pad_vertical_domain(self, matrix: SparseMatrix, j0: int, j1: int) -> Tuple[int, int]:
+        convex_comb = self._compute_convex_comp()
         if self.lower_triangular:
-            i0, i1 = convex_comb, min(self._bottom_bound + 1, matrix.shape[0])
-            j0, j1 = self._left_bound, min(self._right_bound + 1, matrix.shape[1])
+            # convex_comb replaces _top_bound
+            i0 = j0
+            i1 = min(j1 + (self._bottom_bound - convex_comb), matrix.shape[0])
         else:
-            i0, i1 = self._top_bound, min(convex_comb + 1, matrix.shape[0])
-            j0, j1 = self._left_bound, min(self._right_bound + 1, matrix.shape[1])
+            # convex_comb replaces _bottom_bound
+            i0 = max(0, j0 - (convex_comb - self._top_bound))
+            i1 = min(j1, matrix.shape[0])
+        return i0, i1
+
+    def _slice_matrix(self, matrix: SparseMatrix, padding: int) -> Tuple[NDArray, NDArray, NDArray]:
+        j0, j1 = self._pad_horizontal_domain(matrix, padding)
+        i0, i1 = self._pad_vertical_domain(matrix, j0, j1)
+        effective_left_padding = self._left_bound - j0
+        effective_right_padding = j1 - self._right_bound - 1
 
         if isinstance(matrix, ss.csr_matrix):
-            return matrix[i0:i1, :].tocsc()[:, j0:j1].toarray()
+            submatrix = matrix[i0:i1, :].tocsc()[:, j0:j1].toarray()
+        else:
+            submatrix = matrix[:, j0:j1].tocsr()[i0:i1, :].toarray()
 
-        return matrix[:, j0:j1].tocsr()[i0:i1, :].toarray()
+        left_submatrix = submatrix[:, :effective_left_padding]
+        stripe_submatrix = submatrix[:, effective_left_padding:-effective_right_padding]
+        right_submatrix = submatrix[:, -effective_right_padding:]
+
+        return left_submatrix, stripe_submatrix, right_submatrix
 
     @staticmethod
     def _flatten_stripe_upper(matrix: NDArray, seed: int) -> NDArray:
