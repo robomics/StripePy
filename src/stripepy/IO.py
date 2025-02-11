@@ -1045,17 +1045,32 @@ class ResultFile(object):
         # Compute outer_lmean from outer_lsum and outer_lsize
         mask = df["outer_lsize"] > 0
         df["outer_lmean"] = -1.0
-        df.loc[mask, "outer_lmean"] = df.loc[mask, "outer_lsum"] / df.loc[mask, "outer_lsize"]
+        df.loc[mask, "outer_lmean"] = np.nan_to_num(
+            df.loc[mask, "outer_lsum"] / df.loc[mask, "outer_lsize"],
+            nan=-1.0,
+            neginf=-1.0,
+            posinf=-1.0,
+        )
 
         # Compute outer_rmean from outer_rsum and outer_rsize
         mask = df["outer_rsize"] > 0
         df["outer_rmean"] = -1.0
-        df.loc[mask, "outer_rmean"] = df.loc[mask, "outer_rsum"] / df.loc[mask, "outer_rsize"]
+        df.loc[mask, "outer_rmean"] = np.nan_to_num(
+            df.loc[mask, "outer_rsum"] / df.loc[mask, "outer_rsize"],
+            nan=-1.0,
+            neginf=-1.0,
+            posinf=-1.0,
+        )
 
         # Compute outer_sum from outer_lsum, outer_rsum, outer_lsize, and outer_rsize
         outer_sum = np.minimum(df["outer_lsum"], 0.0) + np.minimum(df["outer_rsum"], 0.0)
         outer_size = df["outer_lsize"] + df["outer_rsize"]
-        df["outer_mean"] = np.nan_to_num(outer_sum / outer_size, nan=-1.0)
+        df["outer_mean"] = np.nan_to_num(
+            outer_sum / outer_size,
+            nan=-1.0,
+            neginf=-1.0,
+            posinf=-1.0,
+        )
         df.loc[df["outer_mean"] == 0, "outer_mean"] = -1.0
 
         df["rel_change"] = np.abs(df["inner_mean"] - df["outer_mean"]) / df["outer_mean"] * 100

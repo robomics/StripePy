@@ -268,7 +268,7 @@ class Stripe(object):
         if outer_mean < 0:
             return -1.0
         if outer_mean == 0:
-            return math.inf
+            return -1.0
 
         return abs(self.inner_mean - outer_mean) / outer_mean * 100
 
