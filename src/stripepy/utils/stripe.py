@@ -324,6 +324,12 @@ class Stripe(object):
                 f"the lower vertical bound must be greater than the upper vertical bound: {top_bound=}, {bottom_bound=}"
             )
 
+        # TODO consider replacing set_vertical_bounds with set_height
+        if top_bound != self._seed and bottom_bound != self._seed:
+            raise ValueError(
+                f"At least one of top bound or bottom bound should be equal to the seed, {top_bound=}, {bottom_bound=}, seed={self._seed}"
+            )
+
         computed_where = self._infer_location(self._seed, top_bound, bottom_bound)
 
         if self._where is not None and computed_where != self._where:
