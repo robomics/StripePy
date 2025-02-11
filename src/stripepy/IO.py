@@ -164,7 +164,15 @@ class Result(object):
 
         stripes = self.get("stripes", location)
 
-        if descriptor in {"seed", "left_bound", "right_bound", "top_bound", "bottom_bound"}:
+        if descriptor in {
+            "seed",
+            "left_bound",
+            "right_bound",
+            "top_bound",
+            "bottom_bound",
+            "outer_lsize",
+            "outer_rsize",
+        }:
             dtype = int
         else:
             dtype = float
