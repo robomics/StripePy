@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-import math
-
 import numpy as np
 import pytest
 import scipy.sparse as ss
@@ -13,26 +11,46 @@ from stripepy.utils.stripe import Stripe
 
 @pytest.mark.unit
 class TestObjectInitialization:
-    def test_seed_outside_matrix(self):
+    def test_negative_seed(self):
         with pytest.raises(ValueError, match="seed must be a non-negative integral number"):
-            stripe = Stripe(seed=-1, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where=None)
+            Stripe(
+                seed=-1,
+                top_pers=None,
+                horizontal_bounds=None,
+                vertical_bounds=None,
+                where=None,
+            )
 
-    def test_top_persistence_negative(self):
+    def test_negative_top_persistence(self):
         with pytest.raises(ValueError, match="when not None, top_pers must be a positive number"):
-            stripe = Stripe(seed=0, top_pers=-1.0, horizontal_bounds=None, vertical_bounds=None, where=None)
+            Stripe(
+                seed=0,
+                top_pers=-1.0,
+                horizontal_bounds=None,
+                vertical_bounds=None,
+                where=None,
+            )
 
-    def test_where_invalid_input(self):
+    def test_invalid_location(self):
         with pytest.raises(ValueError, match="when specified, where must be one of (.*upper.*|.*lower.*){2}"):
-            stripe = Stripe(
-                seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where="invalid_triangular"
+            Stripe(
+                seed=5,
+                top_pers=None,
+                horizontal_bounds=None,
+                vertical_bounds=None,
+                where="invalid_triangular",
             )
 
 
 @pytest.mark.unit
-class TestBoundaryGetters:
-    def test_valid_access(self):
+class TestGetters:
+    def test_upper_triangular(self):
         stripe = Stripe(
-            seed=5, top_pers=5.0, horizontal_bounds=(4, 6), vertical_bounds=(1, 4), where="upper_triangular"
+            seed=5,
+            top_pers=5.0,
+            horizontal_bounds=(4, 6),
+            vertical_bounds=(1, 5),
+            where="upper_triangular",
         )
         assert stripe.seed == 5
         assert np.isclose(stripe.top_persistence, 5.0)
@@ -41,44 +59,72 @@ class TestBoundaryGetters:
         assert stripe.left_bound == 4
         assert stripe.right_bound == 6
         assert stripe.top_bound == 1
-        assert stripe.bottom_bound == 4
+        assert stripe.bottom_bound == 5
 
+    def test_lower_triangular(self):
         stripe = Stripe(
-            seed=5, top_pers=5.0, horizontal_bounds=(4, 6), vertical_bounds=(4, 10), where="lower_triangular"
+            seed=5,
+            top_pers=5.0,
+            horizontal_bounds=(4, 6),
+            vertical_bounds=(5, 10),
+            where="lower_triangular",
         )
 
         assert stripe.lower_triangular
         assert not stripe.upper_triangular
 
-    def test_not_valid_access(self):
-        stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where=None)
+    def test_access_before_set(self):
+        stripe = Stripe(
+            seed=5,
+            top_pers=None,
+            horizontal_bounds=None,
+            vertical_bounds=None,
+            where=None,
+        )
 
         assert stripe.seed == 5
         assert stripe.top_persistence is None
+
         with pytest.raises(RuntimeError, match="left_bound has not been set"):
             assert stripe.left_bound is None
+
         with pytest.raises(RuntimeError, match="right_bound has not been set"):
             assert stripe.right_bound is None
+
         with pytest.raises(RuntimeError, match="top_bound has not been set"):
             assert stripe.top_bound is None
+
         with pytest.raises(RuntimeError, match="bottom_bound has not been set"):
             assert stripe.bottom_bound is None
+
         assert not stripe.upper_triangular
         assert not stripe.lower_triangular
 
 
 @pytest.mark.unit
 class TestBoundarySetters:
-    def test_left_and_right_at_seed(self):
-        stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where=None)
+    def test_set_horizontal_bounds(self):
+        stripe = Stripe(
+            seed=5,
+            top_pers=None,
+            horizontal_bounds=None,
+            vertical_bounds=None,
+            where=None,
+        )
 
         stripe.set_horizontal_bounds(5, 5)
 
         assert stripe.left_bound == 5
         assert stripe.right_bound == 5
 
-    def test_seed_outside_horizontal_bounds(self):
-        stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where=None)
+    def test_set_invalid_horizontal_bounds(self):
+        stripe = Stripe(
+            seed=5,
+            top_pers=None,
+            horizontal_bounds=None,
+            vertical_bounds=None,
+            where=None,
+        )
         with pytest.raises(
             ValueError, match="horizontal bounds must enclose the seed position: seed=5, left_bound=6, right_bound=6"
         ):
@@ -89,34 +135,50 @@ class TestBoundarySetters:
         ):
             stripe.set_horizontal_bounds(4, 4)
 
-    def test_empty_horizontal_domains(self):
-        stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where=None)
+    def test_empty_horizontal_domain(self):
+        stripe = Stripe(
+            seed=5,
+            top_pers=None,
+            horizontal_bounds=None,
+            vertical_bounds=None,
+            where=None,
+        )
         with pytest.raises(
             ValueError, match="horizontal bounds must enclose the seed position: seed=5, left_bound=6, right_bound=5"
         ):
             stripe.set_horizontal_bounds(6, 5)
 
     def test_negative_horizontal_bounds(self):
-        stripe = Stripe(seed=1, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where=None)
+        stripe = Stripe(
+            seed=1,
+            top_pers=None,
+            horizontal_bounds=None,
+            vertical_bounds=None,
+            where=None,
+        )
         with pytest.raises(ValueError, match="stripe bounds must be positive integers"):
             stripe.set_horizontal_bounds(-1, 1)
 
     def test_horizontal_bounds_already_set(self):
-        stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=(4, 6), vertical_bounds=None, where=None)
+        stripe = Stripe(
+            seed=5,
+            top_pers=None,
+            horizontal_bounds=(4, 6),
+            vertical_bounds=None,
+            where=None,
+        )
 
         with pytest.raises(RuntimeError, match="horizontal stripe bounds have already been set"):
             stripe.set_horizontal_bounds(5, 7)
 
-    def test_vertical_size_0(self):
-        stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where=None)
-
-        stripe.set_vertical_bounds(5, 5)
-
-        assert stripe.top_bound == 5
-        assert stripe.bottom_bound == 5
-
-    def test_empty_vertical_domains(self):
-        stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where=None)
+    def test_empty_vertical_domain(self):
+        stripe = Stripe(
+            seed=5,
+            top_pers=None,
+            horizontal_bounds=None,
+            vertical_bounds=None,
+            where=None,
+        )
 
         with pytest.raises(
             ValueError,
@@ -127,13 +189,13 @@ class TestBoundarySetters:
     def test_negative_vertical_bounds(self):
         stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=None, where=None)
         with pytest.raises(ValueError, match="stripe bounds must be positive integers"):
-            stripe.set_vertical_bounds(-1, -1)
+            stripe.set_vertical_bounds(-1, 5)
 
     def test_vertical_bounds_already_set(self):
-        stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=(1, 4), where=None)
+        stripe = Stripe(seed=5, top_pers=None, horizontal_bounds=None, vertical_bounds=(1, 5), where=None)
 
         with pytest.raises(RuntimeError, match="vertical stripe bounds have already been set"):
-            stripe.set_vertical_bounds(2, 6)
+            stripe.set_vertical_bounds(2, 5)
 
 
 @pytest.mark.unit
@@ -171,7 +233,7 @@ class TestComputeBiodescriptors:
             seed=4,
             top_pers=None,
             horizontal_bounds=(3, 4),
-            vertical_bounds=(3, 6),
+            vertical_bounds=(4, 6),
             where="lower_triangular",
         )
         matrix = ss.csr_matrix(
@@ -214,7 +276,7 @@ class TestComputeBiodescriptorErrors:
             seed=2,
             top_pers=None,
             horizontal_bounds=(0, 3),
-            vertical_bounds=(1, 3),
+            vertical_bounds=(2, 3),
             where="lower_triangular",
         )
         matrix = ss.csr_matrix([5, 5])
