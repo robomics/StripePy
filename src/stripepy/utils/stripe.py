@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import math
+import warnings
 from typing import Optional, Tuple
 
 import numpy as np
@@ -237,9 +237,10 @@ class Stripe(object):
                 "caught an attempt to access outer_lmean property before compute_biodescriptors() was called"
             )
 
-        if self._outer_lsize == 0:
-            return -1.0
-        return self._outer_lsum / self._outer_lsize
+        # Suppress divide-by-zero warning:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(category=RuntimeWarning, action="ignore")
+            return self._outer_lsum / self._outer_lsize
 
     @property
     def outer_rmean(self) -> float:
@@ -248,29 +249,26 @@ class Stripe(object):
                 "caught an attempt to access outer_rmean property before compute_biodescriptors() was called"
             )
 
-        if self._outer_rsize == 0:
-            return -1.0
-
-        return self._outer_rsum / self._outer_rsize
+        # Suppress divide-by-zero warning:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(category=RuntimeWarning, action="ignore")
+            return self._outer_rsum / self._outer_rsize
 
     @property
     def outer_mean(self) -> float:
-        if self.outer_rsum == -1:
-            return self.outer_lmean
-        if self.outer_lsum == -1:
-            return self.outer_rmean
-
-        return (self.outer_lsum + self.outer_rsum) / (self._outer_lsize + self._outer_rsize)
+        # Suppress divide-by-zero warning:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(category=RuntimeWarning, action="ignore")
+            return (self._outer_lsum + self._outer_rsum) / (self._outer_lsize + self._outer_rsize)
 
     @property
     def rel_change(self) -> float:
         outer_mean = self.outer_mean
-        if outer_mean < 0:
-            return -1.0
-        if outer_mean == 0:
-            return -1.0
 
-        return abs(self.inner_mean - outer_mean) / outer_mean * 100
+        # Suppress divide-by-zero warning:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(category=RuntimeWarning, action="ignore")
+            return abs(self.inner_mean - outer_mean) / outer_mean * 100
 
     def set_horizontal_bounds(self, left_bound: int, right_bound: int):
         """
@@ -367,11 +365,15 @@ class Stripe(object):
             raise ValueError("window cannot be negative")
 
         left_submatrix, stripe_submatrix, right_submatrix = self._slice_matrix(matrix, window)
-        self._five_number, self._inner_mean, self._inner_std = self._compute_inner_descriptors(stripe_submatrix)
 
-        # Compute outer descriptors
-        self._outer_lsum, self._outer_lsize = self._compute_outer_descriptors(left_submatrix)
-        self._outer_rsum, self._outer_rsize = self._compute_outer_descriptors(right_submatrix)
+        # Suppress divide-by-zero warning:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(category=RuntimeWarning, action="ignore")
+            self._five_number, self._inner_mean, self._inner_std = self._compute_inner_descriptors(stripe_submatrix)
+
+            # Compute outer descriptors
+            self._outer_lsum, self._outer_lsize = self._compute_outer_descriptors(left_submatrix)
+            self._outer_rsum, self._outer_rsize = self._compute_outer_descriptors(right_submatrix)
 
     def set_biodescriptors(
         self,
@@ -553,16 +555,15 @@ class Stripe(object):
         padded_submatrix[idx3, idx4] = np.nan
 
         # Extract the three sub-matrices
-        left_submatrix = submatrix[:, :padding]
-        stripe_submatrix = submatrix[:, padding:-padding]
-        right_submatrix = submatrix[:, -padding:]
+        left_submatrix = padded_submatrix[:, :padding]
+        stripe_submatrix = padded_submatrix[:, padding:-padding]
+        right_submatrix = padded_submatrix[:, -padding:]
 
         return left_submatrix, stripe_submatrix, right_submatrix
 
     @staticmethod
     def _compute_inner_descriptors(matrix: NDArray) -> Tuple[NDArray[float], float, float]:
-        if matrix.size == 0:
-            return np.full(5, -1.0), -1.0, -1.0
+        assert matrix.size > 0
 
         return np.nanpercentile(matrix, [0, 25, 50, 75, 100]), np.nanmean(matrix), np.nanstd(matrix)  # noqa
 
@@ -572,7 +573,6 @@ class Stripe(object):
         Compute the sum and number of entries in the outer-left neighborhood
         """
 
-        if matrix.size == 0:
-            return -1.0, 0
+        assert matrix.size > 0
 
         return np.nansum(matrix), np.isfinite(matrix).sum()
