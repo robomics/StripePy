@@ -293,9 +293,6 @@ class Stripe(object):
                 f"horizontal bounds must enclose the seed position: seed={self._seed}, {left_bound=}, {right_bound=}"
             )
 
-        if self._vertical_bounds_set():
-            Stripe._validate_vertical_bounds(left_bound, right_bound, self._top_bound, self._bottom_bound, self._where)
-
         self._left_bound = left_bound
         self._right_bound = right_bound
 
@@ -336,9 +333,7 @@ class Stripe(object):
             )
 
         if self._horizontal_bounds_set():
-            Stripe._validate_vertical_bounds(
-                self._left_bound, self._right_bound, top_bound, bottom_bound, computed_where
-            )
+            Stripe._validate_vertical_bounds(self._seed, top_bound, bottom_bound, computed_where)
 
         self._top_bound = top_bound
         self._bottom_bound = bottom_bound
@@ -414,16 +409,12 @@ class Stripe(object):
         self._five_number = five_number
 
     @staticmethod
-    def _validate_vertical_bounds(left_bound: int, right_bound: int, top_bound: int, bottom_bound: int, location: str):
+    def _validate_vertical_bounds(seed: int, top_bound: int, bottom_bound: int, location: str):
         assert location in {"upper_triangular", "lower_triangular"}
-        if location == "lower_triangular" and not (left_bound <= top_bound <= right_bound):
-            raise ValueError(
-                f"top bound is not enclosed between the left and right bounds: {left_bound=}, {right_bound=}, {top_bound=}"
-            )
-        elif location == "upper_triangular" and not (left_bound <= bottom_bound <= right_bound):
-            raise ValueError(
-                f"bottom bound is not enclosed between the left and right bounds: {left_bound=}, {right_bound=}, {bottom_bound=}"
-            )
+        if location == "lower_triangular" and top_bound != seed:
+            raise ValueError(f"top bound must be equal to seed when location is lower_triangular")
+        elif location == "upper_triangular" and bottom_bound != seed:
+            raise ValueError(f"bottom bound must be equal to seed when location is upper_triangular")
 
     def _all_bounds_set(self) -> bool:
         return self._horizontal_bounds_set() and self._vertical_bounds_set()
