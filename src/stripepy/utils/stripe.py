@@ -319,21 +319,12 @@ class Stripe(object):
                 f"the lower vertical bound must be greater than the upper vertical bound: {top_bound=}, {bottom_bound=}"
             )
 
-        # TODO consider replacing set_vertical_bounds with set_height
-        if top_bound != self._seed and bottom_bound != self._seed:
-            raise ValueError(
-                f"At least one of top bound or bottom bound should be equal to the seed, {top_bound=}, {bottom_bound=}, seed={self._seed}"
-            )
-
         computed_where = self._infer_location(self._seed, top_bound, bottom_bound)
 
         if self._where is not None and computed_where != self._where:
             raise RuntimeError(
                 f"computed location does not match the provided stripe location: computed={computed_where}, expected={self._where}"
             )
-
-        if self._horizontal_bounds_set():
-            Stripe._validate_vertical_bounds(self._seed, top_bound, bottom_bound, computed_where)
 
         self._top_bound = top_bound
         self._bottom_bound = bottom_bound
@@ -408,14 +399,6 @@ class Stripe(object):
         self._outer_rsize = outer_rsize
         self._five_number = five_number
 
-    @staticmethod
-    def _validate_vertical_bounds(seed: int, top_bound: int, bottom_bound: int, location: str):
-        assert location in {"upper_triangular", "lower_triangular"}
-        if location == "lower_triangular" and top_bound != seed:
-            raise ValueError(f"top bound must be equal to seed when location is lower_triangular")
-        elif location == "upper_triangular" and bottom_bound != seed:
-            raise ValueError(f"bottom bound must be equal to seed when location is upper_triangular")
-
     def _all_bounds_set(self) -> bool:
         return self._horizontal_bounds_set() and self._vertical_bounds_set()
 
@@ -427,17 +410,14 @@ class Stripe(object):
 
     @staticmethod
     def _infer_location(seed: int, top_bound: int, bottom_bound: int) -> str:
-        # TODO this check is temporarily disabled as it fails when processing stripes from chromosomes that are mostly empty
-        # if bottom_bound == top_bound:
-        #    raise ValueError(f"unable to infer stripe location: stripe bottom and top bounds are identical ({top_bound})")
+        # TODO is it ok that when bottom_bound==seed==top_bound the stripe is considered as upper_triangular?
 
-        if bottom_bound > seed:
-            return "lower_triangular"
-        # TODO the equal check should be removed as is not correct
-        if top_bound <= seed:
+        if bottom_bound == seed:
             return "upper_triangular"
+        if top_bound == seed:
+            return "lower_triangular"
 
-        raise NotImplementedError
+        raise ValueError(f"At least one of {top_bound=} and {bottom_bound=} must be equal to {seed=}")
 
     def _compute_convex_comp(self) -> int:
         cfx1 = 0.99
