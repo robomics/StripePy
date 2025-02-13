@@ -681,8 +681,13 @@ def _plot_hic_matrix_with_stripes(
         geo_descriptors_lt = geo_descriptors_lt[mask_lt]
         geo_descriptors_ut = geo_descriptors_ut[mask_ut]
 
-    geo_descriptors_lt = geo_descriptors_lt[geo_descriptors_lt["right_bound"].between(start, end, inclusive="both")]
-    geo_descriptors_ut = geo_descriptors_ut[geo_descriptors_ut["right_bound"].between(start, end, inclusive="both")]
+    left_bound_within_region = geo_descriptors_lt["left_bound"].between(start, end, inclusive="both")
+    right_bound_within_region = geo_descriptors_lt["right_bound"].between(start, end, inclusive="both")
+    geo_descriptors_lt = geo_descriptors_lt[left_bound_within_region & right_bound_within_region]
+
+    left_bound_within_region = geo_descriptors_ut["left_bound"].between(start, end, inclusive="both")
+    right_bound_within_region = geo_descriptors_ut["right_bound"].between(start, end, inclusive="both")
+    geo_descriptors_ut = geo_descriptors_ut[left_bound_within_region & right_bound_within_region]
 
     outlines_lt = [
         (min(lb - start, chrom_size), min(rb - start, chrom_size), min(bb - tb, chrom_size))
