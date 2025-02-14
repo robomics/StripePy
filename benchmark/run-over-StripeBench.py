@@ -117,10 +117,29 @@ def make_cli():
         help="Overwrite existing file(s).",
     )
 
+    cli.add_argument(
+        "--output-layout",
+        type=str,
+        choices=["new", "old"],
+        default="new",
+        help="Output layout to use for StripeBench. It should be 'old' when using stripepy v0.0.2 or older, and 'new' otherwise.",
+    )
+
     return cli
 
 
 def run_stripepy(
+    **kwargs,
+):
+    output_layout = kwargs.pop("output_layout")
+    if output_layout == "new":
+        run_stripepy_new(**kwargs)
+    else:
+        assert output_layout == "old"
+        run_stripepy_old(**kwargs)
+
+
+def run_stripepy_new(
     stripepy_exec,
     path_to_mcool,
     resolution,
@@ -132,6 +151,9 @@ def run_stripepy(
     loc_trend_min,
     force,
 ):
+    output_dir = output_folder / path_to_mcool.stem / str(resolution)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     args = [
         stripepy_exec,
         "call",
@@ -140,7 +162,7 @@ def run_stripepy(
         "-b",
         str(genomic_belt),
         "--output-file",
-        str(output_folder / path_to_mcool.stem / str(resolution) / "results.hdf5"),
+        str(output_dir / "results.hdf5"),
         "--max-width",
         str(max_width),
         "--glob-pers-min",
@@ -154,15 +176,47 @@ def run_stripepy(
     if force:
         args.append("--force")
 
-    try:
-        sp.check_call(args)
-    except sp.CalledProcessError as e:
-        if "unrecognized arguments: --output-file" not in e:
-            raise
-        i = args.index("--output-file")
-        args[i] = "--output-folder"
-        args[i + i] = output_folder
-        sp.check_call(args)
+    sp.check_call(args)
+
+
+def run_stripepy_old(
+    stripepy_exec,
+    path_to_mcool,
+    resolution,
+    genomic_belt,
+    output_folder,
+    max_width,
+    glob_pers_min,
+    loc_pers_min,
+    loc_trend_min,
+    force,
+):
+
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    args = [
+        stripepy_exec,
+        "call",
+        path_to_mcool,
+        resolution,
+        "-b",
+        str(genomic_belt),
+        "--output-folder",
+        str(output_folder),
+        "--max-width",
+        str(max_width),
+        "--glob-pers-min",
+        str(glob_pers_min),
+        "--loc-pers-min",
+        str(loc_pers_min),
+        "--loc-trend-min",
+        str(loc_trend_min),
+    ]
+
+    if force:
+        args.append("--force")
+
+    sp.check_call(args)
 
 
 def main():
@@ -183,16 +237,17 @@ def main():
                 / f"grch38_h1_rad21_{contact_density}_{noise_level}.mcool"
             )
             run_stripepy(
-                args["stripepy-exec"],
-                this_contact_map,
-                resolution,
-                args["genomic_belt"],
-                args["output_folder"],
-                args["max_width"],
-                args["glob_pers_min"],
-                args["loc_pers_min"],
-                args["loc_trend_min"],
-                args["force"],
+                stripepy_exec=args["stripepy-exec"],
+                path_to_mcool=this_contact_map,
+                resolution=resolution,
+                genomic_belt=args["genomic_belt"],
+                output_folder=args["output_folder"],
+                max_width=args["max_width"],
+                glob_pers_min=args["glob_pers_min"],
+                loc_pers_min=args["loc_pers_min"],
+                loc_trend_min=args["loc_trend_min"],
+                force=args["force"],
+                output_layout=args["output_layout"],
             )
         delta = time.time() - t0
         print("Total time: ", file=f)
