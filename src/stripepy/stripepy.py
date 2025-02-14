@@ -1208,7 +1208,10 @@ def _get_stripes(
     descriptors_ut["rel_change"] = result.get_stripe_bio_descriptors("UT")["rel_change"].iloc[descriptors_ut.index]
 
     df = pd.concat([descriptors_lt, descriptors_ut])
-    return df[df["left_bound"].between(start, end, inclusive="both")]
+
+    left_bound_within_roi = df["left_bound"].between(start, end, inclusive="both")
+    right_bound_within_roi = df["right_bound"].between(start, end, inclusive="both")
+    return df[left_bound_within_roi & right_bound_within_roi]
 
 
 def _plot_stripes(
