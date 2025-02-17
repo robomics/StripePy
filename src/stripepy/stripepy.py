@@ -266,7 +266,7 @@ def step_3(
 
     logger = logger.bind(location="LT" if location == "lower" else "UT")
 
-    if result.empty:
+    if len(result.get("stripes", location)) == 0:
         logger.bind(step=(3,)).warning("no candidates found by step 2: returning immediately!")
         return location, result
 
