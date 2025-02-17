@@ -659,14 +659,14 @@ def _warning_handler(message, category, filename, lineno, file=None, line=None):
     import structlog
 
     structlog.get_logger().warning(
-        "\n%s\n",
+        "\n%s",
         formatwarning(
             message=message,
             category=category,
             filename=filename,
             lineno=lineno,
             line=line,
-        ),
+        ).strip(),
     )
 
 
