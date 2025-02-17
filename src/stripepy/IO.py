@@ -96,7 +96,9 @@ class Result(object):
 
     @property
     def empty(self) -> bool:
-        return self._lt_stripes is None and self._ut_stripes is None
+        lower_is_empty = self._lt_stripes is None or len(self._lt_stripes) == 0
+        upper_is_empty = self._ut_stripes is None or len(self._ut_stripes) == 0
+        return lower_is_empty and upper_is_empty
 
     @property
     def chrom(self) -> Tuple[str, int]:
