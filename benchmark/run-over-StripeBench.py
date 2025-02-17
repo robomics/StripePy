@@ -6,6 +6,7 @@
 
 import argparse
 import itertools
+import multiprocessing as mp
 import pathlib
 import subprocess as sp
 import time
@@ -38,6 +39,19 @@ def _probability(arg) -> float:
         return n
 
     raise ValueError("Not a valid probability")
+
+
+def _num_cpus(arg: str) -> int:
+    try:
+        n = int(arg)
+        if 0 < n <= mp.cpu_count():
+            return n
+    except:  # noqa
+        pass
+
+    raise argparse.ArgumentTypeError(
+        f"Not a valid number of CPU cores (allowed values are integers between 1 and {mp.cpu_count()})"
+    )
 
 
 def make_cli():
@@ -125,6 +139,14 @@ def make_cli():
         help="Output layout to use for StripeBench. It should be 'old' when using stripepy v0.0.2 or older, and 'new' otherwise.",
     )
 
+    cli.add_argument(
+        "-p",
+        "--nproc",
+        type=_num_cpus,
+        default=8,
+        help="Maximum number of parallel processes to use (default: %(default)s).",
+    )
+
     return cli
 
 
@@ -149,6 +171,7 @@ def run_stripepy_new(
     glob_pers_min,
     loc_pers_min,
     loc_trend_min,
+    nproc,
     force,
 ):
     output_dir = output_folder / path_to_mcool.stem / str(resolution)
@@ -171,6 +194,8 @@ def run_stripepy_new(
         str(loc_pers_min),
         "--loc-trend-min",
         str(loc_trend_min),
+        "--nproc",
+        str(nproc),
     ]
 
     if force:
@@ -189,6 +214,7 @@ def run_stripepy_old(
     glob_pers_min,
     loc_pers_min,
     loc_trend_min,
+    nproc,
     force,
 ):
 
@@ -211,6 +237,8 @@ def run_stripepy_old(
         str(loc_pers_min),
         "--loc-trend-min",
         str(loc_trend_min),
+        "--nproc",
+        str(nproc),
     ]
 
     if force:
@@ -248,6 +276,7 @@ def main():
                 loc_trend_min=args["loc_trend_min"],
                 force=args["force"],
                 output_layout=args["output_layout"],
+                nproc=args["nproc"],
             )
         delta = time.time() - t0
         print("Total time: ", file=f)
