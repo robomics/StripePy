@@ -142,7 +142,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--glob-pers-min",
         type=_probability,
-        default=0.05,
+        default=0.04,
         help="Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest, "
         "aka seeds (default: %(default)s).",
     )
