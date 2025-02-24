@@ -51,7 +51,7 @@ class TestStripePyPlot:
     def setup_class():
         test_files = [
             testdir / "data" / "4DNFI9GMP2J8.mcool",
-            testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5",
+            testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5",
             testdir / "data" / "stripepy-plot-test-images.tar.xz",
         ]
 
@@ -83,7 +83,7 @@ class TestStripePyPlot:
         tmpdir = pathlib.Path(tmpdir)
 
         matrix_file = testdir / "data" / "4DNFI9GMP2J8.mcool"
-        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5"
         expected = extract_image("contact_map_with_seeds.png", tmpdir)
 
         resolution = 10_000
@@ -112,7 +112,7 @@ class TestStripePyPlot:
         tmpdir = pathlib.Path(tmpdir)
 
         matrix_file = testdir / "data" / "4DNFI9GMP2J8.mcool"
-        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5"
         expected = extract_image("contact_map_with_stripes.png", tmpdir)
 
         resolution = 10_000
@@ -141,7 +141,7 @@ class TestStripePyPlot:
         tmpdir = pathlib.Path(tmpdir)
 
         matrix_file = testdir / "data" / "4DNFI9GMP2J8.mcool"
-        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5"
         expected = extract_image("contact_map_with_stripes_no_heights.png", tmpdir)
 
         resolution = 10_000
@@ -170,7 +170,7 @@ class TestStripePyPlot:
     def test_pseudodistribution(tmpdir):
         tmpdir = pathlib.Path(tmpdir)
 
-        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5"
         expected = extract_image("pseudodistribution.png", tmpdir)
 
         region = "chr2:120100000-122100000"
@@ -186,7 +186,7 @@ class TestStripePyPlot:
     def test_stripe_hist(tmpdir):
         tmpdir = pathlib.Path(tmpdir)
 
-        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5"
         expected = extract_image("stripe_hist.png", tmpdir)
 
         region = "chr2:120100000-122100000"
@@ -202,7 +202,7 @@ class TestStripePyPlot:
     def test_stripe_hist_gw(tmpdir):
         tmpdir = pathlib.Path(tmpdir)
 
-        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5"
+        stripe_file = testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5"
         expected = extract_image("stripe_hist_gw.png", tmpdir)
 
         outfile = tmpdir / "img.png"
