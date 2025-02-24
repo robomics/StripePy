@@ -21,6 +21,7 @@ class TestStripePyView:
         test_files = [
             testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5",
             testdir / "data" / "results_4DNFI9GMP2J8_v2.hdf5",
+            testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5",
         ]
 
         for f in test_files:
@@ -30,20 +31,28 @@ class TestStripePyView:
                 )
 
     @staticmethod
-    def test_view():
-        versions = ["1", "2"]
-        for version in versions:
-            testfile = testdir / "data" / f"results_4DNFI9GMP2J8_v{version}.hdf5"
+    def _test_view(testfile: pathlib.Path, num_rows: int):
+        args = ["view", str(testfile)]
+        buff = io.StringIO()
+        with contextlib.redirect_stdout(buff):
+            main(args)
 
-            args = ["view", str(testfile)]
-            buff = io.StringIO()
-            with contextlib.redirect_stdout(buff):
-                main(args)
+        buff.seek(0)
+        cols = ["chrom1", "start1", "end1", "chrom2", "start2", "end2"]
+        df = pd.read_table(buff, names=cols)
 
-            buff.seek(0)
-            cols = ["chrom1", "start1", "end1", "chrom2", "start2", "end2"]
-            df = pd.read_table(buff, names=cols)
+        assert len(df.columns) == len(cols)
+        assert len(df) == len(df[~df.isnull().values])
+        assert len(df) == num_rows
 
-            assert len(df.columns) == len(cols)
-            assert len(df) == len(df[~df.isnull().values])
-            assert len(df) == 18625
+    @staticmethod
+    def test_view_v1():
+        TestStripePyView._test_view(testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5", 18625)
+
+    @staticmethod
+    def test_view_v2():
+        TestStripePyView._test_view(testdir / "data" / "results_4DNFI9GMP2J8_v2.hdf5", 18625)
+
+    @staticmethod
+    def test_view_v3():
+        TestStripePyView._test_view(testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5", 18379)
