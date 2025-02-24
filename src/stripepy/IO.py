@@ -722,7 +722,7 @@ class ResultFile(object):
                 df["chrom"] = chrom
                 dfs.append(df)
 
-            df = pd.concat(dfs).reset_index()
+            df = pd.concat(dfs).reset_index(drop=True)
             df["chrom"] = df["chrom"].astype("category")
             cols = df.columns.tolist()
             cols.insert(0, cols.pop(cols.index("chrom")))
