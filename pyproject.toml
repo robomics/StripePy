@@ -74,6 +74,7 @@ all = [
 
 test = [
     "stripepy-hic[all]",
+    "pyarrow",
     "pytest",
     "pytest-cov",
 ]
