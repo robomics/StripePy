@@ -533,6 +533,7 @@ class ResultFile(object):
                 "outer_rsize",
                 "outer_lmean",
                 "outer_rmean",
+                "outer_mean",
                 "quartile",
             ]
 
@@ -569,6 +570,7 @@ class ResultFile(object):
                 outer_rsize,
                 outer_lmean,
                 outer_rmean,
+                outer_mean,
                 quartile,
             ) in df[cols].itertuples(index=False):
                 s = Stripe(
@@ -578,6 +580,14 @@ class ResultFile(object):
                     vertical_bounds=(top_bound, bottom_bound),
                     where=location_,
                 )
+
+                if np.isnan(outer_lmean):
+                    # Unfortunately in v1 files we only have the aggregated outer_mean,
+                    # so this is the best we can do
+                    assert np.isnan(outer_rmean)
+                    assert not np.isnan(outer_mean)
+                    outer_lmean = outer_mean
+                    outer_rmean = outer_mean
 
                 if np.isnan(outer_lsum):
                     # Estimate outer_lsum and outer_lsize
