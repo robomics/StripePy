@@ -20,17 +20,23 @@ permissions:
 
 env:
   TEST_MCOOL_NAME: 4DNFI9GMP2J8.mcool
-  TEST_MCOOL_URL: "https://zenodo.org/records/14762415/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
+  TEST_MCOOL_URL: "https://zenodo.org/records/14921616/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
   TEST_MCOOL_MD5: "a17d08460c03cf6c926e2ca5743e4888"
   TEST_RESULT_FILE_V1_NAME: results_4DNFI9GMP2J8_v1.hdf5
-  TEST_RESULT_FILE_V1_URL: "https://zenodo.org/records/14762415/files/results_4DNFI9GMP2J8_v1.hdf5?download=1"
+  TEST_RESULT_FILE_V1_URL: "https://zenodo.org/records/14921616/files/results_4DNFI9GMP2J8_v1.hdf5?download=1"
   TEST_RESULT_FILE_V1_MD5: "03bca8d430191aaf3c90a4bc22a8c579"
   TEST_RESULT_FILE_V2_NAME: results_4DNFI9GMP2J8_v2.hdf5
-  TEST_RESULT_FILE_V2_URL: "https://zenodo.org/records/14762415/files/results_4DNFI9GMP2J8_v2.hdf5?download=1"
+  TEST_RESULT_FILE_V2_URL: "https://zenodo.org/records/14921616/files/results_4DNFI9GMP2J8_v2.hdf5?download=1"
   TEST_RESULT_FILE_V2_MD5: "dd14a2f69b337c40727d414d85e2f0a4"
+  TEST_RESULT_FILE_V3_NAME: results_4DNFI9GMP2J8_v3.hdf5
+  TEST_RESULT_FILE_V3_URL: "https://zenodo.org/records/14921616/files/results_4DNFI9GMP2J8_v3.hdf5?download=1"
+  TEST_RESULT_FILE_V3_MD5: "0e618f61f35579968105e84bf50a2598"
+  TEST_TABLES_NAME: stripepy-call-result-tables.tar.xz
+  TEST_TABLES_URL: "https://zenodo.org/records/14921616/files/stripepy-call-result-tables.tar.xz?download=1"
+  TEST_TABLES_MD5: "52c4154c9e974a3130b3ecaa7b729827"
   TEST_PLOTS_NAME: stripepy-plot-test-images.tar.xz
-  TEST_PLOTS_URL: "https://zenodo.org/records/14762415/files/stripepy-plot-test-images.tar.xz?download=1"
-  TEST_PLOTS_MD5: "adf60f386521f70b24936e53a6d11eab"
+  TEST_PLOTS_URL: "https://zenodo.org/records/14921616/files/stripepy-plot-test-images.tar.xz?download=1"
+  TEST_PLOTS_MD5: "e88d5a6ff33fb7cb0a15e27c5bac7644"
 
 jobs:
   cache-test-datasets:
@@ -46,7 +52,9 @@ jobs:
           echo "${{env.TEST_MCOOL_MD5 }}  test/data/${{env.TEST_MCOOL_NAME }}" | tee checksums.md5
           echo "${{env.TEST_RESULT_FILE_V1_MD5 }}  test/data/${{env.TEST_RESULT_FILE_V1_NAME }}" | tee -a checksums.md5
           echo "${{env.TEST_RESULT_FILE_V2_MD5 }}  test/data/${{env.TEST_RESULT_FILE_V2_NAME }}" | tee -a checksums.md5
+          echo "${{env.TEST_RESULT_FILE_V3_MD5 }}  test/data/${{env.TEST_RESULT_FILE_V3_NAME }}" | tee -a checksums.md5
           echo "${{env.TEST_PLOTS_MD5 }}  test/data/${{env.TEST_PLOTS_NAME }}" | tee -a checksums.md5
+          echo "${{env.TEST_TABLES_MD5 }}  test/data/${{env.TEST_TABLES_NAME }}" | tee -a checksums.md5
 
       - name: Generate cache key
         id: generate-cache-key
@@ -71,7 +79,9 @@ jobs:
           curl -L "${{env.TEST_MCOOL_URL }}" -o "test/data/${{env.TEST_MCOOL_NAME }}"
           curl -L "${{env.TEST_RESULT_FILE_V1_URL }}" -o "test/data/${{env.TEST_RESULT_FILE_V1_NAME }}"
           curl -L "${{env.TEST_RESULT_FILE_V2_URL }}" -o "test/data/${{env.TEST_RESULT_FILE_V2_NAME }}"
+          curl -L "${{env.TEST_RESULT_FILE_V3_URL }}" -o "test/data/${{env.TEST_RESULT_FILE_V3_NAME }}"
           curl -L "${{env.TEST_PLOTS_URL }}" -o "test/data/${{env.TEST_PLOTS_NAME }}"
+          curl -L "${{env.TEST_TABLES_URL }}" -o "test/data/${{env.TEST_TABLES_NAME }}"
 
       - name: Checksum test datasets
         if: steps.cache-dset.outputs.cache-hit != 'true'
