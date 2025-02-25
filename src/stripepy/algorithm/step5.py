@@ -14,9 +14,10 @@ import structlog
 from numpy.typing import NDArray
 
 from stripepy import plot
+from stripepy.algorithm.finders import compute_wQISA_predictions
 from stripepy.data_structures.result import Result
 from stripepy.data_structures.shared_sparse_matrix import SparseMatrix, get_shared_state
-from stripepy.utils import common, finders
+from stripepy.utils import common
 from stripepy.utils.common import pretty_format_elapsed_time
 from stripepy.utils.persistence1d import Persistence1DTable
 
@@ -347,7 +348,7 @@ def _plot_local_pseudodistributions_helper(args):
         y = _marginalize_matrix_ut(matrix, seed, left_bound, right_bound, max_height)
 
     x = np.arange(seed, seed + len(y))
-    y_hat = finders.compute_wQISA_predictions(y, 5)  # Basically: average of a 2-"pixel" neighborhood
+    y_hat = compute_wQISA_predictions(y, 5)  # Basically: average of a 2-"pixel" neighborhood
 
     loc_maxima = Persistence1DTable.calculate_persistence(
         y, min_persistence=min_persistence, sort_by="persistence"

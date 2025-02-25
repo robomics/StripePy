@@ -9,9 +9,13 @@ import numpy as np
 import structlog
 from numpy.typing import NDArray
 
+from stripepy.algorithm.finders import (
+    find_horizontal_intervals_of_interest,
+    find_vertical_intervals_of_interest,
+)
 from stripepy.data_structures.result import Result
 from stripepy.data_structures.shared_sparse_matrix import SparseMatrix
-from stripepy.utils import common, finders
+from stripepy.utils import common
 
 
 def run(
@@ -93,7 +97,7 @@ def run(
     )
 
     # DataFrame with the left and right boundaries for each seed site
-    horizontal_domains = finders.find_horizontal_intervals_of_interest(
+    horizontal_domains = find_horizontal_intervals_of_interest(
         pseudodistribution=pseudodistribution,
         seed_sites=persistent_max_points,
         seed_site_bounds=persistent_min_points_bounded,
@@ -122,7 +126,7 @@ def run(
     start_time = time.time()
 
     logger.bind(step=(3, 3)).info("estimating candidate stripe heights")
-    vertical_domains = finders.find_vertical_intervals_of_interest(
+    vertical_domains = find_vertical_intervals_of_interest(
         matrix=matrix,
         seed_sites=persistent_max_points,
         horizontal_domains=horizontal_domains,
