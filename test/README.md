@@ -14,6 +14,7 @@ The provided commands should work on any UNIX system. To run the test suites on 
 
 ```bash
 venv/bin/stripepy download --unit-test
+venv/bin/stripepy download --end2end
 ```
 
 ## Running the unit tests
