@@ -17,8 +17,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from stripepy.data_structures import Result
-from stripepy.io import ResultFile
+from stripepy.data_structures import Result, ResultFile
 
 
 def make_cli() -> argparse.ArgumentParser:

@@ -9,7 +9,7 @@ from typing import Sequence
 
 import pytest
 
-from stripepy.io import ResultFile
+from stripepy.data_structures import ResultFile
 from stripepy.io import compare_result_files as _compare_result_files
 
 
