@@ -25,6 +25,15 @@ from .common.cool import generate_singleres_test_file
 testdir = pathlib.Path(__file__).resolve().parent.parent
 
 
+def _pyarrow_avail() -> bool:
+    try:
+        import pyarrow
+
+        return True
+    except ImportError:
+        return False
+
+
 def _directory_is_empty(path) -> bool:
     path = pathlib.Path(path)
     assert path.is_dir()
@@ -463,6 +472,7 @@ class TestResultFile:
                     chrom = path.name
                     TestResultFile._compare_chromosome(h5[chrom], path)
 
+    @pytest.mark.skipif(not _pyarrow_avail(), reason="pyarrow is not available")
     def test_getters_long_v1(self, tmpdir):
         TestResultFile._test_getters_long(
             name="results_4DNFI9GMP2J8_v1",
@@ -472,6 +482,7 @@ class TestResultFile:
             tmpdir=tmpdir,
         )
 
+    @pytest.mark.skipif(not _pyarrow_avail(), reason="pyarrow is not available")
     def test_getters_long_v2(self, tmpdir):
         TestResultFile._test_getters_long(
             name="results_4DNFI9GMP2J8_v2",
@@ -481,6 +492,7 @@ class TestResultFile:
             tmpdir=tmpdir,
         )
 
+    @pytest.mark.skipif(not _pyarrow_avail(), reason="pyarrow is not available")
     def test_getters_long_v3(self, tmpdir):
         TestResultFile._test_getters_long(
             name="results_4DNFI9GMP2J8_v3",
