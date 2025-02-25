@@ -7,7 +7,8 @@ import tempfile
 
 import pytest
 
-from stripepy.others import define_region_of_interest, open_matrix_file_checked
+from stripepy.io.common import open_matrix_file_checked
+from stripepy.utils.common import define_region_of_interest
 
 from .common.cool import generate_singleres_test_file
 

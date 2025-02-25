@@ -16,7 +16,6 @@ import hictkpy
 import numpy as np
 import structlog
 
-from stripepy import others
 from stripepy.algorithm import step1, step2, step3, step4, step5
 from stripepy.cli import logging
 from stripepy.data_structures.result import Result
@@ -27,10 +26,12 @@ from stripepy.data_structures.shared_sparse_matrix import (
     unset_shared_state,
 )
 from stripepy.data_structures.stripe import Stripe
+from stripepy.io.common import open_matrix_file_checked
 from stripepy.io.progress_bar import get_stripepy_call_progress_bar_weights
 from stripepy.io.result_file import ResultFile
 from stripepy.utils.common import _import_matplotlib  # noqa
 from stripepy.utils.common import (
+    define_region_of_interest,
     pretty_format_elapsed_time,
     pretty_format_genomic_distance,
 )
@@ -399,7 +400,7 @@ class IOManager(object):
             structlog.get_logger().bind(chrom=chrom_name, step="IO").info("returning pre-fetched interactions")
             return data
 
-        roi = others.define_region_of_interest(self._roi, chrom_size, self._resolution)
+        roi = define_region_of_interest(self._roi, chrom_size, self._resolution)
         return IOManager._fetch(  # noqa
             self._path,
             self._resolution,
@@ -422,7 +423,7 @@ class IOManager(object):
 
         assert chrom_name not in self._tasks
 
-        roi = others.define_region_of_interest(self._roi, chrom_size, self._resolution)
+        roi = define_region_of_interest(self._roi, chrom_size, self._resolution)
         self._tasks[chrom_name] = self._pool.submit(
             IOManager._fetch,
             self._path,
@@ -956,7 +957,7 @@ def run(
 
     # This takes care of fetching the list of chromosomes after ensuring that the given matrix file
     # satisfies all of StripePy requirements
-    chroms = others.open_matrix_file_checked(
+    chroms = open_matrix_file_checked(
         contact_map,
         resolution,
         logger=main_logger,
@@ -1136,7 +1137,7 @@ def run(
 
             if matrix_roi_raw is not None:
                 assert matrix_roi_proc is not None
-                chrom_roi = others.define_region_of_interest(roi, chrom_size, resolution)
+                chrom_roi = define_region_of_interest(roi, chrom_size, resolution)
 
                 logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *chrom_roi["genomic"])
                 result.set_roi(chrom_roi)  # noqa
