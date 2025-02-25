@@ -419,31 +419,17 @@ class Stripe(object):
 
         raise ValueError(f"At least one of {top_bound=} and {bottom_bound=} must be equal to {seed=}")
 
-    def _compute_convex_comp(self) -> int:
-        cfx1 = 0.99
-        cfx2 = 0.01
-
-        if self.upper_triangular:
-            cfx1, cfx2 = cfx2, cfx1
-
-        return int(round(cfx1 * self._top_bound + cfx2 * self._bottom_bound))
-
     def _pad_horizontal_domain(self, matrix: SparseMatrix, padding: int) -> Tuple[int, int]:
         j0 = max(0, self._left_bound - padding)
         j1 = min(self._right_bound + padding + 1, matrix.shape[1])
         return j0, j1
 
     def _pad_vertical_domain(self, matrix: SparseMatrix, j0: int, j1: int) -> Tuple[int, int]:
-        convex_comb = self._compute_convex_comp()
         if self.lower_triangular:
-            # convex_comb replaces _top_bound
-            convex_comb = self._top_bound
             i0 = j0
-            i1 = min(j1 + (self._bottom_bound - convex_comb), matrix.shape[0])
+            i1 = min(j1 + (self._bottom_bound - self._top_bound), matrix.shape[0])
         else:
-            # convex_comb replaces _bottom_bound
-            convex_comb = self._bottom_bound
-            i0 = max(0, j0 - (convex_comb - self._top_bound))
+            i0 = max(0, j0 - (self._bottom_bound - self._top_bound))
             i1 = min(j1, matrix.shape[0])
         return i0, i1
 
