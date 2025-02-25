@@ -8,24 +8,24 @@ from typing import List, Optional, Tuple
 import numpy as np
 import structlog
 
-from stripepy.utils import stripe
+from stripepy.data_structures.stripe import Stripe
 from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
 
 
 def run(
-    stripes: List[stripe.Stripe],
+    stripes: List[Stripe],
     matrix: Optional[SparseMatrix],
     location: str,
     map_=map,
     logger=None,
     window: int = 3,
-) -> Tuple[str, List[stripe.Stripe]]:
+) -> Tuple[str, List[Stripe]]:
     """
     Compute the biodescriptors for the stripes identified by the previous steps.
 
     Parameters
     ----------
-    stripes : List[stripe.Stripe]
+    stripes : List[Stripe]
         the list of stripes to be processed.
     matrix: Optional[SparseMatrix]
         matrix with the interactions to be processed.
@@ -43,7 +43,7 @@ def run(
     -------
     str
         location (same as the location given as input).
-    List[stripe.Stripe]
+    List[Stripe]
         a copy of the stripes given as input with their biodescriptors computed.
     """
     assert location in {"lower", "upper"}
@@ -84,11 +84,11 @@ def run(
 
 
 def _step_4_helper(
-    stripe: stripe.Stripe,  # noqa
+    stripe: Stripe,  # noqa
     matrix: Optional[SparseMatrix],
     window: int,
     location: str,
-) -> stripe.Stripe:
+) -> Stripe:
     """
     Helper function for step_4().
     Computes the biodescriptors for the given stripe.

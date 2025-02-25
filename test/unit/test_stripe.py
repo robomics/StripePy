@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import scipy.sparse as ss
 
-from stripepy.utils.stripe import Stripe
+from stripepy.data_structures.stripe import Stripe
 
 
 @pytest.mark.unit

@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from stripepy.utils.stripe import Stripe
+from stripepy.data_structures.stripe import Stripe
 
 
 class Result(object):

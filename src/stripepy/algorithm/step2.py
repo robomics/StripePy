@@ -10,7 +10,8 @@ import structlog
 from numpy.typing import NDArray
 
 from stripepy.data_structures.result import Result
-from stripepy.utils import common, regressions, stripe
+from stripepy.data_structures.stripe import Stripe
+from stripepy.utils import common, regressions
 from stripepy.utils.persistence1d import Persistence1DTable
 from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
 
@@ -112,7 +113,7 @@ def run(
 
     logger.bind(step=(2, 3, 1)).info("generating the list of candidate stripes")
     where = f"{location}_triangular"
-    stripes = [stripe.Stripe(seed=x, top_pers=pers, where=where) for x, pers in persistence.max.items()]  # noqa
+    stripes = [Stripe(seed=x, top_pers=pers, where=where) for x, pers in persistence.max.items()]  # noqa
     logger.bind(step=(2, 3, 1)).info("identified %d candidate stripes", len(stripes))
     result.set("stripes", stripes, location)
 

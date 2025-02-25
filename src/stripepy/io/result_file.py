@@ -19,7 +19,7 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 
 from stripepy.data_structures.result import Result
-from stripepy.utils.stripe import Stripe
+from stripepy.data_structures.stripe import Stripe
 
 
 class ResultFile(object):

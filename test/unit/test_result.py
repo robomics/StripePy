@@ -7,7 +7,7 @@ import pytest
 from scipy.sparse import csr_matrix
 
 from stripepy.data_structures.result import Result
-from stripepy.utils.stripe import Stripe
+from stripepy.data_structures.stripe import Stripe
 
 
 @pytest.mark.unit
