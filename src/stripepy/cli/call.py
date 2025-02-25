@@ -16,7 +16,8 @@ import hictkpy
 import numpy as np
 import structlog
 
-from stripepy import IO, others, stripepy
+from stripepy import IO, others
+from stripepy.algorithm import step1, step2, step3, step4, step5
 from stripepy.cli import logging
 from stripepy.utils import stripe
 from stripepy.utils.common import _import_matplotlib  # noqa
@@ -490,7 +491,7 @@ class IOManager(object):
         logger = structlog.get_logger().bind(chrom=chrom_name, step=(1,))
         logger.info("data pre-processing")
         t0 = time.time()
-        ut_matrix, roi_matrix_raw, roi_matrix_proc = stripepy.step_1(
+        ut_matrix, roi_matrix_raw, roi_matrix_proc = step1.run(
             matrix,
             genomic_belt,
             resolution,
@@ -706,15 +707,15 @@ def _merge_results(
 
 
 def _run_step_2_helper(args) -> Tuple[str, IO.Result]:
-    return stripepy.step_2(*args)
+    return step2.run(*args)
 
 
 def _run_step_3_helper(args) -> Tuple[str, IO.Result]:
-    return stripepy.step_3(*args)
+    return step3.run(*args)
 
 
 def _run_step_4_helper(args) -> Tuple[str, List[stripe.Stripe]]:
-    return stripepy.step_4(*args)
+    return step4.run(*args)
 
 
 def _run_step_2(
@@ -1140,7 +1141,7 @@ def run(
                 start_time = time.time()
                 logger = logger.bind(step=(5,))
                 logger.info("generating plots")
-                stripepy.step_5(
+                step5.run(
                     result,
                     resolution,
                     matrix_roi_raw,
