@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 import hictkpy
 import structlog
 
-from stripepy.algorithm import step1
+from stripepy.algorithms import step1
 from stripepy.data_structures import (
     Result,
     ResultFile,

@@ -9,7 +9,7 @@ import pandas as pd
 import structlog
 from numpy.typing import NDArray
 
-from stripepy.algorithm.regressions import compute_wQISA_predictions
+from stripepy.algorithms.regressions import compute_wQISA_predictions
 from stripepy.data_structures import (
     Persistence1DTable,
     Result,

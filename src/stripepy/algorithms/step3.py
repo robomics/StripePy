@@ -9,7 +9,7 @@ import numpy as np
 import structlog
 from numpy.typing import NDArray
 
-from stripepy.algorithm.finders import (
+from stripepy.algorithms.finders import (
     find_horizontal_intervals_of_interest,
     find_vertical_intervals_of_interest,
 )

@@ -13,7 +13,7 @@ import pandas as pd
 import scipy.sparse as ss
 import structlog
 
-from stripepy.algorithm.regressions import compute_wQISA_predictions
+from stripepy.algorithms.regressions import compute_wQISA_predictions
 from stripepy.data_structures import Persistence1DTable, SparseMatrix, get_shared_state
 from stripepy.utils import pretty_format_elapsed_time
 

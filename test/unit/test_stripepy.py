@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import scipy.sparse as ss
 
-from stripepy.algorithm.step1 import _log_transform
+from stripepy.algorithms.step1 import _log_transform
 
 
 @pytest.mark.unit

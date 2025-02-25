@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import structlog
 
-from stripepy.algorithm import step2, step3, step4, step5
+from stripepy.algorithms import step2, step3, step4, step5
 from stripepy.data_structures import (
     IOManager,
     ProcessPoolWrapper,
