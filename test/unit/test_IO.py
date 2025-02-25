@@ -7,6 +7,7 @@ import itertools
 import json
 import math
 import pathlib
+import platform
 import tarfile
 from typing import Dict, Sequence
 
@@ -460,7 +461,11 @@ class TestResultFile:
         prefix = pathlib.Path("stripepy-call-result-tables") / name
         with tarfile.open(reference_tar) as tar:
             members = (tarinfo for tarinfo in tar.getmembers() if tarinfo.name.startswith(prefix.as_posix()))
-            tar.extractall(path=tmpdir, members=members, filter="data")
+            py_major, py_minor, _ = platform.python_version_tuple()
+            if py_major == "3" and int(py_minor) < 12:
+                tar.extractall(path=tmpdir, members=members)
+            else:
+                tar.extractall(path=tmpdir, members=members, filter="data")
 
         reference_dir = tmpdir / prefix
 
