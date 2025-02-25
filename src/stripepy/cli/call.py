@@ -17,7 +17,6 @@ import numpy as np
 import structlog
 
 from stripepy.algorithm import step1, step2, step3, step4, step5
-from stripepy.cli import logging
 from stripepy.data_structures import (
     Result,
     SharedTriangularSparseMatrix,
@@ -27,6 +26,7 @@ from stripepy.data_structures import (
     unset_shared_state,
 )
 from stripepy.io import (
+    ProcessSafeLogger,
     ResultFile,
     get_stripepy_call_progress_bar_weights,
     open_matrix_file_checked,
@@ -48,7 +48,7 @@ def _init_shared_state(
     """
     Function to initialize newly created worker processes.
     """
-    logging.ProcessSafeLogger.setup_logger(log_queue)
+    ProcessSafeLogger.setup_logger(log_queue)
 
     if lower_triangular_matrix is not None:
         assert upper_triangular_matrix is not None
@@ -80,7 +80,7 @@ class ProcessPoolWrapper(object):
     def __init__(
         self,
         nproc: int,
-        main_logger: logging.ProcessSafeLogger,
+        main_logger: ProcessSafeLogger,
         init_mpl: bool = False,
         lazy_pool_initialization: bool = False,
         logger=None,
@@ -90,7 +90,7 @@ class ProcessPoolWrapper(object):
         ----------
         nproc: int
             number of worker processes
-        main_logger: logging.ProcessSafeLogger
+        main_logger: ProcessSafeLogger
             the logger instance to which worker processes will be connected to
         init_mpl: bool
             whether worker processes should initialize matplotlib upon starting
@@ -306,7 +306,7 @@ class IOManager(object):
         region_of_interest: Optional[str],
         nproc: int,
         metadata: Dict[str, Any],
-        main_logger: logging.ProcessSafeLogger,
+        main_logger: ProcessSafeLogger,
     ):
         """
         Parameters
@@ -328,7 +328,7 @@ class IOManager(object):
             the number of processes to use (capped to a maximum of 3)
         metadata: Dict[str, Any]
             metadata to be written to the result file
-        main_logger: logging.ProcessSafeLogger
+        main_logger: ProcessSafeLogger
             the logger instance to which IO processes will be connected to
         """
         self._path = matrix_path
@@ -934,7 +934,7 @@ def run(
     nproc: int,
     min_chrom_size: int,
     verbosity: str,
-    main_logger: logging.ProcessSafeLogger,
+    main_logger: ProcessSafeLogger,
     roi: Optional[str] = None,
     log_file: Optional[pathlib.Path] = None,
     plot_dir: Optional[pathlib.Path] = None,

@@ -32,13 +32,14 @@ def _setup_matplotlib(subcommand: str, **kwargs):
 def main(args: Optional[List[str]] = None):
     # It is important that stripepy is not imported in the global namespace to enable coverage
     # collection when using multiprocessing
-    from stripepy.cli import call, download, logging, plot, setup, view
+    from stripepy.cli import call, download, plot, setup, view
+    from stripepy.io import ProcessSafeLogger
 
     # Parse CLI args
     subcommand, kwargs, verbosity = setup.parse_args(sys.argv[1:] if args is None else args)
 
     # Set up the main logger
-    with logging.ProcessSafeLogger(
+    with ProcessSafeLogger(
         verbosity,
         path=kwargs.get("log_file"),
         force=kwargs.get("force"),
