@@ -27,7 +27,7 @@ class TestStripePyCall:
     def setup_class():
         test_files = [
             testdir / "data" / "4DNFI9GMP2J8.mcool",
-            testdir / "data" / "results_4DNFI9GMP2J8_v2.hdf5",
+            testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5",
         ]
 
         for f in test_files:
@@ -41,7 +41,7 @@ class TestStripePyCall:
         assert nproc > 0
         tmpdir = pathlib.Path(tmpdir)
         testfile = testdir / "data" / "4DNFI9GMP2J8.mcool"
-        result_file = testdir / "data" / "results_4DNFI9GMP2J8_v2.hdf5"
+        result_file = testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5"
         resolution = 10_000
 
         chrom_sizes = hictkpy.MultiResFile(testfile).chromosomes()
@@ -55,7 +55,7 @@ class TestStripePyCall:
             str(testfile),
             str(resolution),
             "--glob-pers-min",
-            "0.05",
+            "0.04",
             "--loc-pers-min",
             "0.33",
             "--loc-trend-min",

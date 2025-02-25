@@ -24,7 +24,7 @@ from stripepy.utils.progress_bar import initialize_progress_bar
 def _get_datasets(max_size: float, include_private: bool) -> Dict[str, Dict[str, str]]:
     assert not math.isnan(max_size)
 
-    record_id = "14762415"
+    record_id = "14921616"
 
     datasets = {
         "4DNFI3RFZLZ5": {
@@ -58,6 +58,14 @@ def _get_datasets(max_size: float, include_private: bool) -> Dict[str, Dict[str,
     }
 
     private_datasets = {
+        "__results_tables": {
+            "url": f"https://zenodo.org/records/{record_id}/files/stripepy-call-result-tables.tar.xz?download=1",
+            "md5": "52c4154c9e974a3130b3ecaa7b729827",
+            "filename": "stripepy-call-result-tables.tar.xz",
+            "assembly": "hg38",
+            "format": "tar",
+            "size_mb": 19.58,
+        },
         "__results_v1": {
             "url": f"https://zenodo.org/records/{record_id}/files/results_4DNFI9GMP2J8_v1.hdf5?download=1",
             "md5": "03bca8d430191aaf3c90a4bc22a8c579",
@@ -74,13 +82,21 @@ def _get_datasets(max_size: float, include_private: bool) -> Dict[str, Dict[str,
             "format": "stripepy",
             "size_mb": 9.26,
         },
+        "__results_v3": {
+            "url": f"https://zenodo.org/records/{record_id}/files/results_4DNFI9GMP2J8_v3.hdf5?download=1",
+            "md5": "0e618f61f35579968105e84bf50a2598",
+            "filename": "results_4DNFI9GMP2J8_v3.hdf5",
+            "assembly": "hg38",
+            "format": "stripepy",
+            "size_mb": 10.50,
+        },
         "__stripepy_plot_images": {
             "url": f"https://zenodo.org/records/{record_id}/files/stripepy-plot-test-images.tar.xz?download=1",
-            "md5": "adf60f386521f70b24936e53a6d11eab",
+            "md5": "e88d5a6ff33fb7cb0a15e27c5bac7644",
             "filename": "stripepy-plot-test-images.tar.xz",
             "assembly": "hg38",
             "format": "tar",
-            "size_mb": 1.5,
+            "size_mb": 1.54,
         },
     }
 
@@ -251,7 +267,7 @@ def _download_multiple(
 
         if output_path.exists():
             logger.info('found existing file "%s"', output_path)
-            digest = _hash_file(output_path)
+            digest = _hash_file(output_path, progress_bar)
             if digest == config["md5"]:
                 logger.info('dataset "%s" has already been downloaded: SKIPPING!', name)
                 continue
@@ -268,17 +284,28 @@ def _download_data_for_unit_tests(progress_bar):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     names = {
-        "4DNFI9GMP2J8": pathlib.Path("test/data/4DNFI9GMP2J8.mcool"),
+        "__results_tables": pathlib.Path("test/data/stripepy-call-result-tables.tar.xz"),
         "__results_v1": pathlib.Path("test/data/results_4DNFI9GMP2J8_v1.hdf5"),
         "__results_v2": pathlib.Path("test/data/results_4DNFI9GMP2J8_v2.hdf5"),
-        "__stripepy_plot_images": pathlib.Path("test/data/stripepy-plot-test-images.tar.xz"),
+        "__results_v3": pathlib.Path("test/data/results_4DNFI9GMP2J8_v3.hdf5"),
     }
 
     _download_multiple(list(names.keys()), list(names.values()), progress_bar)
 
 
-def _download_data_for_end2end_tests(*args, **kwargs):
-    _download_data_for_unit_tests(*args, **kwargs)
+def _download_data_for_end2end_tests(progress_bar):
+    output_dir = pathlib.Path("test/data")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    names = {
+        "4DNFI9GMP2J8": pathlib.Path("test/data/4DNFI9GMP2J8.mcool"),
+        "__results_v1": pathlib.Path("test/data/results_4DNFI9GMP2J8_v1.hdf5"),
+        "__results_v2": pathlib.Path("test/data/results_4DNFI9GMP2J8_v2.hdf5"),
+        "__results_v3": pathlib.Path("test/data/results_4DNFI9GMP2J8_v3.hdf5"),
+        "__stripepy_plot_images": pathlib.Path("test/data/stripepy-plot-test-images.tar.xz"),
+    }
+
+    _download_multiple(list(names.keys()), list(names.values()), progress_bar)
 
 
 def run(

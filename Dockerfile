@@ -45,7 +45,7 @@ ARG install_dir='/opt/stripepy'
 
 COPY --from=builder "$src_dir" "$src_dir"
 COPY --from=builder "$install_dir" "$install_dir"
-COPY test/data/results_4DNFI9GMP2J8_v1.hdf5 "$src_dir/test/data/"
+COPY test/data/ "$src_dir/test/"
 
 RUN "$install_dir/bin/pip" install "$src_dir[test]" -v --no-compile
 

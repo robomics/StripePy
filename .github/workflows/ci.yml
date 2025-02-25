@@ -70,7 +70,7 @@ jobs:
 
   cache-test-datasets:
     name: Cache test datasets
-    uses: paulsengroup/StripePy/.github/workflows/cache-test-datasets.yml@f2b0a09235380217adef10ed350f2076b1153505
+    uses: paulsengroup/StripePy/.github/workflows/cache-test-datasets.yml@b0222beb3c2fae990f0f24a74b2bbcec4580118f
 
   ci:
     name: CI
