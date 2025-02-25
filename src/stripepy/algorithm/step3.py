@@ -10,8 +10,8 @@ import structlog
 from numpy.typing import NDArray
 
 from stripepy.data_structures.result import Result
+from stripepy.data_structures.shared_sparse_matrix import SparseMatrix
 from stripepy.utils import common, finders
-from stripepy.utils.shared_sparse_matrix import SparseMatrix
 
 
 def run(

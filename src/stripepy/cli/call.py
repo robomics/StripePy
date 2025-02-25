@@ -20,6 +20,12 @@ from stripepy import others
 from stripepy.algorithm import step1, step2, step3, step4, step5
 from stripepy.cli import logging
 from stripepy.data_structures.result import Result
+from stripepy.data_structures.shared_sparse_matrix import (
+    SharedTriangularSparseMatrix,
+    SparseMatrix,
+    set_shared_state,
+    unset_shared_state,
+)
 from stripepy.data_structures.stripe import Stripe
 from stripepy.io.result_file import ResultFile
 from stripepy.utils.common import _import_matplotlib  # noqa
@@ -28,12 +34,6 @@ from stripepy.utils.common import (
     pretty_format_genomic_distance,
 )
 from stripepy.utils.progress_bar import get_stripepy_call_progress_bar_weights
-from stripepy.utils.shared_sparse_matrix import (
-    SharedTriangularSparseMatrix,
-    SparseMatrix,
-    set_shared_state,
-    unset_shared_state,
-)
 
 
 def _init_shared_state(

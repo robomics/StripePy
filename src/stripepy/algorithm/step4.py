@@ -8,8 +8,8 @@ from typing import List, Optional, Tuple
 import numpy as np
 import structlog
 
+from stripepy.data_structures.shared_sparse_matrix import SparseMatrix, get_shared_state
 from stripepy.data_structures.stripe import Stripe
-from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
 
 
 def run(

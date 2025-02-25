@@ -15,10 +15,10 @@ from numpy.typing import NDArray
 
 from stripepy import plot
 from stripepy.data_structures.result import Result
+from stripepy.data_structures.shared_sparse_matrix import SparseMatrix, get_shared_state
 from stripepy.utils import common, finders
 from stripepy.utils.common import pretty_format_elapsed_time
 from stripepy.utils.persistence1d import Persistence1DTable
-from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
 
 
 def run(
