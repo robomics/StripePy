@@ -15,11 +15,11 @@ from numpy.typing import NDArray
 
 from stripepy import plot
 from stripepy.algorithm.finders import compute_wQISA_predictions
+from stripepy.data_structures.persistence1d import Persistence1DTable
 from stripepy.data_structures.result import Result
 from stripepy.data_structures.shared_sparse_matrix import SparseMatrix, get_shared_state
 from stripepy.utils import common
 from stripepy.utils.common import pretty_format_elapsed_time
-from stripepy.utils.persistence1d import Persistence1DTable
 
 
 def run(

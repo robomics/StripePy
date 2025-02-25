@@ -9,11 +9,11 @@ import pandas as pd
 import structlog
 from numpy.typing import NDArray
 
+from stripepy.data_structures.persistence1d import Persistence1DTable
 from stripepy.data_structures.result import Result
 from stripepy.data_structures.shared_sparse_matrix import SparseMatrix, get_shared_state
 from stripepy.data_structures.stripe import Stripe
 from stripepy.utils import common, regressions
-from stripepy.utils.persistence1d import Persistence1DTable
 
 
 def run(

@@ -11,9 +11,9 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
+from stripepy.data_structures.persistence1d import Persistence1DTable
 from stripepy.data_structures.result import Result
 from stripepy.utils.common import _DummyPyplot, _import_matplotlib, _import_pyplot
-from stripepy.utils.persistence1d import Persistence1DTable
 
 # Dummy values to not break type annotations when matplotlib is not available
 plt = _DummyPyplot()
