@@ -8,7 +8,7 @@ set -eu
 set -o pipefail
 
 if [ $# -ne 1 ]; then
-  2>&1 echo "Usage: $0 stipepy:latest"
+  2>&1 echo "Usage: $0 stripepy:latest"
   exit 1
 fi
 
@@ -23,6 +23,7 @@ done
 IMG="$1"
 
 tmpdir="$(mktemp -d)"
+# shellcheck disable=SC2064
 trap "rm -rf '$tmpdir'" EXIT
 
 TEST_DATASET='4DNFI9GMP2J8'
@@ -53,6 +54,7 @@ cd /tmp/stripepy
 
 TEST_DATASET="$1"
 
+1>&2 echo '### testing stripepy call...'
 stripepy call \
   "$TEST_DATASET" \
   20000 \
@@ -81,7 +83,31 @@ if [ "$ok" != true ]; then
   1>&2 echo "### FAILURE!"
   exit 1
 fi
+1>&2 echo "### stripepy call: SUCCESS!"
 
+1>&2 echo '### testing stripepy view...'
+num_stripes="$(stripepy view out.hdf5 | wc -l)"
+
+if [ "$num_stripes" -ne 7596 ]; then
+  1>&2 echo "### FAILURE!"
+  exit 1
+fi
+1>&2 echo "### stripepy view: SUCCESS!"
+
+1>&2 echo '### testing stripepy plot...'
+stripepy plot cm \
+  "$TEST_DATASET" \
+  20000 \
+  out.png \
+  --stripepy-hdf5 out.hdf5 \
+  --highlight-stripes
+
+if [ ! -f out.png ]; then
+  1>&2 echo 'out.png is missing!'
+  1>&2 echo "### FAILURE!"
+  exit 1
+fi
+1>&2 echo "### stripepy plot: SUCCESS!"
 1>&2 echo "### SUCCESS!"
 
 EOM
