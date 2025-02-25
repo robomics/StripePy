@@ -10,11 +10,14 @@ import structlog
 from numpy.typing import NDArray
 
 from stripepy.algorithm.regressions import compute_wQISA_predictions
-from stripepy.data_structures.persistence1d import Persistence1DTable
-from stripepy.data_structures.result import Result
-from stripepy.data_structures.shared_sparse_matrix import SparseMatrix, get_shared_state
-from stripepy.data_structures.stripe import Stripe
-from stripepy.utils import common
+from stripepy.data_structures import (
+    Persistence1DTable,
+    Result,
+    SparseMatrix,
+    Stripe,
+    get_shared_state,
+)
+from stripepy.utils import truncate_np
 
 
 def run(
@@ -160,7 +163,7 @@ def _compute_global_pseudodistribution(
     if decimal_places >= 0:
         # We need to truncate FP numbers to ensure that later steps generate consistent results
         # even in the presence to very minor numeric differences on different platforms.
-        return common.truncate_np(pseudo_dist, decimal_places)
+        return truncate_np(pseudo_dist, decimal_places)
 
     return pseudo_dist
 

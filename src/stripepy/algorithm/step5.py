@@ -15,11 +15,13 @@ from numpy.typing import NDArray
 
 from stripepy import plot
 from stripepy.algorithm.regressions import compute_wQISA_predictions
-from stripepy.data_structures.persistence1d import Persistence1DTable
-from stripepy.data_structures.result import Result
-from stripepy.data_structures.shared_sparse_matrix import SparseMatrix, get_shared_state
-from stripepy.utils import common
-from stripepy.utils.common import pretty_format_elapsed_time
+from stripepy.data_structures import (
+    Persistence1DTable,
+    Result,
+    SparseMatrix,
+    get_shared_state,
+)
+from stripepy.utils import import_pyplot, pretty_format_elapsed_time
 
 
 def run(
@@ -129,7 +131,7 @@ def _plot_matrix(
     Plot the given matrix as a heatmap.
     """
     t0 = time.time()
-    plt = common._import_pyplot()  # noqa
+    plt = import_pyplot()
 
     if matrix_type == "raw":
         logger = structlog.get_logger().bind(chrom=chrom_name, step=(5, 1, 1))
@@ -164,7 +166,7 @@ def _plot_pseudodistribution(
     Plot the pseudo-distribution as a line plot.
     """
     t0 = time.time()
-    plt = common._import_pyplot()  # noqa
+    plt = import_pyplot()
     assert result.roi is not None
 
     logger = structlog.get_logger().bind(chrom=result.chrom[0], step=(5, 2, 1))
@@ -214,7 +216,7 @@ def _plot_hic_and_hois(
     assert result.roi is not None
 
     t0 = time.time()
-    plt = common._import_pyplot()  # noqa
+    plt = import_pyplot()
 
     if matrix is None:
         return
@@ -262,7 +264,7 @@ def _plot_geo_descriptors(
     Plot the histogram of the geometric descriptors (i.e. stripe widths and heights).
     """
     t0 = time.time()
-    plt = common._import_pyplot()  # noqa
+    plt = import_pyplot()
 
     logger = structlog.get_logger().bind(chrom=result.chrom[0], step=(5, 4, 1))
     logger.info("generating histograms for geo-descriptors")
@@ -336,7 +338,7 @@ def _plot_local_pseudodistributions_helper(args):
     if matrix is None:
         matrix = get_shared_state(location).get()
 
-    plt = common._import_pyplot()  # noqa
+    plt = import_pyplot()
     structlog.get_logger().bind(chrom=chrom_name, step=(5, 5, i)).debug(
         "plotting local profile for seed %d (%s)", seed, location
     )
@@ -465,7 +467,7 @@ def _plot_local_pseudodistributions(
 
 def _plot_stripes_helper(args):
     t0 = time.time()
-    plt = common._import_pyplot()  # noqa
+    plt = import_pyplot()
     i, matrix, result, resolution, start, end, cutoff, output_folder = args
 
     logger = structlog.get_logger().bind(chrom=result.chrom[0], step=(5, 6, i))

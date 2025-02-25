@@ -17,8 +17,8 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
-from stripepy.data_structures.result import Result
-from stripepy.io.result_file import ResultFile
+from stripepy.data_structures import Result
+from stripepy.io import ResultFile
 
 from .common.cool import generate_singleres_test_file
 

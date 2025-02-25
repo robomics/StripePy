@@ -9,7 +9,7 @@ import numpy as np
 import scipy.sparse as ss
 from numpy.typing import NDArray
 
-from stripepy.data_structures.shared_sparse_matrix import SparseMatrix
+from stripepy.data_structures import SparseMatrix
 
 
 class Stripe(object):

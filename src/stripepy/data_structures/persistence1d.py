@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from stripepy.data_structures.unionfind import UnionFind
+from stripepy.data_structures import UnionFind
 
 
 class Persistence1DTable(object):

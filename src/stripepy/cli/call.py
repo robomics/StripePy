@@ -18,20 +18,22 @@ import structlog
 
 from stripepy.algorithm import step1, step2, step3, step4, step5
 from stripepy.cli import logging
-from stripepy.data_structures.result import Result
-from stripepy.data_structures.shared_sparse_matrix import (
+from stripepy.data_structures import (
+    Result,
     SharedTriangularSparseMatrix,
     SparseMatrix,
+    Stripe,
     set_shared_state,
     unset_shared_state,
 )
-from stripepy.data_structures.stripe import Stripe
-from stripepy.io.common import open_matrix_file_checked
-from stripepy.io.progress_bar import get_stripepy_call_progress_bar_weights
-from stripepy.io.result_file import ResultFile
-from stripepy.utils.common import _import_matplotlib  # noqa
-from stripepy.utils.common import (
+from stripepy.io import (
+    ResultFile,
+    get_stripepy_call_progress_bar_weights,
+    open_matrix_file_checked,
+)
+from stripepy.utils import (
     define_region_of_interest,
+    import_matplotlib,
     pretty_format_elapsed_time,
     pretty_format_genomic_distance,
 )
@@ -953,7 +955,7 @@ def run(
 
     if roi is not None:
         # Raise an error immediately if --roi was passed and matplotlib is not available
-        _import_matplotlib()
+        import_matplotlib()
 
     # This takes care of fetching the list of chromosomes after ensuring that the given matrix file
     # satisfies all of StripePy requirements

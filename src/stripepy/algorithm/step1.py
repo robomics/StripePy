@@ -8,8 +8,8 @@ import numpy as np
 import scipy.sparse as ss
 import structlog
 
-from stripepy.data_structures.shared_sparse_matrix import SparseMatrix
-from stripepy.utils.common import zero_columns, zero_rows
+from stripepy.data_structures import SparseMatrix
+from stripepy.utils import zero_columns, zero_rows
 
 
 def run(

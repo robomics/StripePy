@@ -9,7 +9,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from stripepy.io.result_file import ResultFile
+from stripepy.io import ResultFile
 
 
 def _read_stripes(f: ResultFile, chrom: str) -> pd.DataFrame:

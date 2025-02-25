@@ -13,9 +13,8 @@ from stripepy.algorithm.finders import (
     find_horizontal_intervals_of_interest,
     find_vertical_intervals_of_interest,
 )
-from stripepy.data_structures.result import Result
-from stripepy.data_structures.shared_sparse_matrix import SparseMatrix
-from stripepy.utils import common
+from stripepy.data_structures import Result, SparseMatrix
+from stripepy.utils import pretty_format_elapsed_time
 
 
 def run(
@@ -110,7 +109,7 @@ def run(
     logger.bind(step=(3, 1)).info(
         "width estimation of %d stripes took %s (mean=%.0f kbp; std=%.0f kbp)",
         len(domain_widths),
-        common.pretty_format_elapsed_time(start_time),
+        pretty_format_elapsed_time(start_time),
         domain_widths.mean() * resolution / 1000,
         domain_widths.std() * resolution / 1000,
     )
@@ -143,7 +142,7 @@ def run(
     logger.bind(step=(3, 3)).info(
         "height estimation of %d stripes tool %s (mean=%.0f kbp; std=%.0f kbp)",
         len(domain_heights),
-        common.pretty_format_elapsed_time(start_time),
+        pretty_format_elapsed_time(start_time),
         domain_heights.mean() * resolution / 1000,
         domain_heights.std() * resolution / 1000,
     )

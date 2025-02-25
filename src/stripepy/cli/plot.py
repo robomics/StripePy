@@ -13,14 +13,14 @@ import structlog
 from numpy.typing import NDArray
 
 import stripepy.plot
-from stripepy.data_structures.result import Result
-from stripepy.io.result_file import ResultFile
-from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
+from stripepy.data_structures import Result
+from stripepy.io import ResultFile
+from stripepy.utils import import_matplotlib, pretty_format_elapsed_time
 
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    from stripepy.utils.common import _DummyPyplot
+    from stripepy.utils import _DummyPyplot  # noqa
 
     plt = _DummyPyplot()
 
@@ -347,7 +347,7 @@ def run(
     t0 = time.time()
 
     # Raise an error immediately if matplotlib is not available
-    _import_matplotlib()
+    import_matplotlib()
 
     if output_name.exists():
         if force:

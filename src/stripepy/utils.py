@@ -224,7 +224,7 @@ def define_region_of_interest(
     return {"genomic": bounds, "matrix": tuple(x // resolution for x in bounds)}
 
 
-def _import_matplotlib():
+def import_matplotlib():
     """
     Helper function to import matplotlib.
     """
@@ -238,11 +238,11 @@ def _import_matplotlib():
         ) from e
 
 
-def _import_pyplot():
+def import_pyplot():
     """
     Helper function to import matplotlib.pyplot.
     """
-    _import_matplotlib()  # this will deal with import errors
+    import_matplotlib()  # this will deal with import errors
     import matplotlib.pyplot as plt
 
     return plt
