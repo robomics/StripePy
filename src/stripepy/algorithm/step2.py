@@ -9,7 +9,7 @@ import pandas as pd
 import structlog
 from numpy.typing import NDArray
 
-from stripepy import IO
+from stripepy.data_structures.result import Result
 from stripepy.utils import common, regressions, stripe
 from stripepy.utils.persistence1d import Persistence1DTable
 from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
@@ -22,7 +22,7 @@ def run(
     min_persistence: float,
     location: str,
     logger=None,
-) -> Tuple[str, IO.Result]:
+) -> Tuple[str, Result]:
     """
     Compute the global 1D pseudo-distribution and identify the coordinates of the candidate stripe seeds.
 
@@ -46,7 +46,7 @@ def run(
     -------
     str
         location (same as the location given as input).
-    IO.Result
+    ResultFile
         Result object with the following attributes set:
         - chromosome
         - pseudodistribution
@@ -71,7 +71,7 @@ def run(
         matrix = get_shared_state(location).get()
 
     # Initialize result object
-    result = IO.Result(chrom_name, chrom_size)
+    result = Result(chrom_name, chrom_size)
 
     logger.bind(step=(2, 1, 0)).info("computing global 1D pseudo-distribution")
     pseudodistribution = _compute_global_pseudodistribution(matrix, smooth=True)

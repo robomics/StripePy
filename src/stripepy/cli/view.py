@@ -4,13 +4,12 @@
 
 import pathlib
 import sys
-import warnings
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 
-from stripepy.IO import ResultFile
+from stripepy.io.result_file import ResultFile
 
 
 def _read_stripes(f: ResultFile, chrom: str) -> pd.DataFrame:

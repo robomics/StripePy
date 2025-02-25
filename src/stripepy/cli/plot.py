@@ -13,7 +13,8 @@ import structlog
 from numpy.typing import NDArray
 
 import stripepy.plot
-from stripepy.IO import Result, ResultFile
+from stripepy.data_structures.result import Result
+from stripepy.io.result_file import ResultFile
 from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
 
 try:

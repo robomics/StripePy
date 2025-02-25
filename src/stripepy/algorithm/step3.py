@@ -9,13 +9,13 @@ import numpy as np
 import structlog
 from numpy.typing import NDArray
 
-from stripepy import IO
+from stripepy.data_structures.result import Result
 from stripepy.utils import common, finders
 from stripepy.utils.shared_sparse_matrix import SparseMatrix
 
 
 def run(
-    result: IO.Result,
+    result: Result,
     matrix: Optional[SparseMatrix],
     resolution: int,
     max_stripe_height: int,
@@ -25,13 +25,13 @@ def run(
     location: str,
     map_: Callable = map,
     logger=None,
-) -> Tuple[str, IO.Result]:
+) -> Tuple[str, Result]:
     """
     Compute the width and height of each candidate stripe.
 
     Parameters
     ----------
-    result : IO.Result
+    result : Result
         the Result object produced by step_2()
     matrix: Optional[SparseMatrix]
         matrix with the interactions to be processed.
@@ -59,7 +59,7 @@ def run(
     -------
     str
         location (same as the location given as input).
-    IO.Result
+    Result
         A copy of the Result object given as input with the stripe widths
         (left_bound and right_bound) and heights (top_bound and bottom_bound) set.
     """

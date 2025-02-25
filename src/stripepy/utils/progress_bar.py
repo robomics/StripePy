@@ -35,7 +35,7 @@ class _DummyProgressBar(object):
 def _initialize_progress_bar_download():
     import rich.progress as rp
 
-    from stripepy.IO import get_stderr
+    from stripepy.io.common import get_stderr
 
     return rp.Progress(
         rp.TextColumn("[bold blue]{task.fields[name]}", justify="right"),
@@ -55,7 +55,7 @@ def _initialize_progress_bar_download():
 def _initialize_progress_bar_call(longest_chrom_name: str, longest_step_name: str):
     import rich.progress as rp
 
-    from stripepy.IO import get_stderr
+    from stripepy.io.common import get_stderr
 
     chrom_field_fmt = f"task.fields[chrom]:>{len(longest_chrom_name)}"
     step_field_fmt = f"task.fields[step]:<{len(longest_step_name)}"

@@ -13,7 +13,8 @@ import scipy.sparse as ss
 import structlog
 from numpy.typing import NDArray
 
-from stripepy import IO, plot
+from stripepy import plot
+from stripepy.data_structures.result import Result
 from stripepy.utils import common, finders
 from stripepy.utils.common import pretty_format_elapsed_time
 from stripepy.utils.persistence1d import Persistence1DTable
@@ -21,7 +22,7 @@ from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
 
 
 def run(
-    result: IO.Result,
+    result: Result,
     resolution: int,
     raw_matrix: SparseMatrix,
     proc_matrix: SparseMatrix,
@@ -135,7 +136,7 @@ def _plot_matrix(
         assert matrix_type == "processed"
         logger = structlog.get_logger().bind(chrom=chrom_name, step=(5, 1, 2))
 
-    dummy_result = IO.Result(chrom_name, chrom_size)
+    dummy_result = Result(chrom_name, chrom_size)
     logger.info("plotting %s matrix", matrix_type)
     fig, _ = plot.plot(
         dummy_result,
@@ -153,7 +154,7 @@ def _plot_matrix(
 
 
 def _plot_pseudodistribution(
-    result: IO.Result,
+    result: Result,
     resolution: int,
     matrix: Optional[NDArray],
     output_folder: pathlib.Path,
@@ -201,7 +202,7 @@ def _plot_pseudodistribution(
 
 
 def _plot_hic_and_hois(
-    result: IO.Result,
+    result: Result,
     resolution: int,
     matrix: Optional[NDArray],
     output_folder: pathlib.Path,
@@ -252,7 +253,7 @@ def _plot_hic_and_hois(
 
 
 def _plot_geo_descriptors(
-    result: IO.Result,
+    result: Result,
     resolution: int,
     output_folder: pathlib.Path,
 ):
@@ -384,7 +385,7 @@ def _plot_local_pseudodistributions_helper(args):
 
 
 def _plot_local_pseudodistributions(
-    result: IO.Result,
+    result: Result,
     matrix_lt: Optional[SparseMatrix],
     matrix_ut: Optional[SparseMatrix],
     resolution: int,
@@ -479,7 +480,7 @@ def _plot_stripes_helper(args):
 
 
 def _get_stripes(
-    result: IO.Result,
+    result: Result,
     resolution: int,
 ) -> pd.DataFrame:
     """
@@ -505,7 +506,7 @@ def _get_stripes(
 
 
 def _plot_stripes(
-    result: IO.Result,
+    result: Result,
     resolution: int,
     matrix: Optional[NDArray],
     output_folder: pathlib.Path,

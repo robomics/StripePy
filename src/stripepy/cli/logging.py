@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 import hictkpy
 import structlog
 
-from stripepy.IO import get_stderr
+from stripepy.io.common import get_stderr
 from stripepy.utils.progress_bar import initialize_progress_bar
 
 

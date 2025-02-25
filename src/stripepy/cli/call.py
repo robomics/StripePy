@@ -16,9 +16,11 @@ import hictkpy
 import numpy as np
 import structlog
 
-from stripepy import IO, others
+from stripepy import others
 from stripepy.algorithm import step1, step2, step3, step4, step5
 from stripepy.cli import logging
+from stripepy.data_structures.result import Result
+from stripepy.io.result_file import ResultFile
 from stripepy.utils import stripe
 from stripepy.utils.common import _import_matplotlib  # noqa
 from stripepy.utils.common import (
@@ -344,7 +346,7 @@ class IOManager(object):
         )
 
         logger.info('initializing result file "%s"', result_path)
-        with IO.ResultFile.create_from_file(
+        with ResultFile.create_from_file(
             result_path,
             mode="a",
             matrix_file=hictkpy.File(matrix_path, resolution),
@@ -363,7 +365,7 @@ class IOManager(object):
 
         structlog.get_logger().bind(step="IO").info('finalizing file "%s"', self._h5_path)
         self._wait_on_io_on_results_file()
-        with IO.ResultFile.append(self._h5_path) as h5:
+        with ResultFile.append(self._h5_path) as h5:
             h5.finalize()
 
     def fetch_interaction_matrix(
@@ -460,13 +462,13 @@ class IOManager(object):
                 self.fetch_interaction_matrix_async(chrom, size)
                 return
 
-    def write_results(self, result: IO.Result):
+    def write_results(self, result: Result):
         """
         Write the given result object to the ResultFile managed by the current IOManager instance.
 
         Parameters
         ----------
-        result: IO.Result
+        result: Result
             the result object to be written to the managed ResultFile
         """
         self._wait_on_io_on_results_file()
@@ -511,11 +513,11 @@ class IOManager(object):
         return res
 
     @staticmethod
-    def _write_results(path: pathlib.Path, result: IO.Result):
+    def _write_results(path: pathlib.Path, result: Result):
         logger = structlog.get_logger().bind(chrom=result.chrom[0], step="IO")
         logger.info('writing results to file "%s"', path)
         start_time = time.time()
-        with IO.ResultFile.append(path) as h5:
+        with ResultFile.append(path) as h5:
             h5.write_descriptors(result)
         logger.info('successfully written results to "%s" in %s', path, pretty_format_elapsed_time(start_time))
 
@@ -585,11 +587,11 @@ def _generate_empty_result(
     chrom: str,
     chrom_size: int,
     resolution: int,
-) -> IO.Result:
+) -> Result:
     """
     Shortcut to generate an empty Result object for the given chromosome.
     """
-    result = IO.Result(chrom, chrom_size)
+    result = Result(chrom, chrom_size)
     result.set_min_persistence(0)
 
     num_bins = (chrom_size + resolution - 1) // resolution
@@ -655,14 +657,14 @@ def _remove_existing_output_files(
 
 
 def _merge_results(
-    results: Iterable[Union[Tuple[str, IO.Result], concurrent.futures.Future]],
-) -> IO.Result:
+    results: Iterable[Union[Tuple[str, Result], concurrent.futures.Future]],
+) -> Result:
     """
     Merge two result file objects into one.
 
     Parameters
     ----------
-    results : Iterable[Union[Tuple[str, IO.Result], concurrent.futures.Future]]
+    results : Iterable[Union[Tuple[str, Result, concurrent.futures.Future]]
         An iterable returning two result objects to be merged.
 
         Each result can be a:
@@ -671,7 +673,7 @@ def _merge_results(
 
     Returns
     -------
-    IO.Result
+    Result
         The resulting merged Result object.
     """
     keys = (
@@ -706,11 +708,11 @@ def _merge_results(
     return result1
 
 
-def _run_step_2_helper(args) -> Tuple[str, IO.Result]:
+def _run_step_2_helper(args) -> Tuple[str, Result]:
     return step2.run(*args)
 
 
-def _run_step_3_helper(args) -> Tuple[str, IO.Result]:
+def _run_step_3_helper(args) -> Tuple[str, Result]:
     return step3.run(*args)
 
 
@@ -726,7 +728,7 @@ def _run_step_2(
     min_persistence: float,
     pool: ProcessPoolWrapper,
     logger,
-) -> IO.Result:
+) -> Result:
     """
     Helper function to simplify running step_2().
 
@@ -750,7 +752,7 @@ def _run_step_2(
 
 
 def _run_step_3(
-    result: IO.Result,
+    result: Result,
     lt_matrix: Optional[SparseMatrix],
     ut_matrix: Optional[SparseMatrix],
     resolution: int,
@@ -761,7 +763,7 @@ def _run_step_3(
     tpool: concurrent.futures.ThreadPoolExecutor,
     pool: ProcessPoolWrapper,
     logger,
-) -> IO.Result:
+) -> Result:
     """
     Helper function to simplify running step_3().
 
@@ -812,13 +814,13 @@ def _run_step_3(
 
 
 def _run_step_4(
-    result: IO.Result,
+    result: Result,
     lt_matrix: Optional[SparseMatrix],
     ut_matrix: Optional[SparseMatrix],
     tpool: Union[ProcessPoolWrapper, concurrent.futures.ThreadPoolExecutor],
     pool: ProcessPoolWrapper,
     logger,
-) -> IO.Result:
+) -> Result:
     """
     Helper function to simplify running step_4().
 
