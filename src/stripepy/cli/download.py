@@ -17,7 +17,6 @@ from typing import Any, Dict, Optional, Sequence, Tuple
 import structlog
 
 from stripepy.utils.common import pretty_format_elapsed_time
-from stripepy.utils.progress_bar import initialize_progress_bar
 
 
 @functools.cache

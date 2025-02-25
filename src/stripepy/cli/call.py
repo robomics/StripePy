@@ -27,13 +27,13 @@ from stripepy.data_structures.shared_sparse_matrix import (
     unset_shared_state,
 )
 from stripepy.data_structures.stripe import Stripe
+from stripepy.io.progress_bar import get_stripepy_call_progress_bar_weights
 from stripepy.io.result_file import ResultFile
 from stripepy.utils.common import _import_matplotlib  # noqa
 from stripepy.utils.common import (
     pretty_format_elapsed_time,
     pretty_format_genomic_distance,
 )
-from stripepy.utils.progress_bar import get_stripepy_call_progress_bar_weights
 
 
 def _init_shared_state(
