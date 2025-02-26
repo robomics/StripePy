@@ -8,8 +8,7 @@ from typing import Dict, Optional
 
 import hictkpy as htk
 import pandas as pd
-
-from .data import generate_chromosomes
+from test_helpers_data import generate_chromosomes
 
 
 def generate_singleres_test_file(

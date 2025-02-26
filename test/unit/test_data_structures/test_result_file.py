@@ -16,12 +16,11 @@ import numpy as np
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
+from test_helpers_cool import generate_singleres_test_file
 
 from stripepy.data_structures import Result, ResultFile
 
-from .common.cool import generate_singleres_test_file
-
-testdir = pathlib.Path(__file__).resolve().parent.parent
+testdir = pathlib.Path(__file__).resolve().parent.parent.parent
 
 
 def _pyarrow_avail() -> bool:

@@ -6,11 +6,10 @@ import pathlib
 import tempfile
 
 import pytest
+from test_helpers_cool import generate_singleres_test_file
 
 from stripepy.io import open_matrix_file_checked
 from stripepy.utils import define_region_of_interest
-
-from .common.cool import generate_singleres_test_file
 
 
 @pytest.mark.unit
