@@ -11,7 +11,7 @@ import logging
 import pathlib
 import sys
 
-from stripepy.IO import compare_result_files
+from stripepy.io import compare_result_files
 
 
 def existing_file(arg: str) -> pathlib.Path:

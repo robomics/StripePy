@@ -13,15 +13,76 @@ import structlog
 from numpy.typing import NDArray
 
 import stripepy.plot
-from stripepy.IO import Result, ResultFile
-from stripepy.utils.common import _import_matplotlib, pretty_format_elapsed_time
+from stripepy.data_structures import Result, ResultFile
+from stripepy.utils import import_matplotlib, pretty_format_elapsed_time
 
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    from stripepy.utils.common import _DummyPyplot
+    from stripepy.utils import _DummyPyplot  # noqa
 
     plt = _DummyPyplot()
+
+
+def run(
+    plot_type: str,
+    output_name: pathlib.Path,
+    dpi: int,
+    force: bool,
+    main_logger,
+    **kwargs,
+) -> int:
+    logger = structlog.get_logger()
+    t0 = time.time()
+
+    # Raise an error immediately if matplotlib is not available
+    import_matplotlib()
+
+    if output_name.exists():
+        if force:
+            logger.debug('removing existing output file "%s"', output_name)
+            output_name.unlink()
+        else:
+            raise FileExistsError(
+                f'Refusing to overwrite file "{output_name}". Pass --force to overwrite existing file(s).'
+            )
+
+    logger.info('generating "%s" plot', plot_type)
+    kwargs["logger"] = logger
+
+    if "seed" in kwargs:
+        logger.debug("setting seed to %d", kwargs["seed"])
+        random.seed(kwargs["seed"])
+
+    if plot_type in {"contact-map", "cm"}:
+        plot_seeds = kwargs.pop("highlight_seeds")
+        plot_stripes = kwargs.pop("highlight_stripes")
+        ignore_stripe_heights = kwargs.pop("ignore_stripe_heights")
+
+        if (plot_seeds or plot_stripes) and kwargs["stripepy_hdf5"] is None:
+            raise RuntimeError("--stripepy-hdf5 is required when highlighting stripes or seeds.")
+
+        if not plot_seeds and not plot_stripes:
+            fig = _plot_hic_matrix(**kwargs)
+        elif plot_seeds:
+            fig = _plot_hic_matrix_with_seeds(**kwargs)
+        else:
+            kwargs["override_height"] = ignore_stripe_heights
+            kwargs["mask_regions"] = ignore_stripe_heights
+            fig = _plot_hic_matrix_with_stripes(**kwargs)
+    elif plot_type in {"pseudodistribution", "pd"}:
+        fig = _plot_pseudodistribution(**kwargs)
+    elif plot_type in {"stripe-hist", "hist"}:
+        fig = _plot_stripe_dimension_distribution(**kwargs)
+    else:
+        raise NotImplementedError
+
+    fig.savefig(output_name, dpi=dpi)
+
+    logger.info("DONE!")
+    logger.info("plotting took %s seconds", pretty_format_elapsed_time(t0))
+
+    return 0
 
 
 def _generate_random_region(
@@ -332,64 +393,3 @@ def _plot_stripe_dimension_distribution(
 
     fig.tight_layout()
     return fig
-
-
-def run(
-    plot_type: str,
-    output_name: pathlib.Path,
-    dpi: int,
-    force: bool,
-    main_logger,
-    **kwargs,
-) -> int:
-    logger = structlog.get_logger()
-    t0 = time.time()
-
-    # Raise an error immediately if matplotlib is not available
-    _import_matplotlib()
-
-    if output_name.exists():
-        if force:
-            logger.debug('removing existing output file "%s"', output_name)
-            output_name.unlink()
-        else:
-            raise FileExistsError(
-                f'Refusing to overwrite file "{output_name}". Pass --force to overwrite existing file(s).'
-            )
-
-    logger.info('generating "%s" plot', plot_type)
-    kwargs["logger"] = logger
-
-    if "seed" in kwargs:
-        logger.debug("setting seed to %d", kwargs["seed"])
-        random.seed(kwargs["seed"])
-
-    if plot_type in {"contact-map", "cm"}:
-        plot_seeds = kwargs.pop("highlight_seeds")
-        plot_stripes = kwargs.pop("highlight_stripes")
-        ignore_stripe_heights = kwargs.pop("ignore_stripe_heights")
-
-        if (plot_seeds or plot_stripes) and kwargs["stripepy_hdf5"] is None:
-            raise RuntimeError("--stripepy-hdf5 is required when highlighting stripes or seeds.")
-
-        if not plot_seeds and not plot_stripes:
-            fig = _plot_hic_matrix(**kwargs)
-        elif plot_seeds:
-            fig = _plot_hic_matrix_with_seeds(**kwargs)
-        else:
-            kwargs["override_height"] = ignore_stripe_heights
-            kwargs["mask_regions"] = ignore_stripe_heights
-            fig = _plot_hic_matrix_with_stripes(**kwargs)
-    elif plot_type in {"pseudodistribution", "pd"}:
-        fig = _plot_pseudodistribution(**kwargs)
-    elif plot_type in {"stripe-hist", "hist"}:
-        fig = _plot_stripe_dimension_distribution(**kwargs)
-    else:
-        raise NotImplementedError
-
-    fig.savefig(output_name, dpi=dpi)
-
-    logger.info("DONE!")
-    logger.info("plotting took %s seconds", pretty_format_elapsed_time(t0))
-
-    return 0

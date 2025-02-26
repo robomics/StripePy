@@ -4,13 +4,29 @@
 
 import pathlib
 import sys
-import warnings
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 
-from stripepy.IO import ResultFile
+from stripepy.data_structures import ResultFile
+
+
+def run(
+    h5_file: pathlib.Path,
+    relative_change_threshold: float,
+    transform: Optional[str] = None,
+    main_logger=None,
+) -> int:
+    try:
+        with ResultFile(h5_file) as f:
+            for chrom, size in f.chromosomes.items():
+                _dump_stripes(f, chrom, size, f.resolution, relative_change_threshold, transform)
+    except BrokenPipeError:
+        if sys.stdout.isatty():
+            raise
+
+    return 0
 
 
 def _read_stripes(f: ResultFile, chrom: str) -> pd.DataFrame:
@@ -73,20 +89,3 @@ def _dump_stripes(f: ResultFile, chrom: str, size: int, resolution: int, cutoff:
     df = _stripes_to_bedpe(df, chrom, size, resolution, transpose_policy)
 
     df.to_csv(sys.stdout, sep="\t", index=False, header=False)
-
-
-def run(
-    h5_file: pathlib.Path,
-    relative_change_threshold: float,
-    transform: Optional[str] = None,
-    main_logger=None,
-) -> int:
-    try:
-        with ResultFile(h5_file) as f:
-            for chrom, size in f.chromosomes.items():
-                _dump_stripes(f, chrom, size, f.resolution, relative_change_threshold, transform)
-    except BrokenPipeError:
-        if sys.stdout.isatty():
-            raise
-
-    return 0

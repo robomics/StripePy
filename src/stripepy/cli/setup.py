@@ -10,6 +10,20 @@ from importlib.metadata import version
 from typing import Any, Dict, List, Tuple, Union
 
 
+def parse_args(cli_args: List[str]) -> Tuple[str, Any, str]:
+    parser = _make_cli()
+
+    # Parse the input parameters:
+    args = vars(parser.parse_args(cli_args))
+    args = _normalize_args(args)
+    args = _define_default_args(parser, args)
+    _validate_args(parser, args)
+
+    subcommand = args.pop("subcommand")
+    verbosity = args.pop("verbosity")
+    return subcommand, args, verbosity
+
+
 class _CustomFormatter(argparse.RawTextHelpFormatter):
     """
     A custom formatter that enables multiline and bulleted descriptions
@@ -584,17 +598,3 @@ def _validate_stripepy_call_args(parser: argparse.ArgumentParser, args: Dict[str
 def _validate_args(parser: argparse.ArgumentParser, args: Dict[str, Any]):
     if args["subcommand"] == "call":
         _validate_stripepy_call_args(parser, args)
-
-
-def parse_args(cli_args: List[str]) -> Tuple[str, Any, str]:
-    parser = _make_cli()
-
-    # Parse the input parameters:
-    args = vars(parser.parse_args(cli_args))
-    args = _normalize_args(args)
-    args = _define_default_args(parser, args)
-    _validate_args(parser, args)
-
-    subcommand = args.pop("subcommand")
-    verbosity = args.pop("verbosity")
-    return subcommand, args, verbosity

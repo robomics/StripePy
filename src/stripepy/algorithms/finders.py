@@ -13,10 +13,9 @@ import pandas as pd
 import scipy.sparse as ss
 import structlog
 
-from stripepy.utils.common import pretty_format_elapsed_time
-from stripepy.utils.persistence1d import Persistence1DTable
-from stripepy.utils.regressions import compute_wQISA_predictions
-from stripepy.utils.shared_sparse_matrix import SparseMatrix, get_shared_state
+from stripepy.algorithms.regressions import compute_wQISA_predictions
+from stripepy.data_structures import Persistence1DTable, SparseMatrix, get_shared_state
+from stripepy.utils import pretty_format_elapsed_time
 
 
 def _shift_vector_left(

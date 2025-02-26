@@ -15,8 +15,7 @@ from typing import Dict, List, Optional
 import hictkpy
 import structlog
 
-from stripepy.IO import get_stderr
-from stripepy.utils.progress_bar import initialize_progress_bar
+from stripepy.io import get_stderr, initialize_progress_bar
 
 
 class _ProgressBarProxy(object):
@@ -354,6 +353,32 @@ def _get_longest_chrom_name(path: pathlib.Path) -> str:
     return max(chroms, key=len)  # noqa
 
 
+def _warning_handler(message, category, filename, lineno, file=None, line=None):
+    from warnings import formatwarning
+
+    import structlog
+
+    structlog.get_logger().warning(
+        "\n%s",
+        formatwarning(
+            message=message,
+            category=category,
+            filename=filename,
+            lineno=lineno,
+            line=line,
+        ).strip(),
+    )
+
+
+def _install_custom_warning_handler():
+    """
+    Override the function used to print Python warnings such that warnings are sent to the logger.
+    """
+    import warnings
+
+    warnings.showwarning = _warning_handler
+
+
 class ProcessSafeLogger(object):
     """
     This class implements a process-safe logger that writes messages to stderr and optionally a file.
@@ -482,7 +507,7 @@ class ProcessSafeLogger(object):
         proc = mp.current_process()
         structlog.get_logger().debug("successfully initialized logger in %s with PID=%d", proc.name, proc.pid)
 
-        install_custom_warning_handler()
+        _install_custom_warning_handler()
 
     @property
     def progress_bar(self) -> _ProgressBarProxy:
@@ -651,29 +676,3 @@ class ProcessSafeLogger(object):
     @staticmethod
     def _queue_logger(queue: mp.Queue):
         return functools.partial(ProcessSafeLogger._queue_logger_helper, queue=queue)
-
-
-def _warning_handler(message, category, filename, lineno, file=None, line=None):
-    from warnings import formatwarning
-
-    import structlog
-
-    structlog.get_logger().warning(
-        "\n%s",
-        formatwarning(
-            message=message,
-            category=category,
-            filename=filename,
-            lineno=lineno,
-            line=line,
-        ).strip(),
-    )
-
-
-def install_custom_warning_handler():
-    """
-    Override the function used to print Python warnings such that warnings are sent to the logger.
-    """
-    import warnings
-
-    warnings.showwarning = _warning_handler

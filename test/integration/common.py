@@ -9,8 +9,8 @@ from typing import Sequence
 
 import pytest
 
-from stripepy.IO import ResultFile
-from stripepy.IO import compare_result_files as _compare_result_files
+from stripepy.data_structures import ResultFile
+from stripepy.io import compare_result_files as _compare_result_files
 
 
 def matplotlib_avail() -> bool:

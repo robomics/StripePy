@@ -4,7 +4,7 @@
 
 import decimal
 import time
-from typing import Optional, Sequence
+from typing import Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import scipy.sparse as ss
@@ -167,7 +167,64 @@ def zero_columns(
     return matrix.dot(diag).tocsc()
 
 
-def _import_matplotlib():
+def define_region_of_interest(
+    location: Optional[str],
+    chrom_size: int,
+    resolution: int,
+    window_size: int = 2_000_000,
+) -> Optional[Dict[str, Tuple[int, int]]]:
+    """
+    Define the region of interest with the desired properties.
+
+    Parameters
+    ----------
+    location: Optional[str]
+        location of the desired region.
+        When provided, it should be either "start" or "middle".
+    chrom_size: int
+        the chromosome size in base-pairs.
+    resolution: int
+        resolution in base-pairs of the matrix to which the region refers to.
+    window_size: int
+        target width of the region of interest.
+
+    Returns
+    -------
+    Optional[Dict[str, Tuple[int, int]]]
+        return a dictionary with the coordinates of the region of interest.
+        The dictionary has two keys:
+        - genomic: two-element tuple with the genomic coordinates (bp) of the region of interest.
+        - matrix: two-element tuple with the matrix coordinates of the region of interest.
+
+        When location is None, return None.
+    """
+    if location is None or window_size <= 0:
+        return None
+
+    assert chrom_size > 0
+    assert resolution > 0
+
+    if chrom_size > window_size:
+        window_size = ((window_size + resolution - 1) // resolution) * resolution
+
+    if location == "middle":
+        e1 = max(0, ((chrom_size - window_size) // (2 * resolution)) * resolution)
+        e2 = e1 + window_size
+    elif location == "start":
+        e1 = 0
+        e2 = window_size
+    else:
+        raise NotImplementedError
+
+    if e2 - e1 < window_size:
+        e1 = 0
+        e2 = window_size
+
+    bounds = (e1, min(chrom_size, e2))
+    return {"genomic": bounds, "matrix": tuple(x // resolution for x in bounds)}
+
+
+def import_matplotlib():
     """
     Helper function to import matplotlib.
     """
@@ -181,11 +238,11 @@ def _import_matplotlib():
         ) from e
 
 
-def _import_pyplot():
+def import_pyplot():
     """
     Helper function to import matplotlib.pyplot.
     """
-    _import_matplotlib()  # this will deal with import errors
+    import_matplotlib()  # this will deal with import errors
     import matplotlib.pyplot as plt
 
     return plt
