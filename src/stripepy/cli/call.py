@@ -34,6 +34,258 @@ from stripepy.utils import (
 )
 
 
+def run(
+    contact_map: pathlib.Path,
+    resolution: int,
+    output_file: pathlib.Path,
+    genomic_belt: int,
+    max_width: int,
+    glob_pers_min: float,
+    constrain_heights: bool,
+    loc_pers_min: float,
+    loc_trend_min: float,
+    force: bool,
+    nproc: int,
+    min_chrom_size: int,
+    verbosity: str,
+    main_logger: ProcessSafeLogger,
+    roi: Optional[str] = None,
+    log_file: Optional[pathlib.Path] = None,
+    plot_dir: Optional[pathlib.Path] = None,
+    normalization: Optional[str] = None,
+) -> int:
+    """
+    Entrypoint for stripepy call
+    """
+    args = locals()
+    args.pop("main_logger")
+
+    start_global_time = time.time()
+
+    parent_logger = main_logger
+    main_logger = structlog.get_logger().bind(step="main")
+
+    _write_param_summary(args, logger=main_logger)
+
+    if roi is not None:
+        # Raise an error immediately if --roi was passed and matplotlib is not available
+        import_matplotlib()
+
+    # This takes care of fetching the list of chromosomes after ensuring that the given matrix file
+    # satisfies all of StripePy requirements
+    chroms = open_matrix_file_checked(
+        contact_map,
+        resolution,
+        logger=main_logger,
+    ).chromosomes(include_ALL=False)
+
+    if force:
+        _remove_existing_output_files(output_file, plot_dir, chroms)
+
+    with contextlib.ExitStack() as ctx:
+        # Set up the manager in charge of orchestrating IO operations
+        io_manager = ctx.enter_context(
+            IOManager(
+                matrix_path=contact_map,
+                result_path=output_file,
+                resolution=resolution,
+                normalization=normalization,
+                genomic_belt=genomic_belt,
+                region_of_interest=roi,
+                metadata=_generate_metadata_attribute(
+                    constrain_heights=constrain_heights,
+                    genomic_belt=genomic_belt,
+                    glob_pers_min=glob_pers_min,
+                    loc_pers_min=loc_pers_min,
+                    loc_trend_min=loc_trend_min,
+                    max_width=max_width,
+                    min_chrom_size=min_chrom_size,
+                ),
+                nproc=nproc,
+                main_logger=parent_logger,
+            )
+        )
+
+        # Set up the pool of worker processes
+        pool = ctx.enter_context(
+            ProcessPoolWrapper(
+                nproc=nproc,
+                main_logger=parent_logger,
+                init_mpl=roi is not None,
+                lazy_pool_initialization=True,
+                logger=None,
+            )
+        )
+
+        # Set up the pool of worker threads
+        tpool = ctx.enter_context(
+            concurrent.futures.ThreadPoolExecutor(max_workers=min(nproc, 2)),
+        )
+
+        if normalization is None:
+            normalization = "NONE"
+
+        # Generate a plan for the work to be done
+        tasks = _plan_tasks(chroms, min_chrom_size, main_logger)
+
+        # Set up the progress bar
+        progress_weights_df = get_stripepy_call_progress_bar_weights(
+            tasks,
+            include_plotting=roi is not None,
+            nproc=nproc,
+        )
+        progress_bar = parent_logger.progress_bar
+        progress_bar.add_task(
+            task_id="total",
+            chrom="unknown",
+            step="unknown",
+            name=f"{contact_map.stem} • {pretty_format_genomic_distance(resolution)}",
+            description="",
+            start=True,
+            total=progress_weights_df.sum().sum(),
+            visible=True,
+        )
+
+        # Loop over the planned tasks
+        for i, (chrom_name, chrom_size, skip) in enumerate(tasks):
+            progress_weights = progress_weights_df.loc[chrom_name, :].to_dict()
+
+            start_local_time = time.time()
+
+            logger = main_logger.bind(chrom=chrom_name)
+            logger.info("begin processing")
+
+            if skip:
+                # Nothing to do here: write an empty entry for the current chromosome and continue
+                logger.warning("writing an empty entry for chromosome %s", chrom_name)
+                io_manager.write_results(_generate_empty_result(chrom_name, chrom_size, resolution))
+                progress_bar.update(
+                    task_id="total",
+                    advance=sum(progress_weights.values()),
+                    chrom=chrom_name,
+                    step="IO",
+                )
+                continue
+
+            progress_bar.update(
+                task_id="total",
+                advance=0,
+                chrom=chrom_name,
+                step="step 1",
+            )
+            ut_matrix, matrix_roi_raw, matrix_roi_proc = _fetch_interactions(
+                i,
+                io_manager,
+                tasks,
+                pool,
+                chroms,
+                logger,
+            )
+
+            if pool.ready:
+                # Signal that matrices should be fetched from the shared global state
+                lt_matrix = None
+                ut_matrix = None
+            else:
+                lt_matrix = ut_matrix.T
+
+            progress_bar.update(
+                task_id="total",
+                advance=progress_weights["step_1"],
+                chrom=chrom_name,
+                step="step 2",
+            )
+
+            result = _run_step_2(
+                chrom_name=chrom_name,
+                chrom_size=chrom_size,
+                lt_matrix=lt_matrix,
+                ut_matrix=ut_matrix,
+                min_persistence=glob_pers_min,
+                pool=pool,
+                logger=logger,
+            )
+            progress_bar.update(
+                task_id="total",
+                advance=progress_weights["step_2"],
+                chrom=chrom_name,
+                step="step 3",
+            )
+
+            result = _run_step_3(
+                result=result,
+                lt_matrix=lt_matrix,
+                ut_matrix=ut_matrix,
+                resolution=resolution,
+                genomic_belt=genomic_belt,
+                max_width=max_width,
+                loc_pers_min=loc_pers_min,
+                loc_trend_min=loc_trend_min,
+                tpool=tpool,
+                pool=pool,
+                logger=logger,
+            )
+            progress_bar.update(
+                task_id="total",
+                advance=progress_weights["step_3"],
+                chrom=chrom_name,
+                step="step 4",
+            )
+
+            result = _run_step_4(
+                result=result,
+                lt_matrix=lt_matrix,
+                ut_matrix=ut_matrix,
+                tpool=tpool,
+                pool=pool,
+                logger=logger,
+            )
+            progress_bar.update(
+                task_id="total",
+                advance=progress_weights["step_4"],
+                chrom=chrom_name,
+                step="step 4" if matrix_roi_raw is None else "step 5",
+            )
+
+            logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
+
+            io_manager.write_results(result)
+
+            if matrix_roi_raw is not None:
+                assert matrix_roi_proc is not None
+                chrom_roi = define_region_of_interest(roi, chrom_size, resolution)
+
+                logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *chrom_roi["genomic"])
+                result.set_roi(chrom_roi)  # noqa
+                start_time = time.time()
+                logger = logger.bind(step=(5,))
+                logger.info("generating plots")
+                step5.run(
+                    result,
+                    resolution,
+                    matrix_roi_raw,
+                    matrix_roi_proc,
+                    genomic_belt,
+                    loc_pers_min,
+                    loc_trend_min,
+                    plot_dir,
+                    pool=pool,
+                )
+
+                progress_bar.update(
+                    task_id="total",
+                    advance=progress_weights["step_5"],
+                    chrom=chrom_name,
+                    step="step 5",
+                )
+                logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
+
+    main_logger.info("DONE!")
+    main_logger.info("processed %d chromosomes in %s", len(chroms), pretty_format_elapsed_time(start_global_time))
+
+    return 0
+
+
 def _generate_metadata_attribute(
     constrain_heights: bool,
     genomic_belt: int,
@@ -416,255 +668,3 @@ def _fetch_interactions(
         pool.rebind_shared_matrices(chrom_name, ut_matrix, logger)
 
     return ut_matrix, matrix_roi_raw, matrix_roi_proc
-
-
-def run(
-    contact_map: pathlib.Path,
-    resolution: int,
-    output_file: pathlib.Path,
-    genomic_belt: int,
-    max_width: int,
-    glob_pers_min: float,
-    constrain_heights: bool,
-    loc_pers_min: float,
-    loc_trend_min: float,
-    force: bool,
-    nproc: int,
-    min_chrom_size: int,
-    verbosity: str,
-    main_logger: ProcessSafeLogger,
-    roi: Optional[str] = None,
-    log_file: Optional[pathlib.Path] = None,
-    plot_dir: Optional[pathlib.Path] = None,
-    normalization: Optional[str] = None,
-) -> int:
-    """
-    Entrypoint for stripepy call
-    """
-    args = locals()
-    args.pop("main_logger")
-
-    start_global_time = time.time()
-
-    parent_logger = main_logger
-    main_logger = structlog.get_logger().bind(step="main")
-
-    _write_param_summary(args, logger=main_logger)
-
-    if roi is not None:
-        # Raise an error immediately if --roi was passed and matplotlib is not available
-        import_matplotlib()
-
-    # This takes care of fetching the list of chromosomes after ensuring that the given matrix file
-    # satisfies all of StripePy requirements
-    chroms = open_matrix_file_checked(
-        contact_map,
-        resolution,
-        logger=main_logger,
-    ).chromosomes(include_ALL=False)
-
-    if force:
-        _remove_existing_output_files(output_file, plot_dir, chroms)
-
-    with contextlib.ExitStack() as ctx:
-        # Set up the manager in charge of orchestrating IO operations
-        io_manager = ctx.enter_context(
-            IOManager(
-                matrix_path=contact_map,
-                result_path=output_file,
-                resolution=resolution,
-                normalization=normalization,
-                genomic_belt=genomic_belt,
-                region_of_interest=roi,
-                metadata=_generate_metadata_attribute(
-                    constrain_heights=constrain_heights,
-                    genomic_belt=genomic_belt,
-                    glob_pers_min=glob_pers_min,
-                    loc_pers_min=loc_pers_min,
-                    loc_trend_min=loc_trend_min,
-                    max_width=max_width,
-                    min_chrom_size=min_chrom_size,
-                ),
-                nproc=nproc,
-                main_logger=parent_logger,
-            )
-        )
-
-        # Set up the pool of worker processes
-        pool = ctx.enter_context(
-            ProcessPoolWrapper(
-                nproc=nproc,
-                main_logger=parent_logger,
-                init_mpl=roi is not None,
-                lazy_pool_initialization=True,
-                logger=None,
-            )
-        )
-
-        # Set up the pool of worker threads
-        tpool = ctx.enter_context(
-            concurrent.futures.ThreadPoolExecutor(max_workers=min(nproc, 2)),
-        )
-
-        if normalization is None:
-            normalization = "NONE"
-
-        # Generate a plan for the work to be done
-        tasks = _plan_tasks(chroms, min_chrom_size, main_logger)
-
-        # Set up the progress bar
-        progress_weights_df = get_stripepy_call_progress_bar_weights(
-            tasks,
-            include_plotting=roi is not None,
-            nproc=nproc,
-        )
-        progress_bar = parent_logger.progress_bar
-        progress_bar.add_task(
-            task_id="total",
-            chrom="unknown",
-            step="unknown",
-            name=f"{contact_map.stem} • {pretty_format_genomic_distance(resolution)}",
-            description="",
-            start=True,
-            total=progress_weights_df.sum().sum(),
-            visible=True,
-        )
-
-        # Loop over the planned tasks
-        for i, (chrom_name, chrom_size, skip) in enumerate(tasks):
-            progress_weights = progress_weights_df.loc[chrom_name, :].to_dict()
-
-            start_local_time = time.time()
-
-            logger = main_logger.bind(chrom=chrom_name)
-            logger.info("begin processing")
-
-            if skip:
-                # Nothing to do here: write an empty entry for the current chromosome and continue
-                logger.warning("writing an empty entry for chromosome %s", chrom_name)
-                io_manager.write_results(_generate_empty_result(chrom_name, chrom_size, resolution))
-                progress_bar.update(
-                    task_id="total",
-                    advance=sum(progress_weights.values()),
-                    chrom=chrom_name,
-                    step="IO",
-                )
-                continue
-
-            progress_bar.update(
-                task_id="total",
-                advance=0,
-                chrom=chrom_name,
-                step="step 1",
-            )
-            ut_matrix, matrix_roi_raw, matrix_roi_proc = _fetch_interactions(
-                i,
-                io_manager,
-                tasks,
-                pool,
-                chroms,
-                logger,
-            )
-
-            if pool.ready:
-                # Signal that matrices should be fetched from the shared global state
-                lt_matrix = None
-                ut_matrix = None
-            else:
-                lt_matrix = ut_matrix.T
-
-            progress_bar.update(
-                task_id="total",
-                advance=progress_weights["step_1"],
-                chrom=chrom_name,
-                step="step 2",
-            )
-
-            result = _run_step_2(
-                chrom_name=chrom_name,
-                chrom_size=chrom_size,
-                lt_matrix=lt_matrix,
-                ut_matrix=ut_matrix,
-                min_persistence=glob_pers_min,
-                pool=pool,
-                logger=logger,
-            )
-            progress_bar.update(
-                task_id="total",
-                advance=progress_weights["step_2"],
-                chrom=chrom_name,
-                step="step 3",
-            )
-
-            result = _run_step_3(
-                result=result,
-                lt_matrix=lt_matrix,
-                ut_matrix=ut_matrix,
-                resolution=resolution,
-                genomic_belt=genomic_belt,
-                max_width=max_width,
-                loc_pers_min=loc_pers_min,
-                loc_trend_min=loc_trend_min,
-                tpool=tpool,
-                pool=pool,
-                logger=logger,
-            )
-            progress_bar.update(
-                task_id="total",
-                advance=progress_weights["step_3"],
-                chrom=chrom_name,
-                step="step 4",
-            )
-
-            result = _run_step_4(
-                result=result,
-                lt_matrix=lt_matrix,
-                ut_matrix=ut_matrix,
-                tpool=tpool,
-                pool=pool,
-                logger=logger,
-            )
-            progress_bar.update(
-                task_id="total",
-                advance=progress_weights["step_4"],
-                chrom=chrom_name,
-                step="step 4" if matrix_roi_raw is None else "step 5",
-            )
-
-            logger.info("processing took %s", pretty_format_elapsed_time(start_local_time))
-
-            io_manager.write_results(result)
-
-            if matrix_roi_raw is not None:
-                assert matrix_roi_proc is not None
-                chrom_roi = define_region_of_interest(roi, chrom_size, resolution)
-
-                logger.info("region of interest to be used for plotting: %s:%d-%d", chrom_name, *chrom_roi["genomic"])
-                result.set_roi(chrom_roi)  # noqa
-                start_time = time.time()
-                logger = logger.bind(step=(5,))
-                logger.info("generating plots")
-                step5.run(
-                    result,
-                    resolution,
-                    matrix_roi_raw,
-                    matrix_roi_proc,
-                    genomic_belt,
-                    loc_pers_min,
-                    loc_trend_min,
-                    plot_dir,
-                    pool=pool,
-                )
-
-                progress_bar.update(
-                    task_id="total",
-                    advance=progress_weights["step_5"],
-                    chrom=chrom_name,
-                    step="step 5",
-                )
-                logger.info("plotting took %s", pretty_format_elapsed_time(start_time))
-
-    main_logger.info("DONE!")
-    main_logger.info("processed %d chromosomes in %s", len(chroms), pretty_format_elapsed_time(start_global_time))
-
-    return 0

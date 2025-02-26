@@ -110,6 +110,64 @@ def _get_datasets(max_size: float, include_private: bool) -> Dict[str, Dict[str,
     raise RuntimeError(f"unable to find any dataset smaller than {max_size:.2f} MB")
 
 
+def run(
+    max_size: float,
+    list_only: bool,
+    unit_test: bool,
+    end2end_test: bool,
+    include_private: bool,
+    force: bool,
+    name: Optional[str] = None,
+    output_path: Optional[pathlib.Path] = None,
+    assembly: Optional[str] = None,
+    main_logger=None,
+) -> int:
+    t0 = time.time()
+    if list_only:
+        _list_datasets()
+        return 0
+
+    if unit_test:
+        _download_data_for_unit_tests(progress_bar=main_logger.progress_bar)
+        return 0
+
+    if end2end_test:
+        _download_data_for_end2end_tests(progress_bar=main_logger.progress_bar)
+        return 0
+
+    do_random_sample = name is None and assembly is None
+
+    if do_random_sample:
+        dset_name, config = _get_random_dataset(max_size, include_private)
+    else:
+        dset_name, config = _lookup_dataset(name, assembly, max_size, include_private)
+
+    if output_path is None:
+        if "filename" in config:
+            output_path = pathlib.Path(config["filename"])
+        else:
+            output_path = pathlib.Path(f"{dset_name}.{config['format']}")
+
+    if output_path.exists() and not force:
+        raise FileExistsError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")
+    output_path.unlink(missing_ok=True)
+
+    dest = _download_and_checksum(
+        dset_name,
+        config,
+        output_path,
+        progress_bar=main_logger.progress_bar,
+    )
+
+    logger = structlog.get_logger()
+    logger.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
+    logger.info(
+        f"file size: %.2f MiB. Elapsed time: %s", dest.stat().st_size / (1024 << 10), pretty_format_elapsed_time(t0)
+    )
+
+    return 0
+
+
 def _list_datasets():
     json.dump(_get_datasets(math.inf, include_private=False), fp=sys.stdout, indent=2)
     sys.stdout.write("\n")
@@ -305,61 +363,3 @@ def _download_data_for_end2end_tests(progress_bar):
     }
 
     _download_multiple(list(names.keys()), list(names.values()), progress_bar)
-
-
-def run(
-    max_size: float,
-    list_only: bool,
-    unit_test: bool,
-    end2end_test: bool,
-    include_private: bool,
-    force: bool,
-    name: Optional[str] = None,
-    output_path: Optional[pathlib.Path] = None,
-    assembly: Optional[str] = None,
-    main_logger=None,
-) -> int:
-    t0 = time.time()
-    if list_only:
-        _list_datasets()
-        return 0
-
-    if unit_test:
-        _download_data_for_unit_tests(progress_bar=main_logger.progress_bar)
-        return 0
-
-    if end2end_test:
-        _download_data_for_end2end_tests(progress_bar=main_logger.progress_bar)
-        return 0
-
-    do_random_sample = name is None and assembly is None
-
-    if do_random_sample:
-        dset_name, config = _get_random_dataset(max_size, include_private)
-    else:
-        dset_name, config = _lookup_dataset(name, assembly, max_size, include_private)
-
-    if output_path is None:
-        if "filename" in config:
-            output_path = pathlib.Path(config["filename"])
-        else:
-            output_path = pathlib.Path(f"{dset_name}.{config['format']}")
-
-    if output_path.exists() and not force:
-        raise FileExistsError(f"refusing to overwrite file {output_path}. Pass --force to overwrite.")
-    output_path.unlink(missing_ok=True)
-
-    dest = _download_and_checksum(
-        dset_name,
-        config,
-        output_path,
-        progress_bar=main_logger.progress_bar,
-    )
-
-    logger = structlog.get_logger()
-    logger.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
-    logger.info(
-        f"file size: %.2f MiB. Elapsed time: %s", dest.stat().st_size / (1024 << 10), pretty_format_elapsed_time(t0)
-    )
-
-    return 0
