@@ -42,6 +42,7 @@ def run(
     max_width: int,
     glob_pers_min: float,
     constrain_heights: bool,
+    k: int,
     loc_pers_min: float,
     loc_trend_min: float,
     force: bool,
@@ -96,6 +97,7 @@ def run(
                     constrain_heights=constrain_heights,
                     genomic_belt=genomic_belt,
                     glob_pers_min=glob_pers_min,
+                    k=k,
                     loc_pers_min=loc_pers_min,
                     loc_trend_min=loc_trend_min,
                     max_width=max_width,
@@ -236,6 +238,7 @@ def run(
                 result=result,
                 lt_matrix=lt_matrix,
                 ut_matrix=ut_matrix,
+                k=k,
                 tpool=tpool,
                 pool=pool,
                 logger=logger,
@@ -290,6 +293,7 @@ def _generate_metadata_attribute(
     constrain_heights: bool,
     genomic_belt: int,
     glob_pers_min: float,
+    k: int,
     loc_pers_min: float,
     loc_trend_min: float,
     max_width: int,
@@ -302,6 +306,7 @@ def _generate_metadata_attribute(
         "constrain-heights": constrain_heights,
         "genomic-belt": genomic_belt,
         "global-persistence-minimum": glob_pers_min,
+        "k-neighbour": k,
         "local-persistence-minimum": loc_pers_min,
         "local-trend-minimum": loc_trend_min,
         "max-width": max_width,
@@ -570,6 +575,7 @@ def _run_step_4(
     result: Result,
     lt_matrix: Optional[SparseMatrix],
     ut_matrix: Optional[SparseMatrix],
+    k: int,
     tpool: Union[ProcessPoolWrapper, concurrent.futures.ThreadPoolExecutor],
     pool: ProcessPoolWrapper,
     logger,
@@ -590,8 +596,8 @@ def _run_step_4(
         executor = pool.map
 
     params = (
-        (result.get("stripes", "lower"), lt_matrix, "lower", executor, logger),
-        (result.get("stripes", "upper"), ut_matrix, "upper", executor, logger),
+        (result.get("stripes", "lower"), lt_matrix, "lower", k, executor, logger),
+        (result.get("stripes", "upper"), ut_matrix, "upper", k, executor, logger),
     )
 
     (_, lt_stripes), (_, ut_stripes) = list(tpool.map(_run_step_4_helper, params))
