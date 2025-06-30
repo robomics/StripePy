@@ -6,11 +6,58 @@ SPDX-License-Identifier: MIT
 
 # StripePy
 
-[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/paulsengroup/StripePy/blob/main/LICENCE)
-[![CI](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml)
-[![Build Dockerfile](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml/badge.svg)](https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml)
-[![Download from Bioconda](https://img.shields.io/conda/vn/bioconda/stripepy-hic?label=bioconda&logo=Anaconda)](https://anaconda.org/bioconda/stripepy-hic)
-[![Zenodo DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14394042.svg)](https://doi.org/10.5281/zenodo.14394041)
+---
+
+<!-- markdownlint-disable MD033 -->
+
+<table>
+    <tr>
+      <td>Paper</td>
+      <td>
+        <a href="https://doi.org/10.1093/bioinformatics/btaf351">
+          <img src="https://img.shields.io/badge/CITE-Bioinformatics%20(2025)-blue" alt="Bioinformatics 2025">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td>Downloads</td>
+      <td>
+        <a href="https://anaconda.org/bioconda/stripepy-hic">
+          <img src="https://img.shields.io/conda/vn/bioconda/stripepy-hic?label=bioconda&logo=Anaconda" alt="Bioconda">
+        </a>
+        &nbsp
+        <a href="https://pypi.org/project/stripepy-hic/">
+          <img src="https://img.shields.io/pypi/v/stripepy-hic" alt="PyPI">
+        </a>
+        &nbsp
+        <a href="https://doi.org/10.5281/zenodo.14394041">
+          <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.14394042.svg" alt="Zenodo">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td>CI</td>
+      <td>
+        <a href="https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml">
+          <img src="https://github.com/paulsengroup/StripePy/actions/workflows/ci.yml/badge.svg" alt="Ubuntu CI Status">
+        </a>
+        &nbsp
+        <a href="https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml">
+          <img src="https://github.com/paulsengroup/StripePy/actions/workflows/build-dockerfile.yml/badge.svg" alt="Build Dockerfile Status">
+        </a>
+      </td>
+    </tr>
+    <tr>
+        <td>License</td>
+        <td>
+          <a href="https://github.com/paulsengroup/StripePy/blob/main/LICENCE">
+            <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+          </a>
+        </td>
+      </tr>
+</table>
+
+<!-- markdownlint-enable MD033 -->
 
 ---
 
@@ -1546,29 +1593,28 @@ If you've found a bug or would like to suggest a new feature, please open a new 
 
 If you use StripePy in your research, please cite the following publication:
 
-Andrea Raffo, Roberto Rossini, Jonas Paulsen, StripePy: fast and robust characterization of architectural stripes
-_bioRxiv_ 2024.12.20.629789; doi: [https://doi.org/10.1101/2024.12.20.629789](https://doi.org/10.1101/2024.12.20.629789)
+Andrea Raffo, Roberto Rossini, Jonas Paulsen\
+StripePy: fast and robust characterization of architectural stripes\
+_Bioinformatics_, Volume 41, Issue 6, June 2025, btaf351\
+[https://doi.org/10.1093/bioinformatics/btaf351](https://doi.org/10.1093/bioinformatics/btaf351)
 
 <details>
 <summary>BibTex</summary>
 
 ```bibtex
-@article {stripepy,
-  author = {Raffo, Andrea and Rossini, Roberto and Paulsen, Jonas},
-  title = {StripePy: fast and robust characterization of architectural stripes},
-  elocation-id = {2024.12.20.629789},
-  year = {2024},
-  doi = {10.1101/2024.12.20.629789},
-  publisher = {Cold Spring Harbor Laboratory},
-  abstract = {
-    Architectural stripes in Hi-C and related data are crucial for gene regulation, development, and DNA repair.
-    Despite their importance, few tools exist for automatic stripe detection.
-    We introduce StripePy, which leverages computational geometry methods to identify and analyze architectural stripes in contact maps from Chromosome Conformation Capture experiments like Hi-C and Micro-C.
-    StripePy outperforms existing tools, as shown through tests on various datasets and a newly developed simulated benchmark, StripeBench, providing a valuable resource for the community.Competing Interest StatementThe authors have declared no competing interest.@
-  },
-  URL = {https://www.biorxiv.org/content/early/2024/12/22/2024.12.20.629789},
-  eprint = {https://www.biorxiv.org/content/early/2024/12/22/2024.12.20.629789.full.pdf},
-  journal = {bioRxiv}
+@article{stripepy,
+    author = {Raffo, Andrea and Rossini, Roberto and Paulsen, Jonas},
+    title = {{StripePy: fast and robust characterization of architectural stripes}},
+    journal = {Bioinformatics},
+    volume = {41},
+    number = {6},
+    pages = {btaf351},
+    year = {2025},
+    month = {06},
+    issn = {1367-4811},
+    doi = {10.1093/bioinformatics/btaf351},
+    url = {https://doi.org/10.1093/bioinformatics/btaf351},
+    eprint = {https://academic.oup.com/bioinformatics/article-pdf/41/6/btaf351/63484367/btaf351.pdf},
 }
 ```
 
