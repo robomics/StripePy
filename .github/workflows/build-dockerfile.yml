@@ -8,9 +8,11 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/cache-test-datasets.yml"
       - ".github/workflows/build-dockerfile.yml"
       - "src/**"
-      - "test/**"
+      - "test/unit/**"
+      - "utils/devel/test_docker_image.sh"
       - ".dockerignore"
       - ".gitignore"
       - "Dockerfile"
@@ -22,9 +24,11 @@ on:
 
   pull_request:
     paths:
+      - ".github/workflows/cache-test-datasets.yml"
       - ".github/workflows/build-dockerfile.yml"
       - "src/**"
-      - "test/**"
+      - "test/unit/**"
+      - "utils/devel/test_docker_image.sh"
       - ".dockerignore"
       - ".gitignore"
       - "Dockerfile"
@@ -41,18 +45,21 @@ defaults:
   run:
     shell: bash
 
-env:
-  TEST_DATASET_ID: 4DNFIOTPSS3L
-  TEST_DATASET_URL: "https://4dn-open-data-public.s3.amazonaws.com/fourfront-webprod/wfoutput/7386f953-8da9-47b0-acb2-931cba810544/4DNFIOTPSS3L.hic"
-  TEST_DATASET_MD5: "d8b030bec6918bfbb8581c700990f49d"
+permissions:
+  contents: read
 
 jobs:
+  cache-test-datasets:
+    name: Cache test dataset
+    uses: paulsengroup/StripePy/.github/workflows/cache-test-datasets.yml@b8f02af4c73c53e1ad69458c10f2ad5c02aabbe9
+
   build-dockerfile:
     name: Build Dockerfile
+    needs: [cache-test-datasets]
     runs-on: ubuntu-latest
     permissions:
-      contents: "read"
-      packages: "write"
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,26 +79,13 @@ jobs:
       - name: Install build requirements
         run: pip install -r requirements.txt
 
-      - name: Cache test dataset
-        id: cache-dset
+      - name: Restore test dataset
         uses: actions/cache/restore@v4
         with:
-          key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
-
-      - name: Download test dataset
-        if: steps.cache-dset.outputs.cache-hit != 'true'
-        run: |
-          curl -L '${{ env.TEST_DATASET_URL }}' -o '${{ env.TEST_DATASET_ID }}.hic'
-          echo "${{ env.TEST_DATASET_MD5 }}  ${{ env.TEST_DATASET_ID }}.hic" > checksum.md5
-          md5sum -c checksum.md5
-
-      - name: Save test dataset
-        if: steps.cache-dset.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
+          key: ${{ needs.cache-test-datasets.outputs.cache-key }}
+          path: test/data/
+          fail-on-cache-miss: true
+          enableCrossOsArchive: true
 
       - name: Generate build args
         id: build-args
@@ -100,7 +94,7 @@ jobs:
           set -u
           set -o pipefail
 
-          BASE_IMAGE='docker.io/library/python:3.12.7'
+          BASE_IMAGE='docker.io/library/python:3.13'
 
           docker pull "$BASE_IMAGE"
           BASE_IMAGE_DIGEST="$(docker inspect --format='{{index .RepoDigests 0}}' "$BASE_IMAGE" | cut -f 2 -d '@')"
@@ -126,7 +120,7 @@ jobs:
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
         with:
           images: ${{ steps.build-args.outputs.REPO_LOWERCASE }},ghcr.io/${{ steps.build-args.outputs.REPO_LOWERCASE }}
           flavor: |
@@ -139,32 +133,32 @@ jobs:
 
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # 3.10.0
         with:
           platforms: linux/amd64,linux/arm64
 
       - name: Set up QEMU
         if: github.event_name != 'pull_request'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # 3.6.0
         with:
           platforms: arm64
 
       - name: Build Docker image (x86)
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
         with:
           context: ${{ github.workspace }}
           load: true
@@ -182,7 +176,7 @@ jobs:
 
       - name: Build Docker image (x86; PR)
         if: github.event_name == 'pull_request'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
         with:
           context: ${{ github.workspace }}
           load: true
@@ -198,11 +192,13 @@ jobs:
             VERSION=${{ steps.build-args.outputs.VERSION }}
 
       - name: Test Docker image (x86)
-        run: utils/devel/test_docker_image.sh stripepy:x86
+        run: |
+          cp test/data/*.mcool .
+          utils/devel/test_docker_image.sh stripepy:x86
 
       - name: Build Docker image (arm64)
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
         with:
           context: ${{ github.workspace }}
           push: false
@@ -219,7 +215,7 @@ jobs:
 
       - name: Push image to registries
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
         with:
           context: ${{ github.workspace }}
           push: true

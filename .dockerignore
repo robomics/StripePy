@@ -8,6 +8,10 @@
 # Allowed directories
 !src/**/*.py
 !test/**/*.py
+!test/data/results_4DNFI9GMP2J8_v1.hdf5
+!test/data/results_4DNFI9GMP2J8_v2.hdf5
+!test/data/results_4DNFI9GMP2J8_v3.hdf5
+!test/data/stripepy-call-result-tables.tar.xz
 
 
 # Allowed files

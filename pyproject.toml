@@ -11,8 +11,10 @@ requires = [
 build-backend = "hatchling.build"
 
 [project]
-name = "stripepy"
+name = "stripepy-hic"
 description = "StripePy recognizes architectural stripes in 3C and Hi-C contact maps using geometric reasoning"
+license = "MIT"
+license-files = ["LICENCE"]
 dynamic = ["version"]
 authors = [
     {name="Andrea Raffo", email="andrea.raffo@ibv.uio.no"},
@@ -27,9 +29,6 @@ maintainers = [
 
 readme = "README.md"
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: MIT License",
-
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -55,26 +54,32 @@ keywords = [
 
 requires-python = ">=3.9"
 dependencies = [
-    "bioframe >0.7, <1",
     "h5py >3, <4",
-    "hictkpy[scipy] >=1, <2",
-    "matplotlib >=3.8, <4",
-    "numpy >=1.26, <2",
+    "hictkpy[scipy] >=1.2, <2",
+    "numpy >=2, <3",
     "pandas >=2.0, <3",
-    "scikit-learn >=1.5, <2",
     "scipy >=1.10, <2",
-    "seaborn >=0.13, <1"
+    "structlog >=24, <26"
 ]
 
 [project.optional-dependencies]
 
+all = [
+    "stripepy-hic",
+    "colorama >=0.4, <0.5",
+    "matplotlib >=3.8, <4",
+    "rich >=13.9, <15",
+]
+
 test = [
+    "stripepy-hic[all]",
+    "pyarrow",
     "pytest",
-    "stripepy",
+    "pytest-cov",
 ]
 
 dev = [
-    "stripepy[test]",
+    "stripepy-hic[all,test]",
     "black[jupyter]",
     "build",
     "isort",
@@ -82,13 +87,55 @@ dev = [
 ]
 
 [project.scripts]
-stripepy = "stripepy:main"
+stripepy = "stripepy.main:main"
 
 [project.urls]
 Homepage = "https://github.com/paulsengroup/StripePy"
 Issues = "https://github.com/paulsengroup/StripePy/issues"
 Repository = "https://github.com/paulsengroup/StripePy.git"
 Source = "https://github.com/paulsengroup/StripePy"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+markers = ["end2end", "unit"]
+python_files = [
+  "test/unit/test*.py",
+  "test/integration/test*.py",
+]
+testpaths = [
+  "test/integration",
+  "test/unit",
+]
+norecursedirs = [
+  "test/unit/test_helpers",
+]
+filterwarnings = [
+  'ignore:This process .* is multi-threaded, use of fork\(\) may lead to deadlocks in the child:DeprecationWarning',
+]
+
+[tool.coverage.run]
+branch = true
+concurrency = ["multiprocessing", "thread"]
+data_file = "coverage/data/stripepy.cov"
+# debug = ["callers", "config", "pytest"]
+# debug_file = "coverage/debug.txt"
+parallel = true
+source_pkgs = ["stripepy"]
+
+[tool.coverage.html]
+directory = "coverage/html/"
+title = "StripePy coverage report"
+
+[tool.coverage.json]
+output = "coverage/stripepy.json"
+
+[tool.coverage.lcov]
+output = "coverage/stripepy.lcov"
+
+[tool.coverage.xml]
+output = "coverage/stripepy.xml"
 
 [tool.hatch.version]
 source = "vcs"

@@ -28,7 +28,7 @@ ARG install_dir='/opt/stripepy'
 COPY . "$src_dir/"
 
 RUN python3 -m venv "$install_dir" \
-&& "$install_dir/bin/pip" install "$src_dir" -v --no-compile
+&& "$install_dir/bin/pip" install "$src_dir[all]" -v --no-compile
 
 
 ARG BASE_IMAGE
@@ -45,10 +45,11 @@ ARG install_dir='/opt/stripepy'
 
 COPY --from=builder "$src_dir" "$src_dir"
 COPY --from=builder "$install_dir" "$install_dir"
+COPY test/data/ "$src_dir/test/"
 
 RUN "$install_dir/bin/pip" install "$src_dir[test]" -v --no-compile
 
-RUN "$install_dir/bin/python3" -m pytest "$src_dir/test"
+RUN "$install_dir/bin/python3" -m pytest "$src_dir/test/" -v -m unit
 
 
 ARG BASE_IMAGE
@@ -70,10 +71,18 @@ COPY --from=tester "$src_dir/LICENCE" /opt/stripepy/share/licenses/stripepy/LICE
 WORKDIR /data
 ENTRYPOINT ["/opt/stripepy/bin/stripepy"]
 ENV PATH="$PATH:/opt/stripepy/bin"
-ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN stripepy --help
-RUN stripepy --version
+# Populate bytecode cache
+ENV PYTHONDONTWRITEBYTECODE=
+
+RUN stripepy --help \
+&& stripepy call --help \
+&& stripepy download --help \
+&& stripepy view --help \
+&& stripepy plot cm --help \
+&& stripepy plot pd --help \
+&& stripepy plot hist --help \
+&& stripepy --version
 
 # https://github.com/opencontainers/image-spec/blob/main/annotations.md#pre-defined-annotation-keys
 LABEL org.opencontainers.image.authors='Andrea Raffo <andrea.raffo@ibv.uio.no>,Roberto Rossini <roberros@uio.no>'

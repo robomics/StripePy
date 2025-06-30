@@ -44,6 +44,7 @@ pip-delete-this-directory.txt
 htmlcov/
 .tox/
 .nox/
+coverage/
 .coverage
 .coverage.*
 .cache
@@ -168,6 +169,6 @@ cython_debug/
 # Custom entries
 .DS_Store
 output/
-*.log
+test/data
 *.log*
 *.bak*

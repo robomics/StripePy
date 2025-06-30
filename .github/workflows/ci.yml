@@ -8,6 +8,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/cache-test-datasets.yml"
       - ".github/workflows/ci.yml"
       - "src/**"
       - "test/**"
@@ -16,6 +17,7 @@ on:
 
   pull_request:
     paths:
+      - ".github/workflows/cache-test-datasets.yml"
       - ".github/workflows/ci.yml"
       - "src/**"
       - "test/**"
@@ -30,6 +32,9 @@ concurrency:
 defaults:
   run:
     shell: bash
+
+permissions:
+  contents: read
 
 jobs:
   matrix-factory:
@@ -48,93 +53,136 @@ jobs:
             // https://github.com/actions/runner/issues/982#issuecomment-809360765
 
             const platforms = ["windows-latest", "macos-latest", "ubuntu-latest"]
-            var python_versions = ["3.9", "3.12"]
+            var python_versions = ["3.9", "3.13"]
             if ("${{github.event_name}}" != "pull_request") {
-                python_versions = python_versions.concat(["3.10", "3.11"])
+                python_versions = python_versions.concat(["3.10", "3.11", "3.12"])
             }
 
             var includes = []
             for (const plat of platforms) {
                 for (const ver of python_versions) {
-                    includes.push({os: plat, python_version: ver})
+                    includes.push({os: plat, python_version: ver, minimal_install: true})
+                    includes.push({os: plat, python_version: ver, minimal_install: false})
                 }
             }
 
             return { include: includes }
 
+  cache-test-datasets:
+    name: Cache test datasets
+    uses: paulsengroup/StripePy/.github/workflows/cache-test-datasets.yml@b8f02af4c73c53e1ad69458c10f2ad5c02aabbe9
+
   ci:
     name: CI
-    needs: [matrix-factory]
+    needs: [cache-test-datasets, matrix-factory]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix-factory.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
-
-    env:
-      TEST_DATASET_ID: 4DNFIOTPSS3L
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Generate dependency file
+        run: |
+          echo 'os=${{ matrix.os }}' > dep-file.txt
+          echo 'python_version=${{ matrix.python_version }}' >> dep-file.txt
+          echo 'minimal_install=${{ matrix.minimal_install }}' >> dep-file.txt
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python_version }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            dep-file.txt
 
       - name: Install package
-        run: pip install --verbose '.[test]'
-
-      - name: Run unit tests
-        run: python -m pytest test -v
+        run: |
+          if [[ ${{ matrix.minimal_install }} == 'true' ]]; then
+            pip install '.' pytest pytest-cov
+          else
+            pip install '.[all,test]'
+          fi
 
       - name: Run simple CLI tests
         run: |
           stripepy --help
           stripepy --version
 
-      - name: Cache test dataset
-        id: cache-dset
+      - name: Restore test dataset
         uses: actions/cache/restore@v4
         with:
-          key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
+          key: ${{ needs.cache-test-datasets.outputs.cache-key }}
+          path: test/data/
+          fail-on-cache-miss: true
+          enableCrossOsArchive: true
 
-      - name: Download test dataset
-        if: steps.cache-dset.outputs.cache-hit != 'true'
-        run: stripepy download --name ${{ env.TEST_DATASET_ID }}
-
-      - name: Save test dataset
-        if: steps.cache-dset.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          key: ${{ env.TEST_DATASET_ID }}
-          path: ${{ env.TEST_DATASET_ID }}.hic
-
-      - name: Test stripepy call
+      - name: Run unit tests
         run: |
-          NPROC="$(python -c 'import multiprocessing as mp; print(mp.cpu_count())')"
+          python -m pytest \
+            --verbose \
+            --cov \
+            --cov-report=xml \
+            --cov-report=term \
+            -m unit
 
-          stripepy call \
-            ${{ env.TEST_DATASET_ID }}.hic \
-            100000 \
-            -o stripepy/ \
-            --glob-pers-type constant \
-            --glob-pers-min 0.10 \
-            --loc-pers-min 0.33 \
-            --loc-trend-min 0.25 \
-            --roi middle \
-            --nproc "$NPROC"
+      - name: Upload unit test coverage report to Codecov
+        if: (! matrix.minimal_install)
+        uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5.4.2
+        with:
+          flags: "tests | unit | python-${{ matrix.python_version }}"
+          disable_search: true
+          files: coverage/stripepy.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
 
-          find stripepy/ -type f -exec ls -lah {} +
+      - name: Upload unit test coverage report to Codecov (core)
+        if: matrix.minimal_install
+        uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5.4.2
+        with:
+          flags: "tests | unit | python-${{ matrix.python_version }} | core"
+          disable_search: true
+          files: coverage/stripepy.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+      - name: Run integration tests
+        run: |
+          rm -f coverage.xml
 
-          if [ ! -f stripepy/*/*/results.hdf5 ]; then
-            1>&2 echo 'results.hdf5 is missing!'
-            exit 1
-          fi
+          python -m pytest \
+            --verbose \
+            --cov \
+            --cov-report=xml \
+            --cov-report=term \
+            -m end2end
+
+      - name: Upload end2end test coverage report to Codecov
+        if: (! matrix.minimal_install)
+        uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5.4.2
+        with:
+          flags: "tests | integration | python-${{ matrix.python_version }}"
+          disable_search: true
+          files: coverage/stripepy.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+
+      - name: Upload end2end test coverage report to Codecov (core)
+        if: matrix.minimal_install
+        uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5.4.2
+        with:
+          flags: "tests | integration | python-${{ matrix.python_version }} | core"
+          disable_search: true
+          files: coverage/stripepy.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
 
   ci-status-check:
     name: Status Check (CI)

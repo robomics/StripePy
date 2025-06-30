@@ -2,40 +2,97 @@
 #
 # SPDX-License-Identifier: MIT
 
-import logging
+import sys
+from typing import List, Optional
 
-from .cli import call, download, setup, view
 
+def _setup_matplotlib(subcommand: str, **kwargs):
+    if subcommand not in {"call", "plot"}:
+        return
 
-def _setup_mpl_backend():
+    if subcommand == "call" and "roi" not in kwargs:
+        return
+
+    try:
+        import matplotlib
+        import matplotlib.pyplot as plt
+    except ImportError:
+        import structlog
+
+        structlog.get_logger().warning("failed to configure matplotlib")
+        return
+
     # This is very important, as some plotting operations are performed concurrently
     # using multiprocessing.
     # If the wrong backend is selected (e.g. tkinter) this can lead to the whole OS freezing
-    import matplotlib
-
     matplotlib.use("Agg")
+    plt.set_loglevel(level="warning")
 
 
-def _setup_logger(level: str):
-    fmt = "[%(asctime)s] %(levelname)s: %(message)s"
-    logging.basicConfig(level=level, format=fmt)
-    logging.getLogger().setLevel(level)
+def main(args: Optional[List[str]] = None):
+    # It is important that stripepy is not imported in the global namespace to enable coverage
+    # collection when using multiprocessing
+    from stripepy.cli import call, download, plot, setup, view
+    from stripepy.io import ProcessSafeLogger
 
+    # Parse CLI args
+    subcommand, kwargs, verbosity = setup.parse_args(sys.argv[1:] if args is None else args)
 
-def main():
-    subcommand, args = setup.parse_args()
-    _setup_logger("INFO")  # TODO make tunable
+    # Set up the main logger
+    with ProcessSafeLogger(
+        verbosity,
+        path=kwargs.get("log_file"),
+        force=kwargs.get("force"),
+        matrix_file=kwargs.get("contact_map"),
+        print_welcome_message=subcommand != "view",
+        progress_bar_type=subcommand,
+    ) as main_logger:
+        try:
+            _setup_matplotlib(subcommand, **kwargs)
+            kwargs["main_logger"] = main_logger
 
-    if subcommand == "call":
-        _setup_mpl_backend()
-        return call.run(**args)
-    if subcommand == "download":
-        return download.run(**args)
-    if subcommand == "view":
-        return view.run(**args)
+            # Call the appropriate entrypoint
+            if subcommand == "call":
+                return call.run(**kwargs, verbosity=verbosity)
+            if subcommand == "download":
+                return download.run(**kwargs)
+            if subcommand == "plot":
+                return plot.run(**kwargs)
+            if subcommand == "view":
+                return view.run(**kwargs)
 
-    raise NotImplementedError
+            raise NotImplementedError
+
+        except FileExistsError as e:
+            import structlog
+
+            # Do not print the full stack trace in case of FileExistsError
+            # This make it easier to spot the names of the file(s) causing problems
+            structlog.get_logger().error(e)
+
+            if args is not None:
+                raise
+            return 1
+
+        except (RuntimeError, ImportError) as e:
+            import structlog
+
+            # Log the exception including its stack trace
+            structlog.get_logger().exception(e)
+            if args is not None:
+                raise
+            return 1
+
+        except Exception as e:  # noqa
+            # Under normal operating conditions, StripePy should not raise exceptions other than
+            # FileExistsError, RuntimeError, and ImportError.
+            # Should that happen, log the exception with its stack trace and then re-raise it
+            import structlog
+
+            structlog.get_logger().exception(e)
+
+            raise
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,0 +1,61 @@
+# Copyright (C) 2024 Roberto Rossini <roberros@uio.no>
+#
+# SPDX-License-Identifier: MIT
+
+cff-version: 1.2.0
+message: 'If you use this software, please cite it using the metadata from this file.'
+authors:
+  - given-names: Andrea
+    family-names: Raffo
+    orcid: 'https://orcid.org/0000-0003-3559-0533'
+    email: andrea.raffo@ibv.uio.no
+    affiliation: 'Department of Biosciences, University of Oslo'
+  - given-names: Roberto
+    family-names: Rossini
+    orcid: 'https://orcid.org/0000-0003-3096-1470'
+    email: roberros@uio.no
+    affiliation: 'Department of Biosciences, University of Oslo'
+title: StripePy
+abstract: 'StripePy recognizes architectural stripes in 3C and Hi-C contact maps using geometric reasoning'
+doi: '10.5281/zenodo.14394041'
+url: 'https://github.com/paulsengroup/StripePy'
+repository-code: 'https://github.com/paulsengroup/StripePy'
+repository-artifact: 'https://github.com/paulsengroup/StripePy/pkgs/container/stripepy'
+type: software
+license: MIT
+keywords:
+  - architectural-stripes
+  - bioinformatics
+  - cli-application
+  - hi-c
+  - loop-extrusion
+  - python
+preferred-citation:
+  type: article
+  authors:
+  - given-names: Andrea
+    family-names: Raffo
+    orcid: 'https://orcid.org/0000-0003-3559-0533'
+    email: andrea.raffo@ibv.uio.no
+    affiliation: 'Department of Biosciences, University of Oslo'
+  - given-names: Roberto
+    family-names: Rossini
+    orcid: 'https://orcid.org/0000-0003-3096-1470'
+    email: roberros@uio.no
+    affiliation: 'Department of Biosciences, University of Oslo'
+  - given-names: Jonas
+    family-names: Paulsen
+    orcid: 'https://orcid.org/0000-0002-7918-5495'
+    email: jonas.paulsen@ibv.uio.no
+    affiliation: 'Department of Biosciences, University of Oslo'
+  doi: '10.1101/2024.12.20.629789'
+  url: 'https://www.biorxiv.org/content/early/2024/12/22/2024.12.20.629789'
+  journal: 'Cold Spring Harbor Laboratory'
+  year: 2024
+  month: 12
+  title: 'StripePy: fast and robust characterization of architectural stripes'
+  abstract: >
+    Architectural stripes in Hi-C and related data are crucial for gene regulation, development, and DNA repair.
+    Despite their importance, few tools exist for automatic stripe detection.
+    We introduce StripePy, which leverages computational geometry methods to identify and analyze architectural stripes in contact maps from Chromosome Conformation Capture experiments like Hi-C and Micro-C.
+    StripePy outperforms existing tools, as shown through tests on various datasets and a newly developed simulated benchmark, StripeBench, providing a valuable resource for the community.
