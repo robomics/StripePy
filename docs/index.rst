@@ -30,7 +30,8 @@ StripePy is a CLI application written in Python that recognizes architectural st
 
    .. rubric:: Installation
 
-TODO
+hictkpy can be installed using pip or conda with e.g., ``pip install 'stripepy-hic[all]'``.
+Refer to :doc:`Installation <./installation>` for more details.
 
 .. only:: not latex
 
@@ -47,7 +48,18 @@ discourse:
 .. code-block:: bibtex
 
   @article{stripepy,
-      TODO
+    author = {Raffo, Andrea and Rossini, Roberto and Paulsen, Jonas},
+    title = {{StripePy: fast and robust characterization of architectural stripes}},
+    journal = {Bioinformatics},
+    volume = {41},
+    number = {6},
+    pages = {btaf351},
+    year = {2025},
+    month = {06},
+    issn = {1367-4811},
+    doi = {10.1093/bioinformatics/btaf351},
+    url = {https://doi.org/10.1093/bioinformatics/btaf351},
+    eprint = {https://academic.oup.com/bioinformatics/article-pdf/41/6/btaf351/63484367/btaf351.pdf},
   }
 
 .. only:: not latex
