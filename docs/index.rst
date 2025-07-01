@@ -1,6 +1,6 @@
 ..
-   Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
-   SPDX-License-Identifier: MIT
+  Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
+  SPDX-License-Identifier: MIT
 
 Introduction
 ============
@@ -9,38 +9,38 @@ StripePy is a CLI application written in Python that recognizes architectural st
 
 .. only:: not latex
 
-   Documentation formats
-   ---------------------
+  Documentation formats
+  ---------------------
 
-   You are reading the HTML version of the documentation. An alternative `PDF
-   version <https://stripepy.readthedocs.io/_/downloads/en/stable/pdf/>`_ is
-   also available.
+  You are reading the HTML version of the documentation. An alternative `PDF
+  version <https://stripepy.readthedocs.io/_/downloads/en/stable/pdf/>`_ is
+  also available.
 
-   Installation
-   ------------
+  Installation
+  ------------
 
 .. only:: latex
 
-   Documentation formats
-   ---------------------
+  Documentation formats
+  ---------------------
 
-   You are reading the PDF version of the documentation.
+  You are reading the PDF version of the documentation.
 
-   The live HTML version of the documentation is available at `<https://stripepy.readthedocs.io/en/stable/>`_.
+  The live HTML version of the documentation is available at `<https://stripepy.readthedocs.io/en/stable/>`_.
 
-   .. rubric:: Installation
+  .. rubric:: Installation
 
 hictkpy can be installed using pip or conda with e.g., ``pip install 'stripepy-hic[all]'``.
 Refer to :doc:`Installation <./installation>` for more details.
 
 .. only:: not latex
 
-   How to cite this project?
-   -------------------------
+  How to cite this project?
+  -------------------------
 
 .. only:: latex
 
-   .. rubric:: How to cite this project?
+  .. rubric:: How to cite this project?
 
 Please use the following BibTeX template to cite StripePy in scientific
 discourse:
@@ -64,11 +64,11 @@ discourse:
 
 .. only:: not latex
 
-   Table of contents
-   -----------------
+  Table of contents
+  -----------------
 
 .. toctree::
-   :maxdepth: 1
+  :maxdepth: 1
 
-   installation
-   quickstart
+  installation
+  quickstart

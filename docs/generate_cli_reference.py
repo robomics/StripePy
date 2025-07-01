@@ -39,8 +39,8 @@ def make_cli() -> argparse.ArgumentParser:
 def generate_main_header():
     header = """
     ..
-       Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
-       SPDX-License-Identifier: MIT
+      Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
+      SPDX-License-Identifier: MIT
 
     CLI Reference
     #############

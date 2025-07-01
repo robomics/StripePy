@@ -1,6 +1,6 @@
 ..
-   Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
-   SPDX-License-Identifier: MIT
+  Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
+  SPDX-License-Identifier: MIT
 
 Running StripePy
 ================
@@ -191,13 +191,13 @@ Refer to `IPython <https://ipython.readthedocs.io/en/stable/install/kernel_insta
 
 .. code-block:: bash
 
-   pip install 'clodius>=0.20,<1' 'hictkpy>=1,<2' 'higlass-python>=1.2,<2'
+  pip install 'clodius>=0.20,<1' 'hictkpy>=1,<2' 'higlass-python>=1.2,<2'
 
 Next, launch JupyterLab and open notebook :download:`visualize_stripes_with_highlass.ipynb <../utils/visualize_stripes_with_highlass.ipynb>`.
 
 .. code-block:: bash
 
-   jupyter lab
+  jupyter lab
 
 Before running the notebook, scroll down to the following cell
 

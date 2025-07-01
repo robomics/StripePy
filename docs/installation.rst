@@ -1,6 +1,6 @@
 ..
-   Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
-   SPDX-License-Identifier: MIT
+  Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
+  SPDX-License-Identifier: MIT
 
 Installation
 ============
