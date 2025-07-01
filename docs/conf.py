@@ -257,7 +257,10 @@ latex_documents = [
 # If false, no module index is generated.
 # latex_domain_indices = True
 
-linkcheck_ignore = []
+linkcheck_ignore = [
+    r"https://stripepy.*\.readthedocs\.build.*",
+    r"https://stripepy.*readthedocs.*/_/downloads/en/.*/pdf/",
+]
 
 primary_domain = "py"
 highlight_language = "py"
