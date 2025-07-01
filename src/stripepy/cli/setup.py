@@ -18,9 +18,7 @@ def parse_args(cli_args: List[str]) -> Tuple[str, Any, str]:
         return "help", {}, "error"
 
     # Parse the input parameters:
-    args = vars(parser.parse_args(cli_args))
-    args = _normalize_args(args)
-    args = _define_default_args(parser, args)
+    args = _preprocess_args(parser, parser.parse_args(cli_args))
     _validate_args(parser, args)
 
     subcommand = args.pop("subcommand")
@@ -660,6 +658,16 @@ def _define_default_args(parser: argparse.ArgumentParser, args: Dict[str, Any]) 
                 parser.error(f"failed to infer the output file name: {e}")
 
     return args
+
+
+def _preprocess_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> Dict[str, Any]:
+    args = vars(args)
+    args_to_drop = ("license", "cite")
+    for arg in args_to_drop:
+        args.pop(arg, None)
+
+    args = _normalize_args(args)
+    return _define_default_args(parser, args)
 
 
 def _validate_stripepy_call_args(parser: argparse.ArgumentParser, args: Dict[str, Any]):
