@@ -25,18 +25,29 @@ class ResultFile(object):
     A class used to read and write StripePy results to a HDF5 file.
 
     There are 3 main use cases:
+
         - Open the file in read mode:
-            with ResultFile("results.hdf5") as h5:
-                ...
+
+          .. code-block:: python
+
+              with ResultFile("results.hdf5") as h5:
+                  ...
 
         - Open file in write mode:
-            - if all data will be written to the file before the file is closed:
+
+          - If all data will be written to the file before the file is closed:
+
+            .. code-block:: python
+
                 with ResultFile.create("results.hdf5", mode="w", ...) as h5:
                     h5.write_descriptors(res1)
                     h5.write_descriptors(res2)
                     ...
 
-            - if the data will be added progressively:
+          - If the data will be added progressively:
+
+            .. code-block:: python
+
                 with ResultFile.create("results.hdf5", mode="a", ...) as h5:
                     h5.write_descriptors(res1)  # not mandatory, it is also possible to create the
                                                 # file and close it immediately
@@ -392,6 +403,7 @@ class ResultFile(object):
         field: str
             name of the field to be fetched.
             Supported names:
+
                 * pseudodistribution
                 * all_minimum_points
                 * persistence_of_all_minimum_points

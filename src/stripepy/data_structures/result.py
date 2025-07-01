@@ -270,6 +270,7 @@ class Result(object):
         name: str
            name of the attribute to be set.
            Supported attributes are:
+
               * all_minimum_points
               * all_maximum_points
               * persistence_of_all_minimum_points
