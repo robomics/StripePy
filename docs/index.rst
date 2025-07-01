@@ -72,3 +72,4 @@ discourse:
 
   installation
   quickstart
+  cli_reference
