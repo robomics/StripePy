@@ -40,6 +40,10 @@ if runner_is_rtd():
 # ones.
 extensions = [
     "sphinx_copybutton",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.napoleon",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
