@@ -1,5 +1,5 @@
 ..
-   Copyright (C) 2024 Roberto Rossini <roberros@uio.no>
+   Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
    SPDX-License-Identifier: MIT
 
 Running StripePy
