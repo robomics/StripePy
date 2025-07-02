@@ -29,14 +29,21 @@ def _setup_matplotlib(subcommand: str, **kwargs):
     plt.set_loglevel(level="warning")
 
 
-def main(args: Optional[List[str]] = None):
+def main(args: Optional[List[str]] = None) -> int:
     # It is important that stripepy is not imported in the global namespace to enable coverage
     # collection when using multiprocessing
     from stripepy.cli import call, download, plot, setup, view
     from stripepy.io import ProcessSafeLogger
 
     # Parse CLI args
-    subcommand, kwargs, verbosity = setup.parse_args(sys.argv[1:] if args is None else args)
+    try:
+        subcommand, kwargs, verbosity = setup.parse_args(sys.argv[1:] if args is None else args)
+    except RuntimeError as e:
+        print(e, file=sys.stderr)
+        return 1
+
+    if subcommand == "help":
+        return 0
 
     # Set up the main logger
     with ProcessSafeLogger(
