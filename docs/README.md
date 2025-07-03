@@ -42,3 +42,13 @@ xdg-open _build/latex/stripepy.pdf
 # macOS
 open _build/latex/stripepy.pdf
 ```
+
+# How to automatically generate documentation for the CLI
+
+```bash
+venv/bin/pip install ..  # Install stripepy
+
+venv/bin/python generate_cli_reference.py \
+  --stripepy venv/bin/stripepy |
+  tee cli_reference.rst
+```
