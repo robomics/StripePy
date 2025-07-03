@@ -5,7 +5,7 @@
 Detect architectural stripes
 ============================
 
-The :ref:`stripepy-call` command serves as the main component within StripePy, and may take several minutes to complete when processing large files.
+The `stripepy_call_help` command serves as the main component within StripePy, and may take several minutes to complete when processing large files.
 
 Positional arguments
 --------------------
@@ -93,7 +93,7 @@ Furthermore, it is possible to save the complete log of a run to a file by speci
 Stripe detection parameters
 ---------------------------
 
-Beyond these arguments, ``stripepy call`` comes with a suite of optional parameters for fine-tuning the stripe detection process. For a full understanding of their meaning, the user is referred to our `paper <https://doi.org/10.1093/bioinformatics/btaf351>`_.
+Beyond these arguments, `stripepy_call_help` comes with a suite of optional parameters for fine-tuning the stripe detection process. For a full understanding of their meaning, the user is referred to our `paper <https://doi.org/10.1093/bioinformatics/btaf351>`_.
 
 Step 1: pre-processing
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -134,7 +134,7 @@ It is used to compute various signal descriptors, such as the relative change pa
 Diagnostic plots generation
 ---------------------------
 
-The command ``stripepy call`` can generate several diagnostic plots that can be of help to gain more insights into the decisions made by the tool.
+The command `stripepy_call_help` can generate several diagnostic plots that can be of help to gain more insights into the decisions made by the tool.
 
 To generate the diagnostic plots, pass ``--roi=middle`` and specify the path to a folder where to store the plots using ``--plot-dir``.
 The ``--roi`` option requires you to specify a criterion (``start`` or ``middle``) to select a representative region from each chromosome for plot generation.

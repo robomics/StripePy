@@ -5,7 +5,7 @@
 Downloading sample datasets
 ===========================
 
-:ref:`stripepy-download` is used to download sample datasets suitable to quickly test StripePy.
+`stripepy_download_help` is used to download sample datasets suitable to quickly test StripePy.
 It provides various options to specify which datasets to download, where to store them, and how to handle existing files.
 
 Listing available datasets
@@ -43,7 +43,7 @@ Each value is an object containing metadata like URL, assembly, and file format.
 Basic download operations
 -------------------------
 
-``stripepy download`` can be used to download a dataset by specifying its name.
+`stripepy_download_help` can be used to download a dataset by specifying its name.
 
 For example, to download the dataset named ``4DNFI9GMP2J8``:
 
@@ -84,7 +84,7 @@ Additionally, for internal testing or specific development purposes, the ``--inc
 Downloading test datasets
 -------------------------
 
-The ``stripepy download`` command also provides dedicated functionalities for acquiring specific test datasets used in unit and end-to-end testing.
+The `stripepy_download_help` command also provides dedicated functionalities for acquiring specific test datasets used in unit and end-to-end testing.
 
 The ``--unit-test`` option allows the download of datasets specifically required by the unit tests.
 When this option is invoked, the downloaded files are automatically stored within the ``test/data/`` directory, and any existing files at that location will be overwritten.

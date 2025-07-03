@@ -5,7 +5,7 @@
 Visualize architectural stripes
 ===============================
 
-Visually inspecting a subset of the detected stripes is highly recommended to verify that the parameters configured for ``stripepy call`` are well-suited to your specific dataset.
+Visually inspecting a subset of the detected stripes is highly recommended to verify that the parameters configured for `stripepy_call_help` are well-suited to your specific dataset.
 To assist with this inspection, the Jupyter notebook
 `visualize_stripes_with_highlass.ipynb <https://github.com/paulsengroup/StripePy/blob/main/utils/visualize_stripes_with_highlass.ipynb>`_ is provided.
 This notebook is designed to work with input files in the ``.mcool`` format.
@@ -38,7 +38,7 @@ Before running the notebook, scroll down to the following cell
   mcool = ensure_file_exists("CHANGEME.mcool")
   bedpe = ensure_file_exists("CHANGEME.bedpe")
 
-and set the ``mcool`` and ``bedpe`` variables to the path to the ``.mcool`` file used to call stripes and the path to the stripe coordinates extracted with ``stripepy view``, respectively.
+and set the ``mcool`` and ``bedpe`` variables to the path to the ``.mcool`` file used to call stripes and the path to the stripe coordinates extracted with `stripepy_view_help`, respectively.
 
 .. code-block:: bash
 
