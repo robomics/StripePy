@@ -5,8 +5,7 @@
 Detect architectural stripes
 ============================
 
-The ``stripepy call`` command serves as the main component within StripePy, and may take several minutes to complete when processing
-large files.
+The ``stripepy call`` command serves as the main component within StripePy, and may take several minutes to complete when processing large files.
 
 Positional arguments
 --------------------
@@ -15,8 +14,7 @@ The command mandates two positional arguments:
   * ``contact_map``, which specifies the path to the input Hi-C file (in .cool, .mcool, or .hic format).
   * ``resolution``, which represents the resolution (in base pairs) at which the analysis should be run.
 
-For instance, to run the command on a file named ``4DNFI9GMP2J8.mcool`` at a resolution of 10,000 bp, you would
-use the following command:
+For instance, to run the command on a file named ``4DNFI9GMP2J8.mcool`` at a resolution of 10,000 bp, you would use the following command:
 
 .. code-block:: console
 
@@ -81,19 +79,16 @@ Running the above command produces a similar output, here truncated for the sake
   2025-04-15 08:14:59.127399 [info     ] [main      ] processed 24 chromosomes in 1m:34.490s
 
 
-Upon successful completion, the above command will generate a single HDF5 file named ``4DNFI9GMP2J8.10000.hdf5`` in the
-current working directory. Note that, if the HDF5 already exists, it will be overwritten if and only if the ``--force``
-flag is specified; otherwise, the command will fail to prevent accidental data loss.
+Upon successful completion, the above command will generate a single HDF5 file named ``4DNFI9GMP2J8.10000.hdf5`` in the current working directory.
+Note that, if the HDF5 already exists, it will be overwritten if and only if the ``--force`` flag is specified; otherwise, the command will fail to prevent accidental data loss.
 
 Output and logging configuration
 --------------------------------
 
-By default, the output HDF5 file is named after the input matrix file with the resolution appended, for example,
-``4DNFI9GMP2J8.10000.hdf5``. However, you have the flexibility to specify an alternative output path and filename for
-this HDF5 file using the ``--output-file`` option.
+By default, the output HDF5 file is named after the input matrix file with the resolution appended, for example, ``4DNFI9GMP2J8.10000.hdf5``.
+However, you have the flexibility to specify an alternative output path and filename for this HDF5 file using the ``--output-file`` option.
 
-Furthermore, it is possible to save the complete log of a run to a file by specifying the path where to store the log file
-through the ``--log-file`` CLI option.
+Furthermore, it is possible to save the complete log of a run to a file by specifying the path where to store the log file through the ``--log-file`` CLI option.
 
 Stripe detection parameters
 ---------------------------
@@ -103,52 +98,49 @@ Beyond these arguments, ``stripepy call`` comes with a suite of optional paramet
 Step 1: pre-processing
 ^^^^^^^^^^^^^^^^^^^^^^
 
-You can apply a specific ``--normalization`` method when fetching the contact map data from the input file; by default, no
-normalization is applied. As found in our experiments, our algorithm performs optimally when no prior balancing is applied
-(see the `Supplementary Information <https://academic.oup.com/bioinformatics/article/41/6/btaf351/8161567#524807912>`_ from our paper).
+You can apply a specific ``--normalization`` method when fetching the contact map data from the input file; by default, no normalization is applied.
+As found in our experiments, our algorithm performs optimally when no prior balancing is applied (see the `Supplementary Information <https://academic.oup.com/bioinformatics/article/41/6/btaf351/8161567#524807912>`_ from our paper).
 
-The ``--genomic-belt`` option defines a radial band around the main diagonal of the contact map, specified in base pairs,
-to which the stripe search is confined; its default value is 5 Mbp.
+The ``--genomic-belt`` option defines a radial band around the main diagonal of the contact map, specified in base pairs, to which the stripe search is confined; its default value is 5 Mbp.
 
 Step 2: line detection
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The ``--glob-pers-min`` option sets a critical threshold value between 0 and 1 (defaulting to 0.04).
-This threshold is instrumental in filtering persistence maxima points for the global pseudo-distribution, which are
-crucial for identifying initial candidate stripe locations, frequently referred to as "seeds".
+This threshold is instrumental in filtering persistence maxima points for the global pseudo-distribution, which are crucial for identifying initial candidate stripe locations, frequently referred to as "seeds".
 
 Step 3: shape analysis
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The maximum permissible stripe width can be explicitly controlled using the ``--max-width`` option, which is
-specified in base pairs and defaults to 100,000 bp.
+The maximum permissible stripe width can be explicitly controlled using the ``--max-width`` option, which is specified in base pairs and defaults to 100,000 bp.
 
 The height of a stripe can be constrained by studying a local pseudo-distribution via two alternative criteria:
 
-* One criterion involves direct thresholding the local pseudo-distribution to a minimum value, specified via the option ``--loc-trend-min``, which should be set between 0 and 1 (defaulting to 0.25). A higher value for this parameter generally results in the detection of shorter stripes.
-* Alternatively, the algorithm applies topological persistence to the local pseudo-distribution to identify persistent peaks. The location of the furthest identified peak is then used as a boundary for the stripe. This approach is engaged when the ``--constrain-heights`` flag is activated, which instructs the algorithm to utilize peaks within the local pseudo-distribution for height estimation.
-  When ``--constrain-heights`` is active, the ``--loc-pers-min`` option acts as a threshold value between 0 and 1 (defaulting to 0.33) used to identify signal peaks within a horizontal domain when estimating the height of a stripe. If no persistent maximum other than the global maximum is found by the algorithm, the previous criterion is run.
+* One criterion involves direct thresholding the local pseudo-distribution to a minimum value, specified via the option ``--loc-trend-min``, which should be set between 0 and 1 (defaulting to 0.25).
+  A higher value for this parameter generally results in the detection of shorter stripes.
+* Alternatively, the algorithm applies topological persistence to the local pseudo-distribution to identify persistent peaks.
+  The location of the furthest identified peak is then used as a boundary for the stripe.
+  This approach is engaged when the ``--constrain-heights`` flag is activated, which instructs the algorithm to utilize peaks within the local pseudo-distribution for height estimation.
+  When ``--constrain-heights`` is active, the ``--loc-pers-min`` option acts as a threshold value between 0 and 1 (defaulting to 0.33) used to identify signal peaks within a horizontal domain when estimating the height of a stripe.
+  If no persistent maximum other than the global maximum is found by the algorithm, the previous criterion is run.
 
 Step 4: signal analysis
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``--k-neighbour`` option allows you to define 'k' for the k-neighbours: it represents the number of bins that are
-considered adjacent to the stripe boundaries on both sides, with a default value of 3. It is used to compute various
-signal descriptors, such as the relative change parameter.
+The ``--k-neighbour`` option allows you to define 'k' for the k-neighbours: it represents the number of bins that are considered adjacent to the stripe boundaries on both sides, with a default value of 3.
+It is used to compute various signal descriptors, such as the relative change parameter.
 
 
 Diagnostic plots generation
 ---------------------------
 
-The command ``stripepy call`` can generate several diagnostic plots that can be of help to gain more insights into the
-decisions made by the tool.
+The command ``stripepy call`` can generate several diagnostic plots that can be of help to gain more insights into the decisions made by the tool.
 
-To generate the diagnostic plots, pass ``--roi=middle`` and specify the path to a folder where to store the plots using
-``--plot-dir``. The ``--roi`` option requires you to specify a criterion (``start`` or ``middle``) to select a representative
-region from each chromosome for plot generation. Concurrently, the ``--plot-dir`` option designates the path to a directory
-where these output plots will be stored. It is important to note that the ``--plot-dir`` option is mandatory when ``--roi``
-is specified and is otherwise ignored. If the specified directory does not exist at the time of execution, ``stripepy``
-will automatically create it.
+To generate the diagnostic plots, pass ``--roi=middle`` and specify the path to a folder where to store the plots using ``--plot-dir``.
+The ``--roi`` option requires you to specify a criterion (``start`` or ``middle``) to select a representative region from each chromosome for plot generation.
+Concurrently, the ``--plot-dir`` option designates the path to a directory where these output plots will be stored.
+It is important to note that the ``--plot-dir`` option is mandatory when ``--roi`` is specified and is otherwise ignored.
+If the specified directory does not exist at the time of execution, ``stripepy`` will automatically create it.
 
 Performance options
 -------------------
@@ -157,6 +149,4 @@ When processing larger Hi-C matrix, StripePy can take advantage of multicore pro
 
 The maximum number of CPU cores use by StripePy can be changed through option ``--nproc`` (set to 1 core by default).
 
-Whenever possible, we recommend using 4-8 CPU cores.
-Using more than 8 CPU cores is unlikely to result in significantly better computational performance
-(that is unless your Hi-C dataset is particularly dense).
+Whenever possible, we recommend using 4-8 CPU cores. Using more than 8 CPU cores is unlikely to result in significantly better computational performance (that is unless your Hi-C dataset is particularly dense).

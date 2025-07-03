@@ -37,9 +37,8 @@ Output customization and filtering
 
 When viewing the stripes, several optional parameters are available to customize the output.
 
-The ``--relative-change-threshold`` option allows you to set a cutoff value (defaulting to 5.0) for filtering stripes
-based on their relative change. This relative change is calculated as the ratio between the average number of
-interactions found inside a stripe and the number of interactions in a neighborhood immediately outside of the stripe.
+The ``--relative-change-threshold`` option allows you to set a cutoff value (defaulting to 5.0) for filtering stripes based on their relative change.
+This relative change is calculated as the ratio between the average number of interactions found inside a stripe and the number of interactions in a neighborhood immediately outside of the stripe.
 
 If you are interested in the biodescriptors associated with each individual stripe, you can pass ``--with-header`` and ``--with-biodescriptors`` when calling ``stripepy view``.
 
@@ -68,6 +67,4 @@ Coordinate transformation
 
 The ``--transform`` option provides control over how stripe coordinates are presented in the output.
 By default, no transformation is applied.
-However, you can specify ``transpose_to_ut`` to transpose coordinates to the upper triangular part of the contact map,
-or ``transpose_to_lt`` to transpose them to the lower triangular part, which can be useful for specific downstream
-analyses or visualization preferences.
+However, you can specify ``transpose_to_ut`` to transpose coordinates to the upper triangular part of the contact map, or ``transpose_to_lt`` to transpose them to the lower triangular part, which can be useful for specific downstream analyses or visualization preferences.

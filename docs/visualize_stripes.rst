@@ -5,8 +5,8 @@
 Visualize architectural stripes
 ===============================
 
-Visually inspecting a subset of the detected stripes is highly recommended to verify that the parameters configured for
-``stripepy call`` are well-suited to your specific dataset. To assist with this inspection, the Jupyter notebook
+Visually inspecting a subset of the detected stripes is highly recommended to verify that the parameters configured for ``stripepy call`` are well-suited to your specific dataset.
+To assist with this inspection, the Jupyter notebook
 `visualize_stripes_with_highlass.ipynb <https://github.com/paulsengroup/StripePy/blob/main/utils/visualize_stripes_with_highlass.ipynb>`_ is provided.
 This notebook is designed to work with input files in the ``.mcool`` format.
 

@@ -35,11 +35,11 @@ A more extended description of the subcommand ``stripepy download`` is found in 
 2) Detect architectural stripes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``stripepy call`` subcommand is the core of the analysis, designed to identify architectural stripes within contact
-maps. This process can be quite time-consuming, especially when working with large files.
+The ``stripepy call`` subcommand is the core of the analysis, designed to identify architectural stripes within contact maps.
+This process can be quite time-consuming, especially when working with large files.
 
-The path to your contact map file and the desired resolution are required to run the analysis. For instance, to analyse
-the ``4DNFI9GMP2J8.mcool`` file at a 10,000 bp resolution, you would use:
+The path to your contact map file and the desired resolution are required to run the analysis.
+For instance, to analyse the ``4DNFI9GMP2J8.mcool`` file at a 10,000 bp resolution, you would use:
 
 .. code-block:: console
 
@@ -75,6 +75,5 @@ More info available at `Visualize architectural stripes <./visualize_stripes>`.
 Generating plots
 ----------------
 
-StripePy comes with a ``plot`` subcommand that can be used to visualize architectural stripes overlaid on top of the
-Hi-C matrix. ``stripepy plot`` can also generate several graphs showing the general properties of the called stripes,
-see `Generating plots <./generate_plots>`.
+StripePy comes with a ``plot`` subcommand that can be used to visualize architectural stripes overlaid on top of the Hi-C matrix.
+``stripepy plot`` can also generate several graphs showing the general properties of the called stripes, see `Generating plots <./generate_plots>`.
