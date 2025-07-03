@@ -268,18 +268,19 @@ class Result(object):
         Parameters
         ----------
         name: str
-           name of the attribute to be set.
-           Supported attributes are:
-              * all_minimum_points
-              * all_maximum_points
-              * persistence_of_all_minimum_points
-              * persistence_of_all_maximum_points
-              * persistent_minimum_points
-              * persistent_maximum_points
-              * persistence_of_minimum_points
-              * persistence_of_maximum_points
-              * pseudodistribution
-              * stripes
+            name of the attribute to be set.
+            Supported attributes are:
+
+            * all_minimum_points
+            * all_maximum_points
+            * persistence_of_all_minimum_points
+            * persistence_of_all_maximum_points
+            * persistent_minimum_points
+            * persistent_maximum_points
+            * persistence_of_minimum_points
+            * persistence_of_maximum_points
+            * pseudodistribution
+            * stripes
 
         data:
             data to be registered with the Result instance

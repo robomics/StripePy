@@ -25,31 +25,42 @@ class ResultFile(object):
     A class used to read and write StripePy results to a HDF5 file.
 
     There are 3 main use cases:
-        - Open the file in read mode:
-            with ResultFile("results.hdf5") as h5:
+
+    - Open the file in read mode:
+
+    .. code-block:: python
+
+      with ResultFile("results.hdf5") as h5:
+      ...
+
+    - Open file in write mode:
+
+      - If all data will be written to the file before the file is closed:
+
+        .. code-block:: python
+
+            with ResultFile.create("results.hdf5", mode="w", ...) as h5:
+                h5.write_descriptors(res1)
+                h5.write_descriptors(res2)
                 ...
 
-        - Open file in write mode:
-            - if all data will be written to the file before the file is closed:
-                with ResultFile.create("results.hdf5", mode="w", ...) as h5:
-                    h5.write_descriptors(res1)
-                    h5.write_descriptors(res2)
-                    ...
+      - If the data will be added progressively:
 
-            - if the data will be added progressively:
-                with ResultFile.create("results.hdf5", mode="a", ...) as h5:
-                    h5.write_descriptors(res1)  # not mandatory, it is also possible to create the
-                                                # file and close it immediately
-                ...
-                with ResultFile.append("results.hdf5") as h5:
-                    h5.write_descriptors(res2)
-                    h5.write_descriptors(res3)
-                ...
-                with ResultFile.append("results.hdf5") as h5:
-                    h5.write_descriptors(res4)
-                    h5.finalize()  # IMPORTANT!
-                                   # Without the above line you'll get an error when trying to open
-                                   # the file in read mode
+        .. code-block:: python
+
+            with ResultFile.create("results.hdf5", mode="a", ...) as h5:
+                h5.write_descriptors(res1)  # not mandatory, it is also possible to create the
+                                            # file and close it immediately
+            ...
+            with ResultFile.append("results.hdf5") as h5:
+                h5.write_descriptors(res2)
+                h5.write_descriptors(res3)
+            ...
+            with ResultFile.append("results.hdf5") as h5:
+                h5.write_descriptors(res4)
+                h5.finalize()  # IMPORTANT!
+                               # Without the above line you'll get an error when trying to open
+                               # the file in read mode
 
     When opening or creating a ResultFile write or append mode, a context manager (e.g. with:) must be used
 
@@ -392,13 +403,14 @@ class ResultFile(object):
         field: str
             name of the field to be fetched.
             Supported names:
-                * pseudodistribution
-                * all_minimum_points
-                * persistence_of_all_minimum_points
-                * all_maximum_points
-                * persistence_of_all_maximum_points
-                * geo_descriptors
-                * bio_descriptors
+
+            * pseudodistribution
+            * all_minimum_points
+            * persistence_of_all_minimum_points
+            * all_maximum_points
+            * persistence_of_all_maximum_points
+            * geo_descriptors
+            * bio_descriptors
         location: str
             location of the attribute to be registered. Should be "LT" or "UT"
 
