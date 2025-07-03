@@ -68,9 +68,25 @@ discourse:
   -----------------
 
 .. toctree::
+  :caption: Installation
   :maxdepth: 1
 
   installation
+
+.. toctree::
+  :caption: Getting started
+  :maxdepth: 1
+
   quickstart
+  downloading_sample_datasets
+  detect_stripes
+  fetch_stripes
+  visualize_stripes
+  generate_plots
+
+.. toctree::
+  :caption: CLI and API Reference
+  :maxdepth: 1
+
   cli_reference
   api
