@@ -25,46 +25,25 @@ Installing with conda
 Installing from source
 ----------------------
 
-Instructions for Linux and macOS:
+Installing from source requires git to be available on the host.
+
+Installing the latest version from the main branch
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+  pip install 'stripepy-hic[all] @ git+https://github.com/paulsengroup/StripePy.git@main'
+
+Installing version corresponding to a git tag
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+  pip install 'stripepy-hic[all] @ git+https://github.com/paulsengroup/StripePy.git@v1.1.0'
+
+Installing from a release archive
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
-  # create and activate a venv (optional)
-  python3 -m venv venv
-  . venv/bin/activate
-
-  # get StripePy source code
-  git clone https://github.com/paulsengroup/StripePy.git
-
-  # optional, checkout a specific version
-  # git checkout v0.0.2
-
-  # install StripePy
-  cd StripePy
-  pip install '.[all]'
-
-  # ensure StripePy is in your PATH
-  stripepy --help
-
-Instructions for Windows:
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: bash
-
-  # create and activate a venv (optional)
-  python3 -m venv venv
-  venv\Scripts\activate
-
-  # get StripePy source code
-  git clone https://github.com/paulsengroup/StripePy.git
-
-  # optional, checkout a specific version
-  # git checkout v0.0.2
-
-  # install StripePy
-  cd StripePy
-  pip install .
-
-  # ensure StripePy is in your PATH
-  stripepy --help
+  pip install 'stripepy-hic[all] @ https://pypi.python.org/packages/source/s/stripepy_hic/stripepy_hic-1.1.0.tar.gz'
