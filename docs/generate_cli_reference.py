@@ -47,6 +47,8 @@ def generate_main_header():
 
     For an up-to-date list of subcommands and CLI options refer to ``stripepy --help``.
 
+    .. _stripepy_help:
+
     Subcommands
     -----------
 
@@ -59,8 +61,11 @@ def generate_main_header():
 
 def generate_subcommand_header(subcommand: Tuple[str]):
     subcommand = "stripepy " + " ".join(subcommand)
+    bookmark = f'.. _{re.sub(r'\W+', '_', subcommand)}_help:'
     separator = "-" * len(subcommand)
     header = f"""
+
+    {bookmark}
 
     {subcommand}
     {separator}
