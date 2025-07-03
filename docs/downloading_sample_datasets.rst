@@ -5,7 +5,7 @@
 Downloading sample datasets
 ===========================
 
-``stripepy download`` is used to download sample datasets suitable to quickly test StripePy.
+:ref:`stripepy-download` is used to download sample datasets suitable to quickly test StripePy.
 It provides various options to specify which datasets to download, where to store them, and how to handle existing files.
 
 Listing available datasets

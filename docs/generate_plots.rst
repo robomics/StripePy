@@ -7,7 +7,7 @@ Generating plots
 
 StripePy comes with a ``plot`` subcommand that can be used to generate various kinds of plots.
 
-``stripepy plot`` supports the following subcommands:
+:ref:`stripepy-plot` supports the following subcommands:
 
 * ``contact-map`` (``cm``): plot stripes and other features over the Hi-C matrix
 * ``pseudodistribution`` (``pd``): plot the pseudo-distribution over the given region of interest

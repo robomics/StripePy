@@ -5,7 +5,7 @@
 Detect architectural stripes
 ============================
 
-The ``stripepy call`` command serves as the main component within StripePy, and may take several minutes to complete when processing large files.
+The :ref:`stripepy-call` command serves as the main component within StripePy, and may take several minutes to complete when processing large files.
 
 Positional arguments
 --------------------

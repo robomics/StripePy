@@ -31,6 +31,7 @@ Subcommands
       plot                Generate various static plots useful to visually inspect the output produced by stripepy call.
       view                Fetch stripes from the HDF5 file produced by stripepy call.
 
+.. _stripepy-call:
 
 stripepy call
 -------------
@@ -82,6 +83,7 @@ stripepy call
     --min-chrom-size MIN_CHROM_SIZE
                           Minimum size, in bp, for a chromosome to be analysed (default: 2000000).
 
+.. _stripepy-download:
 
 stripepy download
 -----------------
@@ -116,6 +118,7 @@ stripepy download
     --verbosity {debug,info,warning,error,critical}
                           Set verbosity of output to the console (default: info).
 
+.. _stripepy-plot:
 
 stripepy plot
 -------------
