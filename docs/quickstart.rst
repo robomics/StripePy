@@ -76,4 +76,20 @@ Generating plots
 ----------------
 
 StripePy comes with a ``plot`` subcommand that can be used to visualize architectural stripes overlaid on top of the Hi-C matrix.
-``stripepy plot`` can also generate several graphs showing the general properties of the called stripes, see `Generating plots <./generate_plots>`.
+``stripepy plot`` can also generate several graphs showing the general properties of the called stripes, see `Generating plots <./generate_plots>` for a complete overview.
+
+For instance, running
+
+.. code-block:: console
+
+  user@dev:/tmp$ stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix_with_stripes.png --stripepy-hdf5 4DNFI9GMP2J8.10000.hdf5 --highlight-stripes
+
+will generate the following plot
+
+.. only:: not latex
+
+  .. image:: assets/4DNFI9GMP2J8_chr14_34mbp-cm_plot_highlight_stripes.png
+
+.. only:: latex
+
+  .. image:: assets/4DNFI9GMP2J8_chr14_34mbp-cm_plot_highlight_stripes.pdf
