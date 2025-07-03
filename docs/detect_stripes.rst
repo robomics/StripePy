@@ -5,7 +5,7 @@
 Detect architectural stripes
 ============================
 
-The ``stripepy call`` command serves as the main component within StripePy, and may take several minutes when processing
+The ``stripepy call`` command serves as the main component within StripePy, and may take several minutes to complete when processing
 large files.
 
 Positional arguments
@@ -105,17 +105,17 @@ Step 1: pre-processing
 
 You can apply a specific ``--normalization`` method when fetching the contact map data from the input file; by default, no
 normalization is applied. As found in our experiments, our algorithm performs optimally when no prior balancing is applied
-(see the Supplementary Information of our paper).
+(see the `Supplementary Information <https://academic.oup.com/bioinformatics/article/41/6/btaf351/8161567#524807912>`_ from our paper).
 
 The ``--genomic-belt`` option defines a radial band around the main diagonal of the contact map, specified in base pairs,
-to which the stripe search is confined; its default value is 5,000,000 bp.
+to which the stripe search is confined; its default value is 5 Mbp.
 
 Step 2: line detection
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The ``--glob-pers-min`` option sets a critical threshold value between 0 and 1 (defaulting to 0.04).
 This threshold is instrumental in filtering persistence maxima points for the global pseudo-distribution, which are
-crucial for identifying initial candidate stripe locations, frequently referred to as "seeds."
+crucial for identifying initial candidate stripe locations, frequently referred to as "seeds".
 
 Step 3: shape analysis
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -125,8 +125,9 @@ specified in base pairs and defaults to 100,000 bp.
 
 The height of a stripe can be constrained by studying a local pseudo-distribution via two alternative criteria:
 
-  * One criterion involves direct thresholding the local pseudo-distribution to a minimum value, specified via the option ``--loc-trend-min``, which should be set between 0 and 1 (defaulting to 0.25). A higher value for this parameter generally results in the detection of shorter stripes.
-  * Alternatively, the algorithm applies topological persistence to the local pseudo-distribution to identify persistent peaks. The location of the furthest identified peak is then used as a boundary for the stripe. This approach is engaged when the ``--constrain-heights`` flag is activated, which instructs the algorithm to utilize peaks within the local pseudo-distribution for height estimation. When ``--constrain-heights`` is active, the ``--loc-pers-min`` option acts as a threshold value between 0 and 1 (defaulting to 0.33) used to identify signal peaks within a horizontal domain when estimating the height of a stripe. If no persistent maximum other than the global maximum is found by the algorithm, the previous criterion is run.
+* One criterion involves direct thresholding the local pseudo-distribution to a minimum value, specified via the option ``--loc-trend-min``, which should be set between 0 and 1 (defaulting to 0.25). A higher value for this parameter generally results in the detection of shorter stripes.
+* Alternatively, the algorithm applies topological persistence to the local pseudo-distribution to identify persistent peaks. The location of the furthest identified peak is then used as a boundary for the stripe. This approach is engaged when the ``--constrain-heights`` flag is activated, which instructs the algorithm to utilize peaks within the local pseudo-distribution for height estimation.
+  When ``--constrain-heights`` is active, the ``--loc-pers-min`` option acts as a threshold value between 0 and 1 (defaulting to 0.33) used to identify signal peaks within a horizontal domain when estimating the height of a stripe. If no persistent maximum other than the global maximum is found by the algorithm, the previous criterion is run.
 
 Step 4: signal analysis
 ^^^^^^^^^^^^^^^^^^^^^^^

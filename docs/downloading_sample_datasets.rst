@@ -11,7 +11,7 @@ to specify which datasets to download, where to store them, and how to handle ex
 Listing available datasets
 --------------------------
 
-Before downloading, you might want to see what datasets are available. The ``--list-only`` options prints a nested JSON
+Before downloading, you might want to see the available datasets. The ``--list-only`` options prints a nested JSON
 object without initiating any downloads.
 
 The outermost JSON object has dataset names as keys. Each value is an object containing metadata like URL, assembly,

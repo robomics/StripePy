@@ -7,7 +7,7 @@ Visualize architectural stripes
 
 Visually inspecting a subset of the detected stripes is highly recommended to verify that the parameters configured for
 ``stripepy call`` are well-suited to your specific dataset. To assist with this inspection, the Jupyter notebook
-:download:`visualize_stripes_with_highlass.ipynb <../utils/visualize_stripes_with_highlass.ipynb>` is provided.
+`visualize_stripes_with_highlass.ipynb <https://github.com/paulsengroup/StripePy/blob/main/utils/visualize_stripes_with_highlass.ipynb>`_ is provided.
 This notebook is designed to work with input files in the ``.mcool`` format.
 
 If your matrix is in ``.hic`` format you can easily convert it to ``.mcool`` format using hictk by running ``hictk convert matrix.hic matrix.mcool``.
@@ -19,13 +19,13 @@ We recommend running the notebook using `JupyterLab <https://jupyter.org/install
 
 Furthermore, the notebook depends on a few Python packages that can be installed with ``pip``.
 Please make sure that the following packages are installed in a virtual environment that is accessible from Jupyter.
-Refer to `IPython <https://ipython.readthedocs.io/en/stable/install/kernel_install.html>`_ documentation for instructions on how to add a virtual environment to Jupyter.
+Refer to `IPython <https://ipython.readthedocs.io/en/stable/install/kernel_install.html>`_'s documentation for instructions on how to add a virtual environment to Jupyter.
 
 .. code-block:: bash
 
   pip install 'clodius>=0.20,<1' 'hictkpy>=1,<2' 'higlass-python>=1.2,<2'
 
-Next, launch JupyterLab and open notebook :download:`visualize_stripes_with_highlass.ipynb <../utils/visualize_stripes_with_highlass.ipynb>`.
+Next, launch JupyterLab and open notebook `visualize_stripes_with_highlass.ipynb <https://github.com/paulsengroup/StripePy/blob/main/utils/visualize_stripes_with_highlass.ipynb>`_.
 
 .. code-block:: bash
 

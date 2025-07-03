@@ -30,7 +30,7 @@ StripePy is a CLI application written in Python that recognizes architectural st
 
   .. rubric:: Installation
 
-hictkpy can be installed using pip or conda with e.g., ``pip install 'stripepy-hic[all]'``.
+StripePy can be installed using pip or conda with e.g., ``pip install 'stripepy-hic[all]'``.
 Refer to :doc:`Installation <./installation>` for more details.
 
 .. only:: not latex
