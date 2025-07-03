@@ -8,6 +8,8 @@ CLI Reference
 
 For an up-to-date list of subcommands and CLI options refer to ``stripepy --help``.
 
+.. _stripepy_help:
+
 Subcommands
 -----------
 
@@ -31,7 +33,8 @@ Subcommands
       plot                Generate various static plots useful to visually inspect the output produced by stripepy call.
       view                Fetch stripes from the HDF5 file produced by stripepy call.
 
-.. _stripepy-call:
+
+.. _stripepy_call_help:
 
 stripepy call
 -------------
@@ -83,7 +86,8 @@ stripepy call
     --min-chrom-size MIN_CHROM_SIZE
                           Minimum size, in bp, for a chromosome to be analysed (default: 2000000).
 
-.. _stripepy-download:
+
+.. _stripepy_download_help:
 
 stripepy download
 -----------------
@@ -118,7 +122,8 @@ stripepy download
     --verbosity {debug,info,warning,error,critical}
                           Set verbosity of output to the console (default: info).
 
-.. _stripepy-plot:
+
+.. _stripepy_plot_help:
 
 stripepy plot
 -------------
@@ -137,6 +142,8 @@ stripepy plot
                           Plot the pseudo-distribution over the given region of interest.
       stripe-hist (hist)  Generate and plot the histograms showing the distribution of the stripe heights and widths.
 
+
+.. _stripepy_plot_contact_map_help:
 
 stripepy plot contact-map
 -------------------------
@@ -184,6 +191,8 @@ stripepy plot contact-map
                           Set verbosity of output to the console (default: info).
 
 
+.. _stripepy_plot_pseudodistribution_help:
+
 stripepy plot pseudodistribution
 --------------------------------
 
@@ -208,6 +217,8 @@ stripepy plot pseudodistribution
                           Set verbosity of output to the console (default: info).
 
 
+.. _stripepy_plot_stripe_hist_help:
+
 stripepy plot stripe-hist
 -------------------------
 
@@ -231,6 +242,8 @@ stripepy plot stripe-hist
     --verbosity {debug,info,warning,error,critical}
                           Set verbosity of output to the console (default: info).
 
+
+.. _stripepy_view_help:
 
 stripepy view
 -------------
