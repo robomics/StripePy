@@ -54,17 +54,34 @@ def run(
     log_file: Optional[pathlib.Path] = None,
     plot_dir: Optional[pathlib.Path] = None,
     normalization: Optional[str] = None,
+    telem_span=None,
 ) -> int:
     """
     Entrypoint for stripepy call
     """
     args = locals()
-    args.pop("main_logger")
+    for a in ("main_logger", "telem_span"):
+        args.pop(a)
 
     start_global_time = time.time()
 
     parent_logger = main_logger
     main_logger = structlog.get_logger().bind(step="main")
+
+    _configure_telemetry(
+        telem_span,
+        contact_map=contact_map,
+        resolution=resolution,
+        genomic_belt=genomic_belt,
+        max_width=max_width,
+        glob_pers_min=glob_pers_min,
+        constrain_heights=constrain_heights,
+        k=k,
+        loc_pers_min=loc_pers_min,
+        loc_trend_min=loc_trend_min,
+        nproc=nproc,
+        normalization=normalization,
+    )
 
     _write_param_summary(args, logger=main_logger)
 
@@ -287,6 +304,61 @@ def run(
     main_logger.info("processed %d chromosomes in %s", len(chroms), pretty_format_elapsed_time(start_global_time))
 
     return 0
+
+
+def _infer_matrix_format(path: pathlib.Path) -> str:
+    import hictkpy
+
+    if hictkpy.is_hic(path):
+        return "hic"
+
+    if hictkpy.is_cooler(path):
+        return "cool"
+
+    if hictkpy.is_mcool_file(path):
+        return "mcool"
+
+    if hictkpy.is_scool_file(path):
+        return "scool"
+
+    return "unknown"
+
+
+def _configure_telemetry(
+    span,
+    contact_map: pathlib.Path,
+    resolution: int,
+    genomic_belt: int,
+    max_width: int,
+    glob_pers_min: float,
+    constrain_heights: bool,
+    k: int,
+    loc_pers_min: float,
+    loc_trend_min: float,
+    nproc: int,
+    normalization: Optional[str] = None,
+):
+    try:
+        if not span.is_recording():
+            return
+
+        span.set_attributes(
+            {
+                "params.contact_map_format": _infer_matrix_format(contact_map),
+                "params.contact_map_resolution": resolution,
+                "params.contact_map_raw_interactions": normalization is None,
+                "params.genomic_belt": genomic_belt,
+                "params.max_width": max_width,
+                "params.glob_pers_min": glob_pers_min,
+                "params.constrain_heights": constrain_heights,
+                "params.k": k,
+                "params.loc_pers_min": loc_pers_min,
+                "params.loc_trend_min": loc_trend_min,
+                "params.nproc": nproc,
+            }
+        )
+    except:  # noqa
+        pass
 
 
 def _generate_metadata_attribute(
