@@ -7,10 +7,11 @@ version: 2
 build:
   os: ubuntu-24.04
   tools:
-    python: "mambaforge-latest"
+    python: "3.13"
 
   commands:
     - docs/patch_docs_for_rtd.py --inplace
+    - pip install -r docs/requirements.txt
     - pip install . -v
     - make -C docs linkcheck html latexpdf
     - mkdir -p "$READTHEDOCS_OUTPUT/pdf"
