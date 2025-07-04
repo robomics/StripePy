@@ -121,18 +121,32 @@ def run(
     output_path: Optional[pathlib.Path] = None,
     assembly: Optional[str] = None,
     main_logger=None,
+    telem_span=None,
 ) -> int:
     t0 = time.time()
+
+    _configure_telemetry(
+        telem_span,
+        list_only=list_only,
+        unit_test=unit_test,
+        end2end_test=end2end_test,
+        name=name,
+    )
+
     if list_only:
         _list_datasets()
         return 0
 
     if unit_test:
-        _download_data_for_unit_tests(progress_bar=main_logger.progress_bar)
+        _download_data_for_unit_tests(
+            progress_bar=main_logger.progress_bar,
+        )
         return 0
 
     if end2end_test:
-        _download_data_for_end2end_tests(progress_bar=main_logger.progress_bar)
+        _download_data_for_end2end_tests(
+            progress_bar=main_logger.progress_bar,
+        )
         return 0
 
     do_random_sample = name is None and assembly is None
@@ -159,6 +173,8 @@ def run(
         progress_bar=main_logger.progress_bar,
     )
 
+    _set_dset_name_telemetry(telem_span, dset_name, config.get("format"))
+
     logger = structlog.get_logger()
     logger.info('successfully downloaded dataset "%s" to file "%s"', config["url"], dest)
     logger.info(
@@ -166,6 +182,44 @@ def run(
     )
 
     return 0
+
+
+def _configure_telemetry(
+    span,
+    list_only: bool,
+    unit_test: bool,
+    end2end_test: bool,
+    name: Optional[str],
+):
+    try:
+        if not span.is_recording():
+            return
+
+        span.set_attributes(
+            {
+                "params.list_only": list_only,
+                "params.unit_test": unit_test,
+                "params.end2end_test": end2end_test,
+                "params.dataset_name": "unknown" if name is None else name,
+            }
+        )
+    except:  # noqa
+        pass
+
+
+def _set_dset_name_telemetry(span, name: str, format: Optional[str]):
+    try:
+        if not span.is_recording():
+            return
+
+        span.set_attributes(
+            {
+                "params.dataset_name": name,
+                "params.dataset_format": "unknown" if format is None else format,
+            }
+        )
+    except:  # noqa
+        pass
 
 
 def _list_datasets():
