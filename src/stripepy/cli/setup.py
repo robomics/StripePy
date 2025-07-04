@@ -179,7 +179,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--roi",
         type=str,
-        choices={"middle", "start"},
+        choices=("middle", "start"),
         help="Criterion used to select a region from each chromosome used to generate diagnostic plots (default: %(default)s).\n"
         "Requires --plot-dir.",
     )
@@ -266,7 +266,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--verbosity",
         type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
+        choices=("debug", "info", "warning", "error", "critical"),
         default="info",
         help="Set verbosity of output to the console (default: %(default)s).",
     )
@@ -374,7 +374,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--verbosity",
         type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
+        choices=("debug", "info", "warning", "error", "critical"),
         default="info",
         help="Set verbosity of output to the console (default: %(default)s).",
     )
@@ -437,7 +437,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         sc.add_argument(
             "--verbosity",
             type=str,
-            choices=["debug", "info", "warning", "error", "critical"],
+            choices=("debug", "info", "warning", "error", "critical"),
             default="info",
             help="Set verbosity of output to the console (default: %(default)s).",
         )
@@ -599,7 +599,7 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--verbosity",
         type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
+        choices=("debug", "info", "warning", "error", "critical"),
         default="info",
         help="Set verbosity of output to the console (default: %(default)s).",
     )
