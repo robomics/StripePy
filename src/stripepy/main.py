@@ -85,7 +85,7 @@ def _generate_telemetry_resource():
     return os_res.merge(deps).merge(res)
 
 
-def _setup_telemetry(subcommand: str):
+def _setup_telemetry(subcommand: str, debug: bool = False):
     import structlog
 
     try:
@@ -112,7 +112,11 @@ def _setup_telemetry(subcommand: str):
         structlog.get_logger().debug("setting up telemetry...")
 
         provider = TracerProvider(resource=_generate_telemetry_resource())
-        processor = BatchSpanProcessor(ConsoleSpanExporter())
+        if debug:
+            processor = BatchSpanProcessor(ConsoleSpanExporter())
+        else:
+            raise NotImplementedError
+
         provider.add_span_processor(processor)
         trace.set_tracer_provider(provider)
 
@@ -223,7 +227,7 @@ def main(args: Optional[List[str]] = None) -> int:
 
     with contextlib.ExitStack() as ctx:
         main_logger = ctx.enter_context(_setup_logger(subcommand, verbosity, kwargs))
-        telem_span = ctx.enter_context(_setup_telemetry(subcommand))
+        telem_span = ctx.enter_context(_setup_telemetry(subcommand, debug=True))
 
         try:
             _setup_matplotlib(subcommand, **kwargs)
