@@ -350,7 +350,7 @@ class ResultFile(object):
 
     @functools.cached_property
     def format_version(self) -> int:
-        return abs(self._h5.attrs["format-version"])
+        return int(abs(self._h5.attrs["format-version"]))
 
     @functools.cached_property
     def generated_by(self) -> str:
