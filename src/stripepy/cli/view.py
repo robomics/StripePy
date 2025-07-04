@@ -19,8 +19,11 @@ def run(
     with_header: bool,
     transform: Optional[str] = None,
     main_logger=None,
+    telem_span=None,
 ) -> int:
     try:
+        _configure_telemetry(telem_span, relative_change_threshold=relative_change_threshold)
+        skip_telemetry = telem_span is None
         with ResultFile(h5_file) as f:
             for chrom, size in f.chromosomes.items():
                 _dump_stripes(
@@ -32,13 +35,28 @@ def run(
                     transform,
                     with_biodescriptors,
                     with_header,
+                    None if skip_telemetry else telem_span,
                 )
                 with_header = False
+                skip_telemetry = True
     except BrokenPipeError:
         if sys.stdout.isatty():
             raise
 
     return 0
+
+
+def _configure_telemetry(
+    span,
+    relative_change_threshold: float,
+):
+    try:
+        if not span.is_recording():
+            return
+
+        span.set_attribute("params.relative_change_threshold", relative_change_threshold)
+    except:  # noqa
+        pass
 
 
 def _read_stripes(f: ResultFile, chrom: str) -> Optional[pd.DataFrame]:
@@ -109,6 +127,21 @@ def _stripes_to_bedpe(
     return dff
 
 
+def _update_telemetry_attributes(span, h5_version: int, columns: pd.Index):
+    try:
+        if not span.is_recording():
+            return
+
+        span.set_attributes(
+            {
+                "params.columns": columns.tolist(),
+                "params.result_file_format_version": h5_version,
+            }
+        )
+    except:  # noqa
+        pass
+
+
 def _dump_stripes(
     f: ResultFile,
     chrom: str,
@@ -118,10 +151,17 @@ def _dump_stripes(
     transpose_policy: str,
     with_biodescriptors: bool,
     with_header: bool,
+    span_telem,
 ):
     df = _read_stripes(f, chrom)
     if df is None:
         return
+
+    _update_telemetry_attributes(
+        span_telem,
+        h5_version=f.format_version,
+        columns=df.columns,
+    )
 
     df = df[df["rel_change"] >= cutoff]
     df = _stripes_to_bedpe(df, chrom, size, resolution, transpose_policy, with_biodescriptors)
