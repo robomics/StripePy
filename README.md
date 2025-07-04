@@ -101,7 +101,7 @@ StripePy is organized into a few subcommands:
 
 For a quick introduction to the tool, refer to the [Quickstart](https://stripepy.readthedocs.io/en/latest/quickstart.html) section in the documentation.
 
-![Graphical Abstract](pipeline-short.jpeg)
+![Graphical Abstract](https://github.com/paulsengroup/StripePy/blob/75e87126058c7c825d87abbead717ceae7eeb8f2/docs/assets/pipeline-short.jpeg?raw=true)
 
 For more information on the subcommands, please run `stripepy --help` and refer to the [documentation](https://stripepy.readthedocs.io/en/latest/cli_reference.html) and the [paper](https://doi.org/10.1093/bioinformatics/btaf351).
 
