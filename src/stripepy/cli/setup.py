@@ -140,6 +140,7 @@ def _fetch_reference() -> str:
 def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "call",
+        prog="stripepy call",
         help="stripepy works in four consecutive steps:\n"
         "• Step 1: Pre-processing\n"
         "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
@@ -178,7 +179,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--roi",
         type=str,
-        choices={"middle", "start"},
+        choices=("middle", "start"),
         help="Criterion used to select a region from each chromosome used to generate diagnostic plots (default: %(default)s).\n"
         "Requires --plot-dir.",
     )
@@ -265,7 +266,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--verbosity",
         type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
+        choices=("debug", "info", "warning", "error", "critical"),
         default="info",
         help="Set verbosity of output to the console (default: %(default)s).",
     )
@@ -291,6 +292,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
 def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "download",
+        prog="stripepy download",
         help="Helper command to simplify downloading datasets that can be used to test StripePy.",
         formatter_class=_CustomFormatter,
     )
@@ -372,7 +374,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--verbosity",
         type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
+        choices=("debug", "info", "warning", "error", "critical"),
         default="info",
         help="Set verbosity of output to the console (default: %(default)s).",
     )
@@ -383,6 +385,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
 def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
     subparser = main_parser.add_parser(
         "plot",
+        prog="stripepy plot",
         help="Generate various static plots useful to visually inspect the output produced by stripepy call.",
         formatter_class=_CustomFormatter,
     ).add_subparsers(title="plot_subcommands", dest="plot_type", required=True, help="List of available subcommands:")
@@ -434,7 +437,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         sc.add_argument(
             "--verbosity",
             type=str,
-            choices=["debug", "info", "warning", "error", "critical"],
+            choices=("debug", "info", "warning", "error", "critical"),
             default="info",
             help="Set verbosity of output to the console (default: %(default)s).",
         )
@@ -448,6 +451,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc = subparser.add_parser(
         "contact-map",
+        prog="stripepy plot contact-map",
         help="Plot stripes and other features over the Hi-C matrix.",
         aliases=["cm"],
         formatter_class=_CustomFormatter,
@@ -526,6 +530,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc = subparser.add_parser(
         "pseudodistribution",
+        prog="stripepy plot pseudodistribution",
         help="Plot the pseudo-distribution over the given region of interest.",
         aliases=["pd"],
         formatter_class=_CustomFormatter,
@@ -535,6 +540,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc = subparser.add_parser(
         "stripe-hist",
+        prog="stripepy plot stripe-hist",
         help="Generate and plot the histograms showing the distribution of the stripe heights and widths.",
         aliases=["hist"],
         formatter_class=_CustomFormatter,
@@ -548,6 +554,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "view",
+        prog="stripepy view",
         help="Fetch stripes from the HDF5 file produced by stripepy call.",
         formatter_class=_CustomFormatter,
     )
@@ -592,7 +599,7 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--verbosity",
         type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
+        choices=("debug", "info", "warning", "error", "critical"),
         default="info",
         help="Set verbosity of output to the console (default: %(default)s).",
     )

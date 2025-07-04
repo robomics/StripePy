@@ -16,10 +16,12 @@ Subcommands
 .. code-block:: text
 
 
-  usage: stripepy [-h] [-v] {call,download,plot,view} ...
+  usage: stripepy {call,download,plot,view} ...
   stripepy is designed to recognize linear patterns in contact maps (.hic, .mcool, .cool) through the geometric reasoning, including topological persistence and quasi-interpolation.
   options:
     -h, --help            show this help message and exit
+    --license             Print StripePy's license and return.
+    --cite                Print StripePy's reference and return.
     -v, --version         show program's version number and exit
   subcommands:
     {call,download,plot,view}
@@ -42,7 +44,7 @@ stripepy call
 .. code-block:: text
 
   usage: stripepy call [-h] [-n NORMALIZATION] [-b GENOMIC_BELT]
-                       [--roi {start,middle}] [-o OUTPUT_FILE]
+                       [--roi {middle,start}] [-o OUTPUT_FILE]
                        [--log-file LOG_FILE] [--plot-dir PLOT_DIR]
                        [--max-width MAX_WIDTH] [--glob-pers-min GLOB_PERS_MIN]
                        [--constrain-heights] [-k K]
@@ -60,7 +62,7 @@ stripepy call
                           Normalization to fetch (default: None).
     -b, --genomic-belt GENOMIC_BELT
                           Radius of the band, centred around the diagonal, where the search is restricted to (in bp, default: 5000000).
-    --roi {start,middle}  Criterion used to select a region from each chromosome used to generate diagnostic plots (default: None).
+    --roi {middle,start}  Criterion used to select a region from each chromosome used to generate diagnostic plots (default: None).
                           Requires --plot-dir.
     -o, --output-file OUTPUT_FILE
                           Path where to store the output HDF5 file.
@@ -253,7 +255,7 @@ stripepy view
   usage: stripepy view [-h]
                        [--relative-change-threshold RELATIVE_CHANGE_THRESHOLD]
                        [--with-biodescriptors] [--with-header]
-                       [--transform {None,transpose_to_ut,transpose_to_lt}]
+                       [--transform {None,transpose_to_lt,transpose_to_ut}]
                        [--verbosity {debug,info,warning,error,critical}]
                        h5-file
   positional arguments:
@@ -267,7 +269,7 @@ stripepy view
     --with-biodescriptors
                           Include the stripe biodescriptors in the output.
     --with-header         Include column names in the output.
-    --transform {None,transpose_to_ut,transpose_to_lt}
+    --transform {None,transpose_to_lt,transpose_to_ut}
                           Control if and how stripe coordinates should be transformed (default: None).
     --verbosity {debug,info,warning,error,critical}
                           Set verbosity of output to the console (default: info).
