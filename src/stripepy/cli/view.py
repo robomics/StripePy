@@ -157,12 +157,20 @@ def _dump_stripes(
     if df is None:
         return
 
+    df = df[df["rel_change"] >= cutoff]
+    df = _stripes_to_bedpe(
+        df,
+        chrom,
+        size,
+        resolution,
+        transpose_policy,
+        with_biodescriptors,
+    )
+
     _update_telemetry_attributes(
         span_telem,
         h5_version=f.format_version,
         columns=df.columns,
     )
 
-    df = df[df["rel_change"] >= cutoff]
-    df = _stripes_to_bedpe(df, chrom, size, resolution, transpose_policy, with_biodescriptors)
     df.to_csv(sys.stdout, sep="\t", index=False, header=with_header)
