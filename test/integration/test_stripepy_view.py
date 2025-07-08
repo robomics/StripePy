@@ -10,7 +10,7 @@ from typing import List
 import pandas as pd
 import pytest
 
-from stripepy.main import main
+from .common import stripepy_main
 
 testdir = pathlib.Path(__file__).resolve().parent.parent
 
@@ -36,7 +36,7 @@ class TestStripePyView:
         args = ["view", str(testfile), "--with-header", "--with-biodescriptors"]
         buff = io.StringIO()
         with contextlib.redirect_stdout(buff):
-            main(args)
+            stripepy_main(args)
 
         buff.seek(0)
 

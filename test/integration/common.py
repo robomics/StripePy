@@ -13,6 +13,12 @@ from stripepy.data_structures import ResultFile
 from stripepy.io import compare_result_files as _compare_result_files
 
 
+def stripepy_main(args) -> int:
+    from stripepy.main import main
+
+    return main(args, no_telemetry=True)
+
+
 def matplotlib_avail() -> bool:
     try:
         import matplotlib

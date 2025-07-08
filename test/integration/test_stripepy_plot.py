@@ -8,9 +8,7 @@ import tarfile
 
 import pytest
 
-from stripepy.main import main
-
-from .common import matplotlib_avail
+from .common import matplotlib_avail, stripepy_main
 
 testdir = pathlib.Path(__file__).resolve().parent.parent
 
@@ -36,11 +34,11 @@ def extract_image(
 
 def run_main(args):
     if matplotlib_avail():
-        main(args)
+        stripepy_main(args)
         return
 
     with pytest.raises(ImportError):
-        main(args)
+        stripepy_main(args)
 
     pytest.skip("matplotlib not available")
 
