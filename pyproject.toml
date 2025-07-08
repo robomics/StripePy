@@ -59,6 +59,7 @@ dependencies = [
     "numpy >=2, <3",
     "opentelemetry-api >=1, <2",
     "opentelemetry-sdk >=1, <2",
+    "opentelemetry-exporter-otlp-proto-http >=1, <2",
     "packaging",
     "pandas >=2.0, <3",
     "scipy >=1.10, <2",

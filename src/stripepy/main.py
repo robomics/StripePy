@@ -85,38 +85,59 @@ def _generate_telemetry_resource():
     return os_res.merge(deps).merge(res)
 
 
-def _setup_telemetry(subcommand: str, debug: bool = False):
+def _setup_telemetry(
+    subcommand: str,
+    debug: bool = False,
+    no_telemetry: bool = False,
+):
+
     import structlog
+
+    if no_telemetry:
+        return contextlib.nullcontext()
+
+    if "STRIPEPY_NO_TELEMETRY" in os.environ:
+        no_telem_var = "STRIPEPY_NO_TELEMETRY"
+    elif "NO_TELEMETRY" in os.environ:
+        no_telem_var = "NO_TELEMETRY"
+    else:
+        no_telem_var = None
+
+    if no_telem_var is not None:
+        structlog.get_logger().debug(f"detected {no_telem_var} variable in environment: no telemetry will be collected")
+        return contextlib.nullcontext()
+
+    if not debug:
+        import logging
+
+        logging.getLogger("opentelemetry").setLevel(logging.CRITICAL)
+
+    structlog.get_logger().debug("setting up telemetry...")
 
     try:
         from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            Compression,
+            OTLPSpanExporter,
+        )
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import (
             BatchSpanProcessor,
             ConsoleSpanExporter,
         )
 
-        if "STRIPEPY_NO_TELEMETRY" in os.environ:
-            no_telem_var = "STRIPEPY_NO_TELEMETRY"
-        elif "NO_TELEMETRY" in os.environ:
-            no_telem_var = "NO_TELEMETRY"
-        else:
-            no_telem_var = None
-
-        if no_telem_var is not None:
-            structlog.get_logger().debug(
-                f"detected {no_telem_var} variable in environment: no telemetry will be collected"
-            )
-            return contextlib.nullcontext()
-
-        structlog.get_logger().debug("setting up telemetry...")
-
-        provider = TracerProvider(resource=_generate_telemetry_resource())
         if debug:
             processor = BatchSpanProcessor(ConsoleSpanExporter())
         else:
-            raise NotImplementedError
+            processor = BatchSpanProcessor(
+                OTLPSpanExporter(
+                    endpoint="https://stripepy-telemetry.paulsenlab.com:4319/v1/traces",
+                    timeout=5,
+                    compression=Compression.Gzip,
+                )
+            )
 
+        provider = TracerProvider(resource=_generate_telemetry_resource())
         provider.add_span_processor(processor)
         trace.set_tracer_provider(provider)
 
@@ -210,7 +231,7 @@ def _dispatch_subcommand(subcommand: str, verbosity: str, **kwargs) -> int:
         raise
 
 
-def main(args: Optional[List[str]] = None) -> int:
+def main(args: Optional[List[str]] = None, no_telemetry: bool = False) -> int:
     # It is important that stripepy is not imported in the global namespace to enable coverage
     # collection when using multiprocessing
     from stripepy.cli import setup
@@ -227,7 +248,7 @@ def main(args: Optional[List[str]] = None) -> int:
 
     with contextlib.ExitStack() as ctx:
         main_logger = ctx.enter_context(_setup_logger(subcommand, verbosity, kwargs))
-        telem_span = ctx.enter_context(_setup_telemetry(subcommand, debug=True))
+        telem_span = ctx.enter_context(_setup_telemetry(subcommand, no_telemetry=no_telemetry))
 
         try:
             _setup_matplotlib(subcommand, **kwargs)
