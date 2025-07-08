@@ -30,6 +30,7 @@ keywords:
   - hi-c
   - loop-extrusion
   - python
+
 preferred-citation:
   type: article
   authors:
@@ -48,14 +49,45 @@ preferred-citation:
     orcid: 'https://orcid.org/0000-0002-7918-5495'
     email: jonas.paulsen@ibv.uio.no
     affiliation: 'Department of Biosciences, University of Oslo'
-  doi: '10.1101/2024.12.20.629789'
-  url: 'https://www.biorxiv.org/content/early/2024/12/22/2024.12.20.629789'
-  journal: 'Cold Spring Harbor Laboratory'
-  year: 2024
-  month: 12
+  doi: '10.1093/bioinformatics/btaf351'
+  url: 'https://doi.org/10.1093/bioinformatics/btaf351'
+  journal: 'Bioinformatics'
+  issn: '1367-4811'
+  year: 2025
+  month: 06
   title: 'StripePy: fast and robust characterization of architectural stripes'
   abstract: >
     Architectural stripes in Hi-C and related data are crucial for gene regulation, development, and DNA repair.
     Despite their importance, few tools exist for automatic stripe detection.
     We introduce StripePy, which leverages computational geometry methods to identify and analyze architectural stripes in contact maps from Chromosome Conformation Capture experiments like Hi-C and Micro-C.
     StripePy outperforms existing tools, as shown through tests on various datasets and a newly developed simulated benchmark, StripeBench, providing a valuable resource for the community.
+
+references:
+  - authors:
+    - given-names: Andrea
+      family-names: Raffo
+      orcid: 'https://orcid.org/0000-0003-3559-0533'
+      email: andrea.raffo@ibv.uio.no
+      affiliation: 'Department of Biosciences, University of Oslo'
+    - given-names: Roberto
+      family-names: Rossini
+      orcid: 'https://orcid.org/0000-0003-3096-1470'
+      email: roberros@uio.no
+      affiliation: 'Department of Biosciences, University of Oslo'
+    - given-names: Jonas
+      family-names: Paulsen
+      orcid: 'https://orcid.org/0000-0002-7918-5495'
+      email: jonas.paulsen@ibv.uio.no
+      affiliation: 'Department of Biosciences, University of Oslo'
+    type: article
+    doi: '10.1101/2024.12.20.629789'
+    url: 'https://www.biorxiv.org/content/early/2024/12/22/2024.12.20.629789'
+    journal: 'Cold Spring Harbor Laboratory'
+    year: 2024
+    month: 12
+    title: 'StripePy: fast and robust characterization of architectural stripes'
+    abstract: >
+      Architectural stripes in Hi-C and related data are crucial for gene regulation, development, and DNA repair.
+      Despite their importance, few tools exist for automatic stripe detection.
+      We introduce StripePy, which leverages computational geometry methods to identify and analyze architectural stripes in contact maps from Chromosome Conformation Capture experiments like Hi-C and Micro-C.
+      StripePy outperforms existing tools, as shown through tests on various datasets and a newly developed simulated benchmark, StripeBench, providing a valuable resource for the community.

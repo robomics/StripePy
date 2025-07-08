@@ -6,22 +6,50 @@ import argparse
 import math
 import multiprocessing as mp
 import pathlib
-from importlib.metadata import version
+import textwrap
+from importlib.metadata import distribution, version
 from typing import Any, Dict, List, Tuple, Union
 
 
 def parse_args(cli_args: List[str]) -> Tuple[str, Any, str]:
     parser = _make_cli()
 
+    if _process_custom_flags(cli_args):
+        return "help", {}, "error"
+
     # Parse the input parameters:
-    args = vars(parser.parse_args(cli_args))
-    args = _normalize_args(args)
-    args = _define_default_args(parser, args)
+    args = _preprocess_args(parser, parser.parse_args(cli_args))
     _validate_args(parser, args)
 
     subcommand = args.pop("subcommand")
     verbosity = args.pop("verbosity")
     return subcommand, args, verbosity
+
+
+def _process_custom_flags(cli_args: List[str]) -> bool:
+    print_cite = False
+    print_license = False
+
+    for arg in cli_args:
+        if arg == "--cite":
+            print_cite = True
+        elif arg == "--license":
+            print_license = True
+        elif arg == "--help" or arg == "-h":
+            return False
+
+    if print_cite and print_license:
+        raise RuntimeError("stripepy: error: --cite and --license are mutually exclusive")
+
+    if print_cite:
+        print(_fetch_reference())
+        return True
+
+    if print_license:
+        print(_fetch_license())
+        return True
+
+    return False
 
 
 class _CustomFormatter(argparse.RawTextHelpFormatter):
@@ -78,9 +106,41 @@ def _positive_int(arg) -> int:
     raise argparse.ArgumentTypeError("Not a positive int")
 
 
+def _fetch_license() -> str:
+    dist = distribution("stripepy-hic")
+
+    license = dist.read_text("licenses/LICENCE")
+    if license is None:
+        raise RuntimeError("Unable to read license information")
+
+    return license
+
+
+def _fetch_reference() -> str:
+    bibtex = """
+    @article{stripepy,
+        author = {Raffo, Andrea and Rossini, Roberto and Paulsen, Jonas},
+        title = {{StripePy: fast and robust characterization of architectural stripes}},
+        journal = {Bioinformatics},
+        volume = {41},
+        number = {6},
+        pages = {btaf351},
+        year = {2025},
+        month = {06},
+        issn = {1367-4811},
+        doi = {10.1093/bioinformatics/btaf351},
+        url = {https://doi.org/10.1093/bioinformatics/btaf351},
+        eprint = {https://academic.oup.com/bioinformatics/article-pdf/41/6/btaf351/63484367/btaf351.pdf},
+    }
+    """
+
+    return textwrap.dedent(bibtex).strip()
+
+
 def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "call",
+        prog="stripepy call",
         help="stripepy works in four consecutive steps:\n"
         "• Step 1: Pre-processing\n"
         "• Step 2: Recognition of loci of interest (also called 'seeds')\n"
@@ -119,7 +179,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--roi",
         type=str,
-        choices={"middle", "start"},
+        choices=("middle", "start"),
         help="Criterion used to select a region from each chromosome used to generate diagnostic plots (default: %(default)s).\n"
         "Requires --plot-dir.",
     )
@@ -206,7 +266,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--verbosity",
         type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
+        choices=("debug", "info", "warning", "error", "critical"),
         default="info",
         help="Set verbosity of output to the console (default: %(default)s).",
     )
@@ -232,6 +292,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
 def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "download",
+        prog="stripepy download",
         help="Helper command to simplify downloading datasets that can be used to test StripePy.",
         formatter_class=_CustomFormatter,
     )
@@ -313,7 +374,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--verbosity",
         type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
+        choices=("debug", "info", "warning", "error", "critical"),
         default="info",
         help="Set verbosity of output to the console (default: %(default)s).",
     )
@@ -324,6 +385,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
 def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
     subparser = main_parser.add_parser(
         "plot",
+        prog="stripepy plot",
         help="Generate various static plots useful to visually inspect the output produced by stripepy call.",
         formatter_class=_CustomFormatter,
     ).add_subparsers(title="plot_subcommands", dest="plot_type", required=True, help="List of available subcommands:")
@@ -375,7 +437,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         sc.add_argument(
             "--verbosity",
             type=str,
-            choices=["debug", "info", "warning", "error", "critical"],
+            choices=("debug", "info", "warning", "error", "critical"),
             default="info",
             help="Set verbosity of output to the console (default: %(default)s).",
         )
@@ -389,6 +451,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc = subparser.add_parser(
         "contact-map",
+        prog="stripepy plot contact-map",
         help="Plot stripes and other features over the Hi-C matrix.",
         aliases=["cm"],
         formatter_class=_CustomFormatter,
@@ -467,6 +530,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc = subparser.add_parser(
         "pseudodistribution",
+        prog="stripepy plot pseudodistribution",
         help="Plot the pseudo-distribution over the given region of interest.",
         aliases=["pd"],
         formatter_class=_CustomFormatter,
@@ -476,6 +540,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 
     sc = subparser.add_parser(
         "stripe-hist",
+        prog="stripepy plot stripe-hist",
         help="Generate and plot the histograms showing the distribution of the stripe heights and widths.",
         aliases=["hist"],
         formatter_class=_CustomFormatter,
@@ -489,6 +554,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
 def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     sc: argparse.ArgumentParser = main_parser.add_parser(
         "view",
+        prog="stripepy view",
         help="Fetch stripes from the HDF5 file produced by stripepy call.",
         formatter_class=_CustomFormatter,
     )
@@ -533,7 +599,7 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--verbosity",
         type=str,
-        choices=["debug", "info", "warning", "error", "critical"],
+        choices=("debug", "info", "warning", "error", "critical"),
         default="info",
         help="Set verbosity of output to the console (default: %(default)s).",
     )
@@ -545,7 +611,22 @@ def _make_cli() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(
         description="stripepy is designed to recognize linear patterns in contact maps (.hic, .mcool, .cool) "
         "through the geometric reasoning, including topological persistence and quasi-interpolation.",
+        usage="stripepy {call,download,plot,view} ...",
         formatter_class=_CustomFormatter,
+    )
+
+    cli.add_argument(
+        "--license",
+        action="store_true",
+        default=False,
+        help="Print StripePy's license and return.",
+    )
+
+    cli.add_argument(
+        "--cite",
+        action="store_true",
+        default=False,
+        help="Print StripePy's reference and return.",
     )
 
     sub_parser = cli.add_subparsers(
@@ -584,6 +665,16 @@ def _define_default_args(parser: argparse.ArgumentParser, args: Dict[str, Any]) 
                 parser.error(f"failed to infer the output file name: {e}")
 
     return args
+
+
+def _preprocess_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> Dict[str, Any]:
+    args = vars(args)
+    args_to_drop = ("license", "cite")
+    for arg in args_to_drop:
+        args.pop(arg, None)
+
+    args = _normalize_args(args)
+    return _define_default_args(parser, args)
 
 
 def _validate_stripepy_call_args(parser: argparse.ArgumentParser, args: Dict[str, Any]):
