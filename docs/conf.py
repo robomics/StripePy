@@ -267,6 +267,8 @@ latex_documents = [
 linkcheck_ignore = [
     r"https://stripepy.*\.readthedocs\.build.*",
     r"https://stripepy.*readthedocs.*/_/downloads/en/.*/pdf/",
+    r"https://doi\.org/10\.1093/bioinformatics/.*",
+    r"https://academic\.oup\.com/bioinformatics/article/.*",
 ]
 
 primary_domain = "py"

@@ -4,7 +4,9 @@ Copyright (C) 2024 Roberto Rossini <roberros@uio.no>
 SPDX-License-Identifier: MIT
 -->
 
-# How to build StripePy's documentation
+# Documentation README
+
+## How to build StripePy's documentation
 
 ```bash
 # Create a venv and install build requirements
@@ -43,7 +45,7 @@ xdg-open _build/latex/stripepy.pdf
 open _build/latex/stripepy.pdf
 ```
 
-# How to automatically generate documentation for the CLI
+## How to automatically generate documentation for the CLI
 
 ```bash
 venv/bin/pip install ..  # Install stripepy
