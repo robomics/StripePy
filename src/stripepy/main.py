@@ -262,11 +262,15 @@ def main(args: Optional[List[str]] = None, no_telemetry: bool = False) -> int:
             # Do not print the full stack trace in case of FileExistsError
             # This make it easier to spot the names of the file(s) causing problems
             structlog.get_logger().error(e)
+            if args is not None:
+                raise
         except (RuntimeError, ImportError) as e:
             import structlog
 
             # Log the exception including its stack trace
             structlog.get_logger().exception(e)
+            if args is not None:
+                raise
         except Exception as e:  # noqa
             # Under normal operating conditions, StripePy should not raise exceptions other than
             # FileExistsError, RuntimeError, and ImportError.
@@ -275,10 +279,9 @@ def main(args: Optional[List[str]] = None, no_telemetry: bool = False) -> int:
 
             structlog.get_logger().exception(e)
 
-            raise
+            if args is not None:
+                raise
 
-        if args is not None:
-            raise
         return 1
 
 
