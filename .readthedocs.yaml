@@ -11,8 +11,7 @@ build:
 
   commands:
     - docs/patch_docs_for_rtd.py --inplace
-    - pip install -r docs/requirements.txt
-    - pip install . -v
+    - pip install '.[docs]' -v
     - make -C docs linkcheck html latexpdf
     - mkdir -p "$READTHEDOCS_OUTPUT/pdf"
     - cp -r docs/_build/html "$READTHEDOCS_OUTPUT/"
