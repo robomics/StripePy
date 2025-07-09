@@ -147,6 +147,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "• Step 3: Shape analysis (i.e., width and height estimation)\n"
         "• Step 4: Signal analysis\n",
         formatter_class=_CustomFormatter,
+        allow_abbrev=False,
     )
 
     sc.add_argument(
@@ -295,6 +296,7 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         prog="stripepy download",
         help="Helper command to simplify downloading datasets that can be used to test StripePy.",
         formatter_class=_CustomFormatter,
+        allow_abbrev=False,
     )
 
     def get_avail_ref_genomes():
@@ -388,7 +390,13 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         prog="stripepy plot",
         help="Generate various static plots useful to visually inspect the output produced by stripepy call.",
         formatter_class=_CustomFormatter,
-    ).add_subparsers(title="plot_subcommands", dest="plot_type", required=True, help="List of available subcommands:")
+        allow_abbrev=False,
+    ).add_subparsers(
+        title="plot_subcommands",
+        dest="plot_type",
+        required=True,
+        help="List of available subcommands:",
+    )
 
     def add_common_options(sc, region_is_randomized: bool):
         sc.add_argument(
@@ -455,6 +463,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Plot stripes and other features over the Hi-C matrix.",
         aliases=["cm"],
         formatter_class=_CustomFormatter,
+        allow_abbrev=False,
     )
     sc.add_argument(
         "contact-map",
@@ -534,6 +543,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Plot the pseudo-distribution over the given region of interest.",
         aliases=["pd"],
         formatter_class=_CustomFormatter,
+        allow_abbrev=False,
     )
     add_stripepy_hdf5_option(sc)
     add_common_options(sc, region_is_randomized=True)
@@ -544,6 +554,7 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         help="Generate and plot the histograms showing the distribution of the stripe heights and widths.",
         aliases=["hist"],
         formatter_class=_CustomFormatter,
+        allow_abbrev=False,
     )
     add_stripepy_hdf5_option(sc)
     add_common_options(sc, region_is_randomized=False)
@@ -557,6 +568,7 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
         prog="stripepy view",
         help="Fetch stripes from the HDF5 file produced by stripepy call.",
         formatter_class=_CustomFormatter,
+        allow_abbrev=False,
     )
 
     sc.add_argument(
@@ -613,6 +625,7 @@ def _make_cli() -> argparse.ArgumentParser:
         "through the geometric reasoning, including topological persistence and quasi-interpolation.",
         usage="stripepy {call,download,plot,view} ...",
         formatter_class=_CustomFormatter,
+        allow_abbrev=False,
     )
 
     cli.add_argument(
