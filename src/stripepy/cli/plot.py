@@ -363,7 +363,7 @@ def _plot_hic_matrix_with_stripes(
 
 def _plot_pseudodistribution(
     stripepy_hdf5: pathlib.Path,
-    region: Optional[str],
+    region: Optional[str] = None,
     logger=None,
     **kwargs,
 ) -> plt.Figure:
