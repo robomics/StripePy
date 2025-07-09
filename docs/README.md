@@ -8,49 +8,44 @@ SPDX-License-Identifier: MIT
 
 ## How to build StripePy's documentation
 
+The instructions in this README assume all commands are being run from the root of StripePy's repository.
+
 ```bash
-# Create a venv and install build requirements
-python3 -m venv venv
-venv/bin/pip install -r requirements.txt
+venv/bin/pip install '.[all,docs]' -v
 
 # Activate venv
 . venv/bin/activate
 
 # Clean old build files (optional)
-make clean
+make -C docs clean
 
-make html
-make latexpdf
-
-make linkcheck
+make -C docs linkcheck html latexpdf
 ```
 
 Open the HTML documentation:
 
 ```bash
 # Linux
-xdg-open _build/html/index.html
+xdg-open docs/_build/html/index.html
 
 # macOS
-open _build/html/index.html
+open docs/_build/html/index.html
 ```
 
 Open the PDF documentation:
 
 ```bash
 # Linux
-xdg-open _build/latex/stripepy.pdf
+xdg-open docs/_build/latex/stripepy.pdf
 
 # macOS
-open _build/latex/stripepy.pdf
+open docs/_build/latex/stripepy.pdf
 ```
 
 ## How to automatically generate documentation for the CLI
 
 ```bash
-venv/bin/pip install ..  # Install stripepy
-
-venv/bin/python generate_cli_reference.py \
+venv/bin/python docs/generate_cli_reference.py \
   --stripepy venv/bin/stripepy |
-  tee cli_reference.rst
+  tee docs/cli_reference.rst
 ```
