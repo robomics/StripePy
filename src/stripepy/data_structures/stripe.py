@@ -19,56 +19,14 @@ class Stripe(object):
 
     This is how this class should be used:
 
-        * Initialize the class by providing at least the seed position
-        * At a later time, set the vertical and horizontal boundaries by calling `set_horizontal_bounds()` and `set_vertical_bounds()`
-        * Finally, call `compute_biodescriptors()` to compute and store the descriptive statistics
+    * Initialize the class by providing at least the seed position
+    * At a later time, set the vertical and horizontal boundaries by calling `set_horizontal_bounds` and `set_vertical_bounds`
+    * Finally, call `compute_biodescriptors` to compute and store the descriptive statistics
 
     The stripe properties and statistics can now be accessed through the attributes listed below.
 
     Attributes representing the descriptive statistics return negative values to signal that it was not
     possible to compute the statistics for the current Stripe instance.
-
-    Attributes
-    ----------
-
-    seed: int
-        the stripe seed
-    top_persistence: Union[float, None]
-        the topological persistence
-    lower_triangular: bool
-        true when the stripe extends in the lower-triangular portion of the matrix
-    upper_triangular: bool
-        true when the stripe extends in the upper-triangular portion of the matrix
-    left_bound: int
-        the left bound of the stripe
-    right_bound: int
-        the right bound of the stripe
-    top_bound: int
-        the top bound of the stripe
-    bottom_bound: int
-        the bottom bound of the stripe
-    inner_mean: float
-        the average number of interactions within the stripe
-    inner_std: float
-        the standard deviation of the number of interactions within the stripe
-    five_number: NDArray[float]
-        a vector of five numbers corresponding to the 0, 25, 50, 75, and 100 percentiles of the number of within-stripe interactions
-    outer_lsum: float
-        the sum of interactions in the band to the left of the stripe
-    outer_rsum: float
-        the sum of interactions in the band to the right of the stripe
-    outer_lsize float
-        the number of entries in the band to the left of the stripe
-    outer_rsize float
-        the number of entries in the band to the right of the stripe
-    outer_lmean: float
-        the average number of interactions in the band to the left of the stripe
-    outer_rmean: float
-        the average number of interactions in the band to the right of the stripe
-    outer_mean: float
-        the average number of interactions in the bands to the left and right of the stripe
-    rel_change: float
-        the ratio of the average number of interactions within the stripe and in the neighborhood outside of the stripe
     """
 
     def __init__(
@@ -82,15 +40,15 @@ class Stripe(object):
         """
         Parameters
         ----------
-        seed: int
+        seed
             the stripe seed position
-        top_pers: Optional[float]
+        top_pers
             the topological persistence of the seed
-        horizontal_bounds: Optional[Tuple[int, int]]
+        horizontal_bounds
             the horizontal bounds of the stripe
-        vertical_bounds: Optional[Tuple[int, int]]
+        vertical_bounds
             the_vertical bounds of the stripe
-        where: Optional[str]
+        where
             the location of the stripe: should be "upper_triangular" or "lower_triangular".
             When provided, this is used validate the coordinates set when calling `set_horizontal_bounds()` and `set_vertical_bounds()`.
         """
@@ -129,46 +87,73 @@ class Stripe(object):
 
     @property
     def seed(self) -> int:
+        """
+        The stripe seed
+        """
         return self._seed
 
     @property
     def top_persistence(self) -> Optional[float]:
+        """
+        The topological persistence
+        """
         return self._persistence
 
     @property
     def lower_triangular(self) -> bool:
+        """
+        True when the stripe extends in the lower-triangular portion of the matrix
+        """
         return self._where == "lower_triangular"
 
     @property
     def upper_triangular(self) -> bool:
+        """
+        True when the stripe extends in the upper-triangular portion of the matrix
+        """
         return self._where == "upper_triangular"
 
     @property
     def left_bound(self) -> int:
+        """
+        The left bound of the stripe
+        """
         if self._left_bound is None:
             raise RuntimeError("left_bound has not been set")
         return self._left_bound
 
     @property
     def right_bound(self) -> int:
+        """
+        The right bound of the stripe
+        """
         if self._right_bound is None:
             raise RuntimeError("right_bound has not been set")
         return self._right_bound
 
     @property
     def top_bound(self) -> int:
+        """
+        The top bound of the stripe
+        """
         if self._top_bound is None:
             raise RuntimeError("top_bound has not been set")
         return self._top_bound
 
     @property
     def bottom_bound(self) -> int:
+        """
+        The bottom bound of the stripe
+        """
         if self._bottom_bound is None:
             raise RuntimeError("bottom_bound has not been set")
         return self._bottom_bound
 
     @property
     def inner_mean(self) -> float:
+        """
+        The average number of interactions within the stripe
+        """
         if self._inner_mean is None:
             raise RuntimeError(
                 "caught an attempt to access inner_mean property before compute_biodescriptors() was called"
@@ -178,6 +163,9 @@ class Stripe(object):
 
     @property
     def inner_std(self) -> float:
+        """
+        The standard deviation of the number of interactions within the stripe
+        """
         if self._inner_std is None:
             raise RuntimeError(
                 "caught an attempt to access inner_std property before compute_biodescriptors() was called"
@@ -187,6 +175,9 @@ class Stripe(object):
 
     @property
     def five_number(self) -> NDArray[float]:
+        """
+        A vector of five numbers corresponding to the 0, 25, 50, 75, and 100 percentiles of the number of within-stripe interactions
+        """
         if self._five_number is None:
             raise RuntimeError(
                 "caught an attempt to access five_number property before compute_biodescriptors() was called"
@@ -196,6 +187,9 @@ class Stripe(object):
 
     @property
     def outer_lsum(self) -> float:
+        """
+        The sum of interactions in the band to the left of the stripe
+        """
         if self._outer_lsum is None:
             raise RuntimeError(
                 "caught an attempt to access outer_lsum property before compute_biodescriptors() was called"
@@ -205,6 +199,9 @@ class Stripe(object):
 
     @property
     def outer_rsum(self) -> float:
+        """
+        The sum of interactions in the band to the right of the stripe
+        """
         if self._outer_rsum is None:
             raise RuntimeError(
                 "caught an attempt to access outer_rsum property before compute_biodescriptors() was called"
@@ -214,6 +211,9 @@ class Stripe(object):
 
     @property
     def outer_lsize(self) -> float:
+        """
+        The number of entries in the band to the left of the stripe
+        """
         if self._outer_lsize is None:
             raise RuntimeError(
                 "caught an attempt to access outer_lsize property before compute_biodescriptors() was called"
@@ -223,6 +223,9 @@ class Stripe(object):
 
     @property
     def outer_rsize(self) -> float:
+        """
+        The number of entries in the band to the right of the stripe
+        """
         if self._outer_rsize is None:
             raise RuntimeError(
                 "caught an attempt to access outer_rsize property before compute_biodescriptors() was called"
@@ -232,6 +235,9 @@ class Stripe(object):
 
     @property
     def outer_lmean(self) -> float:
+        """
+        The average number of interactions in the band to the left of the stripe
+        """
         if self._outer_lsum is None or self._outer_lsize is None:
             raise RuntimeError(
                 "caught an attempt to access outer_lmean property before compute_biodescriptors() was called"
@@ -244,6 +250,9 @@ class Stripe(object):
 
     @property
     def outer_rmean(self) -> float:
+        """
+        The average number of interactions in the band to the right of the stripe
+        """
         if self._outer_rsum is None or self._outer_rsize is None:
             raise RuntimeError(
                 "caught an attempt to access outer_rmean property before compute_biodescriptors() was called"
@@ -256,6 +265,9 @@ class Stripe(object):
 
     @property
     def outer_mean(self) -> float:
+        """
+        The average number of interactions in the bands to the left and right of the stripe
+        """
         # Suppress divide-by-zero warning:
         with warnings.catch_warnings():
             warnings.filterwarnings(category=RuntimeWarning, action="ignore")
@@ -263,6 +275,9 @@ class Stripe(object):
 
     @property
     def rel_change(self) -> float:
+        """
+        The ratio of the average number of interactions within the stripe and in the neighborhood outside of the stripe
+        """
         outer_mean = self.outer_mean
 
         # Suppress divide-by-zero warning:
@@ -278,8 +293,8 @@ class Stripe(object):
 
         Parameters
         ----------
-        left_bound: int
-        right_bound: int
+        left_bound
+        right_bound
         """
         if self._left_bound is not None:
             assert self._right_bound is not None
@@ -304,8 +319,8 @@ class Stripe(object):
 
         Parameters
         ----------
-        top_bound: int
-        bottom_bound: int
+        top_bound
+        bottom_bound
         """
         if self._bottom_bound is not None:
             assert self._top_bound is not None
@@ -339,9 +354,9 @@ class Stripe(object):
 
         Parameters
         ----------
-        matrix: SparseMatrix
+        matrix
             the sparse matrix from which the stripe originated
-        window: int
+        window
             window size used to compute statistics to the left and right of the stripe
         """
         if not self._all_bounds_set():
@@ -374,19 +389,13 @@ class Stripe(object):
         """
         Set the stripe biodescriptors based on pre-computed statistics.
 
-        inner_mean: float
-
-        inner_std: float
-
-        outer_lsum: float
-
-        outer_lsize: int
-
-        outer_rsum: float
-
-        outer_rsize: int
-
-        five_number: NDArray[float]
+        inner_mean
+        inner_std
+        outer_lsum
+        outer_lsize
+        outer_rsum
+        outer_rsize
+        five_number
         """
         if not self._all_bounds_set():
             raise RuntimeError("set_biodescriptors() was called on a bound-less stripe")

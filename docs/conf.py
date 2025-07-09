@@ -46,6 +46,19 @@ extensions = [
     "sphinx.ext.napoleon",
 ]
 
+autosummary_generate = True
+python_use_unqualified_type_names = True
+always_use_bars_union = True
+napoleon_use_rtype = False
+autodoc_typehints = "signature"
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+}
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = [".templates"]
 

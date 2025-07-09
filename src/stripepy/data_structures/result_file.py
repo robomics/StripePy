@@ -62,31 +62,7 @@ class ResultFile(object):
                                # Without the above line you'll get an error when trying to open
                                # the file in read mode
 
-    When opening or creating a ResultFile write or append mode, a context manager (e.g. with:) must be used
-
-    Attributes
-    ----------
-    path: pathlib.Path
-        the path to the opened file
-    assembly: str
-        the name of the reference genome assembly used to generate the file
-    resolution: int
-        the resolution of the Hi-C matrix used to generate the file
-    creation_date: datetime.datetime
-        the file creation date
-    format: str
-        the file format string
-    format_url: str
-        the URL where the file format is documented
-    format_version: int
-        the format version of the file currently opened
-    generated_by: str
-        the name of the tool used to generate the opened file
-    normalization: Optional[str]
-        the name of the normalization used to generate the data stored in the given file
-    chromosomes: Dict[str, int]
-        the chromosomes associated with the opened file
-
+    When opening or creating a :py:class:`ResultFile` write or append mode, a context manager (e.g. with:) must be used
     """
 
     # This is just a private member used to ensure that files are initialized correctly when mode != "r"
@@ -126,7 +102,7 @@ class ResultFile(object):
         compression_lvl: int = 9,
     ):
         """
-        Create a ResultFile using the provided information.
+        Create a :py:class:`ResultFile` using the provided information.
         """
 
         if normalization is None:
@@ -157,7 +133,7 @@ class ResultFile(object):
         compression_lvl: int = 9,
     ):
         """
-        Create a ResultFile using information from the given matrix file.
+        Create a :py:class:`ResultFile` using information from the given matrix file.
         """
         return ResultFile.create(
             path,
@@ -173,8 +149,9 @@ class ResultFile(object):
     @staticmethod
     def append(path: pathlib.Path):
         """
-        Append to an existing ResultFile.
-        IMPORTANT: the file must have been created with create() or create_from_file() with mode="a"
+        Append to an existing :py:class:`ResultFile`.
+
+        IMPORTANT: the file must have been created with `create` or `create_from_file` with ``mode="a"``
         """
         return ResultFile(path, mode="a", _create_key=ResultFile.__create_key)
 
@@ -320,48 +297,78 @@ class ResultFile(object):
 
     def finalize(self):
         """
-        Finalize a file opened in append mode.
+        Finalize a file opened in append mode
         """
         self._finalize(abs(self._version))
 
     @property
     def path(self) -> pathlib.Path:
+        """
+        The path to the opened file
+        """
         return self._path
 
     @functools.cached_property
     def assembly(self) -> str:
+        """
+        The name of the reference genome assembly used to generate the file
+        """
         return self._h5.attrs["assembly"]
 
     @functools.cached_property
     def resolution(self) -> int:
+        """
+        The resolution of the Hi-C matrix used to generate the file
+        """
         return int(self._h5.attrs["bin-size"])
 
     @functools.cached_property
     def creation_date(self) -> datetime.datetime:
+        """
+        The file creation date
+        """
         return datetime.datetime.fromisoformat(self._h5.attrs["creation-date"])
 
     @functools.cached_property
     def format(self) -> str:
+        """
+        The file format string
+        """
         return self._h5.attrs["format"]
 
     @functools.cached_property
     def format_url(self) -> str:
+        """
+        The URL where the file format is documented
+        """
         return self._h5.attrs["format-url"]
 
     @functools.cached_property
     def format_version(self) -> int:
+        """
+        The format version of the file currently opened
+        """
         return int(abs(self._h5.attrs["format-version"]))
 
     @functools.cached_property
     def generated_by(self) -> str:
+        """
+        The name of the tool used to generate the opened file
+        """
         return self._h5.attrs["generated-by"]
 
     @functools.cached_property
     def metadata(self) -> Dict[str, Any]:
+        """
+        The metadata associated with the file
+        """
         return json.loads(self._h5.attrs["metadata"])
 
     @functools.cached_property
     def normalization(self) -> Optional[str]:
+        """
+        The name of the normalization used to generate the data stored in the given file
+        """
         norm = self._h5.attrs["normalization"]
         if norm == "NONE":
             return None
@@ -369,6 +376,9 @@ class ResultFile(object):
 
     @property
     def chromosomes(self) -> Dict[str, int]:
+        """
+        The chromosomes associated with the opened file
+        """
         return self._chroms
 
     def get_min_persistence(self, chrom: str) -> float:
@@ -377,12 +387,12 @@ class ResultFile(object):
 
         Parameters
         ----------
-        chrom: str
+        chrom
             chromosome name
 
         Returns
         -------
-            the minimum persistence
+        the minimum persistence
         """
         if chrom not in self._chroms:
             raise KeyError(f'File "{self.path}" does not have data for chromosome "{chrom}"')
@@ -397,10 +407,10 @@ class ResultFile(object):
 
         Parameters
         ----------
-        chrom: Optional[str]
+        chrom
             chromosome name.
             when not provided, return data for the entire genome.
-        field: str
+        field
             name of the field to be fetched.
             Supported names:
 
@@ -411,12 +421,12 @@ class ResultFile(object):
             * persistence_of_all_maximum_points
             * geo_descriptors
             * bio_descriptors
-        location: str
+        location
             location of the attribute to be registered. Should be "LT" or "UT"
 
         Returns
         -------
-            the data associated with the given chromosome, field, and location
+        the data associated with the given chromosome, field, and location
         """
         if chrom is None:
             dfs = []
@@ -450,7 +460,7 @@ class ResultFile(object):
 
         Parameters
         ----------
-        result: Result
+        result
             results to be added to the opened file
         """
         chrom = result.chrom[0]
