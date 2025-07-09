@@ -80,8 +80,14 @@ test = [
     "pytest-cov",
 ]
 
+docs = [
+    "furo==2024.8.6",
+    "sphinx==8.2.3",
+    "sphinx-copybutton==0.5.2",
+]
+
 dev = [
-    "stripepy-hic[all,test]",
+    "stripepy-hic[all,docs,test]",
     "black[jupyter]",
     "build",
     "isort",
