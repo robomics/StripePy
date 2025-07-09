@@ -21,7 +21,7 @@ class Result(object):
         Parameters
         ----------
 
-        chrom: str
+        chrom
             chromosome name
         """
         assert chrom_size > 0
@@ -101,9 +101,9 @@ class Result(object):
 
         Parameters
         ----------
-        name: str
+        name
             name of the attribute to be fetched
-        location: str
+        location
             location of the attribute to be fetched. Should be "LT" or "UT"
 
         Returns
@@ -138,9 +138,9 @@ class Result(object):
 
         Parameters
         ----------
-        descriptor: str
+        descriptor
             name of the descriptor to be fetched
-        location: str
+        location
             location of the attribute to be fetched. Should be "LT" or "UT"
 
         Returns
@@ -176,7 +176,7 @@ class Result(object):
 
         Parameters
         ----------
-        location: str
+        location
             location of the attribute to be fetched. Should be "LT" or "UT"
 
         Returns
@@ -202,7 +202,7 @@ class Result(object):
 
         Parameters
         ----------
-        location: str
+        location
             location of the attribute to be fetched. Should be "LT" or "UT"
 
         Returns
@@ -226,7 +226,7 @@ class Result(object):
 
         Parameters
         ----------
-        coords: Dict[str, List[int]]
+        coords
             a dictionary with the coordinates of the region of interest.
             The dictionary should contain two keys: "genomic" and "matrix".
             The value associated with the "genomic" key should be a list of 4 integers
@@ -245,7 +245,7 @@ class Result(object):
 
         Parameters
         ----------
-        min_persistence: float
+        min_persistence
         """
         if self._min_persistence is not None:
             raise RuntimeError("min_persistence has already been set")
@@ -264,7 +264,7 @@ class Result(object):
 
         Parameters
         ----------
-        name: str
+        name
             name of the attribute to be set.
             Supported attributes are:
 
@@ -279,11 +279,11 @@ class Result(object):
             * pseudodistribution
             * stripes
 
-        data:
+        data
             data to be registered with the :py:class:`Result` instance
-        location: str
+        location
             location of the attribute to be registered. Should be "LT" or "UT"
-        force: bool
+        force
             force overwrite existing values
         """
         if location == "lower":

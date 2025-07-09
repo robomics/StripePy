@@ -40,15 +40,15 @@ class Stripe(object):
         """
         Parameters
         ----------
-        seed: int
+        seed
             the stripe seed position
-        top_pers: Optional[float]
+        top_pers
             the topological persistence of the seed
-        horizontal_bounds: Optional[Tuple[int, int]]
+        horizontal_bounds
             the horizontal bounds of the stripe
-        vertical_bounds: Optional[Tuple[int, int]]
+        vertical_bounds
             the_vertical bounds of the stripe
-        where: Optional[str]
+        where
             the location of the stripe: should be "upper_triangular" or "lower_triangular".
             When provided, this is used validate the coordinates set when calling `set_horizontal_bounds()` and `set_vertical_bounds()`.
         """
@@ -293,8 +293,8 @@ class Stripe(object):
 
         Parameters
         ----------
-        left_bound: int
-        right_bound: int
+        left_bound
+        right_bound
         """
         if self._left_bound is not None:
             assert self._right_bound is not None
@@ -319,8 +319,8 @@ class Stripe(object):
 
         Parameters
         ----------
-        top_bound: int
-        bottom_bound: int
+        top_bound
+        bottom_bound
         """
         if self._bottom_bound is not None:
             assert self._top_bound is not None
@@ -354,9 +354,9 @@ class Stripe(object):
 
         Parameters
         ----------
-        matrix: `SparseMatrix`
+        matrix
             the sparse matrix from which the stripe originated
-        window: int
+        window
             window size used to compute statistics to the left and right of the stripe
         """
         if not self._all_bounds_set():
@@ -389,19 +389,13 @@ class Stripe(object):
         """
         Set the stripe biodescriptors based on pre-computed statistics.
 
-        inner_mean: float
-
-        inner_std: float
-
-        outer_lsum: float
-
-        outer_lsize: int
-
-        outer_rsum: float
-
-        outer_rsize: int
-
-        five_number: NDArray[float]
+        inner_mean
+        inner_std
+        outer_lsum
+        outer_lsize
+        outer_rsum
+        outer_rsize
+        five_number
         """
         if not self._all_bounds_set():
             raise RuntimeError("set_biodescriptors() was called on a bound-less stripe")

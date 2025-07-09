@@ -297,7 +297,7 @@ class ResultFile(object):
 
     def finalize(self):
         """
-        Finalize a file opened in append mode.
+        Finalize a file opened in append mode
         """
         self._finalize(abs(self._version))
 
@@ -387,7 +387,7 @@ class ResultFile(object):
 
         Parameters
         ----------
-        chrom: str
+        chrom
             chromosome name
 
         Returns
@@ -407,10 +407,10 @@ class ResultFile(object):
 
         Parameters
         ----------
-        chrom: :class:`str` | :obj:`None`
+        chrom
             chromosome name.
             when not provided, return data for the entire genome.
-        field: str
+        field
             name of the field to be fetched.
             Supported names:
 
@@ -421,7 +421,7 @@ class ResultFile(object):
             * persistence_of_all_maximum_points
             * geo_descriptors
             * bio_descriptors
-        location: str
+        location
             location of the attribute to be registered. Should be "LT" or "UT"
 
         Returns
@@ -460,7 +460,7 @@ class ResultFile(object):
 
         Parameters
         ----------
-        result: Result
+        result
             results to be added to the opened file
         """
         chrom = result.chrom[0]
