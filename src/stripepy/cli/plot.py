@@ -30,6 +30,7 @@ def run(
     dpi: int,
     force: bool,
     main_logger,
+    telem_span,
     **kwargs,
 ) -> int:
     logger = structlog.get_logger()
@@ -46,6 +47,15 @@ def run(
             raise FileExistsError(
                 f'Refusing to overwrite file "{output_name}". Pass --force to overwrite existing file(s).'
             )
+
+    _configure_telemetry(
+        telem_span,
+        plot_type=plot_type,
+        highlight_seeds=kwargs.get("highlight_seeds"),
+        highlight_stripes=kwargs.get("highlight_stripes"),
+        stripepy_hdf5=kwargs.get("stripepy_hdf5"),
+        relative_change_threshold=kwargs.get("relative_change_threshold"),
+    )
 
     logger.info('generating "%s" plot', plot_type)
     kwargs["logger"] = logger
@@ -83,6 +93,34 @@ def run(
     logger.info("plotting took %s seconds", pretty_format_elapsed_time(t0))
 
     return 0
+
+
+def _configure_telemetry(
+    span,
+    plot_type: str,
+    highlight_seeds: Optional[bool],
+    highlight_stripes: Optional[bool],
+    relative_change_threshold: Optional[float],
+    stripepy_hdf5: Optional[pathlib.Path],
+):
+    try:
+        if not span.is_recording():
+            return
+
+        span.update_name(f"plot {plot_type}")
+
+        if highlight_seeds is not None:
+            span.set_attribute("params.highlight_seeds", highlight_seeds)
+        if highlight_stripes is not None:
+            span.set_attribute("params.highlight_stripes", highlight_stripes)
+        if relative_change_threshold is not None:
+            span.set_attribute("params.relative_change_threshold", relative_change_threshold)
+
+        # We write this attribute last just in case there are IO errors
+        if stripepy_hdf5 is not None:
+            span.set_attribute("params.result_file_format_version", ResultFile(stripepy_hdf5).format_version)
+    except:  # noqa
+        pass
 
 
 def _generate_random_region(

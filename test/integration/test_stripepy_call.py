@@ -9,13 +9,12 @@ from typing import Optional
 import hictkpy
 import pytest
 
-from stripepy.main import main
-
 from .common import (
     check_results_are_empty,
     compare_result_files,
     get_avail_cpu_cores,
     matplotlib_avail,
+    stripepy_main,
 )
 
 testdir = pathlib.Path(__file__).resolve().parent.parent
@@ -78,13 +77,13 @@ class TestStripePyCall:
         if with_roi:
             if not matplotlib_avail():
                 with pytest.raises(ImportError):
-                    main(args)
+                    stripepy_main(args)
                 pytest.skip("matplotlib not available")
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=UserWarning)
-                main(args)
+                stripepy_main(args)
         else:
-            main(args)
+            stripepy_main(args)
 
         assert output_file.is_file()
         assert log_file.is_file()

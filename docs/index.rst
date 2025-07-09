@@ -90,3 +90,9 @@ discourse:
 
   cli_reference
   api
+
+.. toctree::
+   :caption: Telemetry
+   :maxdepth: 1
+
+   telemetry

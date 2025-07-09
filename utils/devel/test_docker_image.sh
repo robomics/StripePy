@@ -53,6 +53,7 @@ mkdir /tmp/stripepy
 cd /tmp/stripepy
 
 TEST_DATASET="$1"
+export STRIPEPY_NO_TELEMETRY=1
 
 1>&2 echo '### testing stripepy call...'
 stripepy call \

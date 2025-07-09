@@ -10,7 +10,7 @@ import pathlib
 
 import pytest
 
-from stripepy.main import main
+from .common import stripepy_main
 
 
 def _hash_file(path: pathlib.Path) -> str:
@@ -26,7 +26,7 @@ class TestStripePyDownload:
         args = ["download", "--list-only"]
         buff = io.StringIO()
         with contextlib.redirect_stdout(buff):
-            main(args)
+            stripepy_main(args)
 
         data = json.loads(buff.getvalue())
         assert len(data) != 0
@@ -36,7 +36,7 @@ class TestStripePyDownload:
         dest = pathlib.Path(tmpdir) / "out"
 
         args = ["download", "--name", "__results_v1", "--output", str(dest), "--include-private"]
-        main(args)
+        stripepy_main(args)
 
         assert dest.is_file()
 
@@ -47,7 +47,7 @@ class TestStripePyDownload:
         dest = pathlib.Path(tmpdir) / "out"
 
         args = ["download", "--max-size", "2", "--output", str(dest), "--include-private"]
-        main(args)
+        stripepy_main(args)
 
         assert dest.is_file()
 
