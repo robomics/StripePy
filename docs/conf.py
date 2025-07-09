@@ -46,6 +46,10 @@ extensions = [
     "sphinx.ext.napoleon",
 ]
 
+autosummary_generate = True
+python_use_unqualified_type_names = True
+always_use_bars_union = True
+napoleon_use_rtype = False
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
