@@ -139,7 +139,7 @@ output = "coverage/stripepy.xml"
 
 [tool.hatch.version]
 source = "vcs"
-fallback-version = "unknown"
+fallback-version = "0.0.1.dev0"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/stripepy"]
