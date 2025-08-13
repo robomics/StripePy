@@ -22,7 +22,7 @@ For instance, to run the command on a file named ``4DNFI9GMP2J8.mcool`` at a res
 
 Running the above command produces a similar output, here truncated for the sake of brevity:
 
-.. code-block:: console
+.. code-block:: text
 
   2025-04-15 08:13:24.639742 [info     ] running StripePy v1.0.0
   2025-04-15 08:13:24.637358 [info     ] [main      ] CONFIG:

@@ -4,6 +4,9 @@
 
 
 import os
+import sys
+
+sys.path.append(os.path.abspath("./_ext"))
 
 
 def runner_is_rtd() -> bool:
@@ -121,9 +124,8 @@ default_role = "any"
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-# pygments_style = 'monokai'
-pygments_style = "default"
-pygments_dark_style = "one-dark"
+pygments_style = "styles.StripePyLightStyle"
+pygments_dark_style = "styles.StripePyDarkStyle"
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
