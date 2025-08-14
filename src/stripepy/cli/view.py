@@ -39,11 +39,32 @@ def run(
                 )
                 with_header = False
                 skip_telemetry = True
-    except BrokenPipeError:
-        if sys.stdout.isatty():
-            raise
+    except BrokenPipeError as e:
+        _handle_broken_pipe_error(e)
 
     return 0
+
+
+def _handle_broken_pipe_error(e: BrokenPipeError):
+    """
+    Handle BrokenPipeError exceptions due to e.g. piping stripepy view into a command like head.
+    This needs to deal with the following cases:
+    - stdout is a tty: report the exception to the user
+    - stdout is not a tty: forcefully close stdout and ignore BrokenPipeErrors.
+      This is required to avoid errors like the following on macOS:
+        Exception ignored on flushing sys.stdout:
+        BrokenPipeError: [Errno 32] Broken pipe
+        Command exited with non-zero status 120
+    """
+
+    if sys.stdout.isatty():
+        raise e
+
+    try:
+        sys.stdout.close()
+    except BrokenPipeError:
+        # Make sure we exit with a clean code no matter what
+        sys.exit(0)
 
 
 def _configure_telemetry(
