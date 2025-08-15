@@ -17,12 +17,17 @@ def run(
     relative_change_threshold: float,
     with_biodescriptors: bool,
     with_header: bool,
+    coefficient_of_variation_threshold: Optional[float] = None,
     transform: Optional[str] = None,
     main_logger=None,
     telem_span=None,
 ) -> int:
     try:
-        _configure_telemetry(telem_span, relative_change_threshold=relative_change_threshold)
+        _configure_telemetry(
+            telem_span,
+            relative_change_threshold=relative_change_threshold,
+            coefficient_of_variation_threshold=coefficient_of_variation_threshold,
+        )
         skip_telemetry = telem_span is None
         with ResultFile(h5_file) as f:
             for chrom, size in f.chromosomes.items():
@@ -32,6 +37,7 @@ def run(
                     size,
                     f.resolution,
                     relative_change_threshold,
+                    coefficient_of_variation_threshold,
                     transform,
                     with_biodescriptors,
                     with_header,
@@ -49,12 +55,14 @@ def run(
 def _configure_telemetry(
     span,
     relative_change_threshold: float,
+    coefficient_of_variation_threshold: Optional[float],
 ):
     try:
         if not span.is_recording():
             return
 
         span.set_attribute("params.relative_change_threshold", relative_change_threshold)
+        span.set_attribute("params.coefficient_of_variation_threshold", coefficient_of_variation_threshold)
     except:  # noqa
         pass
 
@@ -147,7 +155,8 @@ def _dump_stripes(
     chrom: str,
     size: int,
     resolution: int,
-    cutoff: float,
+    relative_change_threshold: float,
+    coefficient_of_variation_threshold: Optional[float],
     transpose_policy: str,
     with_biodescriptors: bool,
     with_header: bool,
@@ -157,7 +166,10 @@ def _dump_stripes(
     if df is None:
         return
 
-    df = df[df["rel_change"] >= cutoff]
+    df = df[df["rel_change"] >= relative_change_threshold]
+    if coefficient_of_variation_threshold is not None:
+        df = df[df["inner_std"] / df["inner_mean"] < coefficient_of_variation_threshold]
+
     df = _stripes_to_bedpe(
         df,
         chrom,

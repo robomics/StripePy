@@ -604,6 +604,15 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     )
 
     sc.add_argument(
+        "--coefficient-of-variation-threshold",
+        type=_nonnegative_float,
+        default=None,
+        help="Cutoff for the coefficient of variation (default: %(default)s).\n"
+        "The coefficient of variation is computed as the ratio between the standard deviation and the mean \n"
+        "of the values inside a stripe. In our case, it is always nonnegative because of the preprocessing step.",
+    )
+
+    sc.add_argument(
         "--with-biodescriptors",
         action="store_true",
         default=False,
