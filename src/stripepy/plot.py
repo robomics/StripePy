@@ -651,6 +651,7 @@ def _plot_hic_matrix_with_stripes(
     start: int,
     end: int,
     relative_change_threshold: float = 0.0,
+    coefficient_of_variation_threshold: Optional[float] = None,
     cmap: str = "fruit_punch",
     override_height: Optional[int] = None,
     mask_regions: bool = False,
@@ -668,18 +669,36 @@ def _plot_hic_matrix_with_stripes(
 
     chrom_size = result.chrom[1]
 
+    mask_lt = pd.Series(True, index=geo_descriptors_lt.index)
+    mask_ut = pd.Series(True, index=geo_descriptors_ut.index)
+
+    # Mask for relative change
     if relative_change_threshold > 0:
-        mask_lt = (
+        mask_lt &= (
             result.get_stripe_bio_descriptors("LT")["rel_change"].iloc[geo_descriptors_lt.index]
             >= relative_change_threshold
         )
-        mask_ut = (
+        mask_ut &= (
             result.get_stripe_bio_descriptors("UT")["rel_change"].iloc[geo_descriptors_ut.index]
             >= relative_change_threshold
         )
 
-        geo_descriptors_lt = geo_descriptors_lt[mask_lt]
-        geo_descriptors_ut = geo_descriptors_ut[mask_ut]
+    # Mask for coefficient of variation
+    if coefficient_of_variation_threshold is not None:
+        mask_lt &= (
+            result.get_stripe_bio_descriptors("LT")["inner_std"].iloc[geo_descriptors_lt.index]
+            / result.get_stripe_bio_descriptors("LT")["inner_mean"].iloc[geo_descriptors_lt.index]
+            < coefficient_of_variation_threshold
+        )
+        mask_ut &= (
+            result.get_stripe_bio_descriptors("UT")["inner_std"].iloc[geo_descriptors_ut.index]
+            / result.get_stripe_bio_descriptors("UT")["inner_mean"].iloc[geo_descriptors_ut.index]
+            < coefficient_of_variation_threshold
+        )
+
+    # Apply mask
+    geo_descriptors_lt = geo_descriptors_lt[mask_lt]
+    geo_descriptors_ut = geo_descriptors_ut[mask_ut]
 
     left_bound_within_region = geo_descriptors_lt["left_bound"].between(start, end, inclusive="both")
     right_bound_within_region = geo_descriptors_lt["right_bound"].between(start, end, inclusive="both")

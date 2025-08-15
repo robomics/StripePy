@@ -99,6 +99,13 @@ def _positive_float(arg) -> float:
     raise argparse.ArgumentTypeError("Not a positive float")
 
 
+def _nonnegative_float(arg) -> float:
+    if (n := float(arg)) >= 0:
+        return n
+
+    raise argparse.ArgumentTypeError("Not a nonnegative float")
+
+
 def _positive_int(arg) -> int:
     if (n := int(arg)) > 0:
         return n
@@ -489,6 +496,15 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "Only used when highlighting architectural stripes.\n"
         "The relative change is computed as the ratio between the average number of interactions "
         "found inside a stripe and the number of interactions in a neighborhood outside of the stripe.",
+    )
+
+    sc.add_argument(
+        "--coefficient-of-variation-threshold",
+        type=_nonnegative_float,
+        help="Cutoff for the coefficient of variation (default: %(default)s).\n"
+        "Only used when highlighting architectural stripes.\n"
+        "The coefficient of variation is computed as the ratio between the standard deviation and the mean \n"
+        "of the values inside a stripe. In our case, it is always nonnegative because of the preprocessing step.",
     )
 
     grp = sc.add_mutually_exclusive_group()
