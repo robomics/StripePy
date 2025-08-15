@@ -288,6 +288,7 @@ class TestComputeBiodescriptors:
         assert np.isclose(stripe.outer_rmean, 1.0)
         assert np.isclose(stripe.outer_mean, 1.0)
         assert np.isclose(stripe.rel_change, 400.0)
+        assert np.isclose(stripe.coeff_of_variation, 0.0)
 
     def test_stripe_in_lower_middle(self):
         stripe = Stripe(
@@ -321,6 +322,7 @@ class TestComputeBiodescriptors:
         assert stripe.outer_rsize == 2
         assert np.isclose(stripe.outer_mean, 2.5)
         assert np.isclose(stripe.rel_change, 60.0)
+        assert np.isclose(stripe.coeff_of_variation, 0.0)
 
     def test_stripe_in_lower_right_corner(self):
         stripe = Stripe(
@@ -353,6 +355,7 @@ class TestComputeBiodescriptors:
         assert stripe.outer_rsize == 1
         assert np.isclose(stripe.outer_mean, 1.0)
         assert np.isclose(stripe.rel_change, 200.0)
+        assert np.isclose(stripe.coeff_of_variation, 0.0)
 
     def test_stripe_in_lower_right_corner_with_empty_rneighborhood(self):
         stripe = Stripe(
@@ -380,6 +383,7 @@ class TestComputeBiodescriptors:
         assert np.isclose(stripe.outer_lmean, 1.0)
         assert np.isnan(stripe.outer_rmean)
         assert np.isclose(stripe.outer_mean, 1.0)
+        assert np.isclose(stripe.coeff_of_variation, 0.0)
 
     def test_stripe_in_upper_middle(self):
         stripe = Stripe(
@@ -481,6 +485,7 @@ class TestComputeBiodescriptors:
         assert np.isclose(stripe.outer_rmean, 1.0)
         assert np.isclose(stripe.outer_mean, 2.5)
         assert np.isclose(stripe.rel_change, 60.0)
+        assert np.isclose(stripe.coeff_of_variation, 0.0)
 
 
 @pytest.mark.unit
