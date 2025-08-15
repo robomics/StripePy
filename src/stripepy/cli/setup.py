@@ -306,14 +306,18 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         allow_abbrev=False,
     )
 
-    def get_avail_ref_genomes():
+    def get_avail_ref_genomes() -> List[str]:
         from stripepy.cli.download import _get_datasets  # noqa
 
-        return {
-            record["assembly"]
-            for record in _get_datasets(math.inf, include_private=False).values()
-            if "assembly" in record
-        }
+        return list(
+            sorted(
+                {
+                    record["assembly"]
+                    for record in _get_datasets(math.inf, include_private=False).values()
+                    if "assembly" in record
+                }
+            )
+        )
 
     grp = sc.add_mutually_exclusive_group(required=False)
     grp.add_argument(
@@ -629,7 +633,7 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--transform",
         type=str,
-        choices={"transpose_to_ut", "transpose_to_lt", None},
+        choices=(None, "transpose_to_lt", "transpose_to_ut"),
         default=None,
         help="Control if and how stripe coordinates should be transformed (default: %(default)s).",
     )
