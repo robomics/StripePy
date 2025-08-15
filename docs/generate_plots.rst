@@ -39,4 +39,7 @@ Example usage:
   # Plot the Hi-C matrix highlighting the architectural stripes
   stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix_with_stripes.png --stripepy-hdf5 4DNFI9GMP2J8.10000.hdf5 --highlight-stripes
 
+  # Plot the Hi-C matrix highlighting the architectural stripes -- thresholding both relative change and coefficient of variation
+  stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix_with_stripes.png --stripepy-hdf5 4DNFI9GMP2J8.10000.hdf5 --highlight-stripes --coefficient-of-variation-threshold 2 --relative-change-threshold 10
+
 Some example plots generated with `stripepy_plot_help` can be found in file ``stripepy-plot-test-images.tar.xz`` from `doi.org/10.5281/zenodo.14283921 <https://doi.org/10.5281/zenodo.14283921>`_.
