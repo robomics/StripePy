@@ -21,8 +21,10 @@ class Result(object):
         Parameters
         ----------
 
-        chrom
+        chrom_name: str
             chromosome name
+        chrom_size: int
+            chromosome size
         """
         assert chrom_size > 0
 
@@ -213,12 +215,26 @@ class Result(object):
             "inner_mean",
             "outer_mean",
             "rel_change",
+            "cfx_of_variation",
             "inner_std",
+            "outer_lsum",
+            "outer_rsum",
+            "outer_lsize",
+            "outer_rsize",
+            "outer_lmean",
+            "outer_rmean",
         ]
 
-        return pd.DataFrame(
-            {descriptor: self.get_stripes_descriptor(descriptor, location) for descriptor in descriptors}
-        )
+        data = {descriptor: self.get_stripes_descriptor(descriptor, location) for descriptor in descriptors}
+
+        quartile = self.get_stripes_descriptor("five_number", location)
+        for i, col in enumerate(["min", "q1", "q2", "q3", "max"]):
+            if quartile.size == 0:
+                data[col] = np.empty(shape=0, dtype=float)
+            else:
+                data[col] = quartile[:, i]
+
+        return pd.DataFrame(data)
 
     def set_roi(self, coords: Dict[str, List[int]]):
         """
