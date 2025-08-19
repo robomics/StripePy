@@ -100,30 +100,30 @@ def main(args: Optional[List[str]] = None, no_telemetry: bool = False) -> int:
             kwargs["telem_span"] = telem_span
             return _dispatch_subcommand(subcommand, verbosity, **kwargs)
 
-        except FileExistsError as e:
+        except Exception as e:  # noqa
+            import traceback
+
             import structlog
 
-            # Do not print the full stack trace in case of FileExistsError
-            # This make it easier to spot the names of the file(s) causing problems
-            structlog.get_logger().error(e)
-            if args is not None:
-                raise
-        except (RuntimeError, ImportError) as e:
-            import structlog
+            if isinstance(e, FileExistsError):
+                # Do not print the full stack trace in case of FileExistsError
+                # This make it easier to spot the names of the file(s) causing problems
+                structlog.get_logger().error(str(e))
+                return 1
+
+            exceptions = traceback.format_exception(type(e), e, e.__traceback__)
 
             # Log the exception including its stack trace
-            structlog.get_logger().exception(e)
-            if args is not None:
+            structlog.get_logger().error("FAILURE", exception="".join(exceptions))
+
+            if not isinstance(e, (RuntimeError, ImportError)):
+                # Under normal operating conditions, StripePy should not raise exceptions other than
+                # FileExistsError, RuntimeError, and ImportError.
+                # Should that ever happen, re-raise the exception
                 raise
-        except Exception as e:  # noqa
-            # Under normal operating conditions, StripePy should not raise exceptions other than
-            # FileExistsError, RuntimeError, and ImportError.
-            # Should that happen, log the exception with its stack trace and then re-raise it
-            import structlog
-
-            structlog.get_logger().exception(e)
 
             if args is not None:
+                # Always raise when main is manually invoked
                 raise
 
         return 1

@@ -11,6 +11,7 @@ import multiprocessing as mp
 import pathlib
 import platform
 import sys
+import warnings
 from typing import Dict, List, Optional
 
 import hictkpy
@@ -643,16 +644,20 @@ class ProcessSafeLogger(object):
 
             log_lvl = log_level_mapper(event_dict["level"])
 
-            if file_levelno <= log_lvl:
-                file_message = plain_renderer(logger, name, event_dict.copy())
+            # Ignore structlog warnings about format_exc_info
+            with warnings.catch_warnings():
+                warnings.filterwarnings(category=UserWarning, action="ignore")
 
-            if console_levelno <= log_level_mapper(event_dict["level"]):
-                if colored_renderer is not None:
-                    console_message = colored_renderer(logger, name, event_dict)
-                elif file_message is None:
-                    console_message = plain_renderer(logger, name, event_dict)
-                else:
-                    console_message = file_message
+                if file_levelno <= log_lvl:
+                    file_message = plain_renderer(logger, name, event_dict.copy())
+
+                if console_levelno <= log_level_mapper(event_dict["level"]):
+                    if colored_renderer is not None:
+                        console_message = colored_renderer(logger, name, event_dict)
+                    elif file_message is None:
+                        console_message = plain_renderer(logger, name, event_dict)
+                    else:
+                        console_message = file_message
 
             return {"file_message": file_message, "console_message": console_message}
 
