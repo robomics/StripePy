@@ -286,7 +286,7 @@ class Stripe(object):
             return abs(self.inner_mean - outer_mean) / outer_mean * 100
 
     @property
-    def coeff_of_variation(self) -> float:
+    def cfx_of_variation(self) -> float:
         """
         The coefficient of variation (CV), also known as Normalized Root-Mean-Square Deviation (NRMSD) and Relative
         Standard Deviation (RSD)
@@ -300,7 +300,7 @@ class Stripe(object):
         except RuntimeError as e:
             if not str(e).startswith("caught an attempt to access"):
                 raise e
-            raise RuntimeError(str(e).replace("inner_std", "coeff_of_variation"))
+            raise RuntimeError(str(e).replace("inner_std", "cfx_of_variation"))
 
     def set_horizontal_bounds(self, left_bound: int, right_bound: int):
         """
