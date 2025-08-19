@@ -168,7 +168,7 @@ def _dump_stripes(
 
     df = df[df["rel_change"] >= relative_change_threshold]
     if coefficient_of_variation_threshold is not None:
-        df = df[df["inner_std"] / df["inner_mean"] < coefficient_of_variation_threshold]
+        df = df[df["cfx_of_variation"] < coefficient_of_variation_threshold]
 
     df = _stripes_to_bedpe(
         df,
@@ -185,4 +185,10 @@ def _dump_stripes(
         columns=df.columns,
     )
 
-    df.to_csv(sys.stdout, sep="\t", index=False, header=with_header)
+    df.to_csv(
+        sys.stdout,
+        sep="\t",
+        index=False,
+        header=with_header,
+        na_rep="nan",
+    )
