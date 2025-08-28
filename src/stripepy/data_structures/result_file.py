@@ -213,7 +213,12 @@ class ResultFile(object):
                 "outer_lmean",
                 "outer_rmean",
                 "outer_mean",
-                "quartile",
+                "cfx_of_variation",
+                "min",
+                "q1",
+                "q2",
+                "q3",
+                "max",
             ]
 
             # Default-initialize missing columns
@@ -250,7 +255,12 @@ class ResultFile(object):
                 outer_lmean,
                 outer_rmean,
                 outer_mean,
-                quartile,
+                _,  # cfx_of_variation
+                min_,
+                q1,
+                q2,
+                q3,
+                max_,
             ) in df[cols].itertuples(index=False):
                 s = Stripe(
                     seed=seed,
@@ -287,7 +297,7 @@ class ResultFile(object):
                     outer_lsize=outer_lsize,
                     outer_rsum=outer_rsum,
                     outer_rsize=outer_rsize,
-                    five_number=quartile,
+                    five_number=np.array([min_, q1, q2, q3, max_], dtype=float),
                 )
                 stripes.append(s)
 
@@ -421,6 +431,7 @@ class ResultFile(object):
             * persistence_of_all_maximum_points
             * geo_descriptors
             * bio_descriptors
+            * stripes
         location
             location of the attribute to be registered. Should be "LT" or "UT"
 
@@ -449,10 +460,19 @@ class ResultFile(object):
             raise ValueError("Location should be UT or LT")
 
         if self._version == 1:
-            return self._get_v1(chrom, field, location)
-        if self._version == 2:
-            return self._get_v2(chrom, field, location)
-        return self._get_v3(chrom, field, location)
+            df = self._get_v1(chrom, field, location)
+        elif self._version == 2:
+            df = self._get_v2(chrom, field, location)
+        else:
+            df = self._get_v3(chrom, field, location)
+
+        if field in {"bio_descriptors", "stripes"}:
+            if len(df) == 0:
+                df["cfx_of_variation"] = np.empty(0, dtype=float)
+            else:
+                df["cfx_of_variation"] = df["inner_std"] / df["inner_mean"]
+
+        return df
 
     def write_descriptors(self, result: Result):
         """

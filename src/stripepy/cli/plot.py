@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import math
 import pathlib
 import random
 import time
@@ -325,6 +326,7 @@ def _plot_hic_matrix_with_stripes(
     log_scale: bool,
     region: Optional[str] = None,
     relative_change_threshold: Optional[float] = None,
+    coefficient_of_variation_threshold: Optional[float] = None,
     normalization: Optional[str] = None,
     logger=None,
     **kwargs,
@@ -336,6 +338,9 @@ def _plot_hic_matrix_with_stripes(
 
     if relative_change_threshold is None:
         relative_change_threshold = 0.0
+
+    if coefficient_of_variation_threshold is None:
+        coefficient_of_variation_threshold = math.inf
 
     chrom, start, end, matrix = _fetch_matrix(contact_map, resolution, normalization, region)
 
@@ -355,6 +360,7 @@ def _plot_hic_matrix_with_stripes(
         cmap=cmap,
         log_scale=log_scale,
         relative_change_threshold=relative_change_threshold,
+        coefficient_of_variation_threshold=coefficient_of_variation_threshold,
         override_height=override_height,
     )
 

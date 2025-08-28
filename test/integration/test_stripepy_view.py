@@ -62,6 +62,7 @@ class TestStripePyView:
             "outer_mean",
             "rel_change",
             "inner_std",
+            "cfx_of_variation",
         ]
         TestStripePyView._test_view(
             testdir / "data" / "results_4DNFI9GMP2J8_v1.hdf5",
@@ -90,6 +91,7 @@ class TestStripePyView:
             "q3",
             "max",
             "rel_change",
+            "cfx_of_variation",
         ]
         TestStripePyView._test_view(
             testdir / "data" / "results_4DNFI9GMP2J8_v2.hdf5",
@@ -122,6 +124,7 @@ class TestStripePyView:
             "outer_rmean",
             "outer_mean",
             "rel_change",
+            "cfx_of_variation",
         ]
         TestStripePyView._test_view(
             testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5",

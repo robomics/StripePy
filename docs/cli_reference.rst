@@ -154,6 +154,7 @@ stripepy plot contact-map
 
   usage: stripepy plot contact-map [-h] [--stripepy-hdf5 STRIPEPY_HDF5]
                                    [--relative-change-threshold RELATIVE_CHANGE_THRESHOLD]
+                                   [--coefficient-of-variation-threshold COEFFICIENT_OF_VARIATION_THRESHOLD]
                                    [--highlight-seeds | --highlight-stripes]
                                    [--ignore-stripe-heights] [--cmap CMAP]
                                    [--linear-scale | --log-scale]
@@ -174,6 +175,11 @@ stripepy plot contact-map
                           Cutoff for the relative change (default: None).
                           Only used when highlighting architectural stripes.
                           The relative change is computed as the ratio between the average number of interactions found inside a stripe and the number of interactions in a neighborhood outside of the stripe.
+    --coefficient-of-variation-threshold COEFFICIENT_OF_VARIATION_THRESHOLD
+                          Cutoff for the coefficient of variation (default: None).
+                          Only used when highlighting architectural stripes.
+                          The coefficient of variation is computed as the ratio between the standard deviation and the mean
+                          of the values inside a stripe. In our case, it is always nonnegative because of the preprocessing step.
     --highlight-seeds     Highlight the stripe seeds (default: False).
     --highlight-stripes   Highlight the architectural stripes (default: False).
     --ignore-stripe-heights
@@ -254,6 +260,7 @@ stripepy view
 
   usage: stripepy view [-h]
                        [--relative-change-threshold RELATIVE_CHANGE_THRESHOLD]
+                       [--coefficient-of-variation-threshold COEFFICIENT_OF_VARIATION_THRESHOLD]
                        [--with-biodescriptors] [--with-header]
                        [--transform {None,transpose_to_lt,transpose_to_ut}]
                        [--verbosity {debug,info,warning,error,critical}]
@@ -266,6 +273,10 @@ stripepy view
                           Cutoff for the relative change (default: 5.0).
                           The relative change is computed as the ratio between the average number of interactions
                           found inside a stripe and the number of interactions in a neighborhood outside of the stripe.
+    --coefficient-of-variation-threshold COEFFICIENT_OF_VARIATION_THRESHOLD
+                          Cutoff for the coefficient of variation (default: None).
+                          The coefficient of variation is computed as the ratio between the standard deviation and the mean
+                          of the values inside a stripe. In our case, it is always nonnegative because of the preprocessing step.
     --with-biodescriptors
                           Include the stripe biodescriptors in the output.
     --with-header         Include column names in the output.

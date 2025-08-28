@@ -99,6 +99,13 @@ def _positive_float(arg) -> float:
     raise argparse.ArgumentTypeError("Not a positive float")
 
 
+def _nonnegative_float(arg) -> float:
+    if (n := float(arg)) >= 0:
+        return n
+
+    raise argparse.ArgumentTypeError("Not a nonnegative float")
+
+
 def _positive_int(arg) -> int:
     if (n := int(arg)) > 0:
         return n
@@ -299,14 +306,18 @@ def _make_stripepy_download_subcommand(main_parser) -> argparse.ArgumentParser:
         allow_abbrev=False,
     )
 
-    def get_avail_ref_genomes():
+    def get_avail_ref_genomes() -> List[str]:
         from stripepy.cli.download import _get_datasets  # noqa
 
-        return {
-            record["assembly"]
-            for record in _get_datasets(math.inf, include_private=False).values()
-            if "assembly" in record
-        }
+        return list(
+            sorted(
+                {
+                    record["assembly"]
+                    for record in _get_datasets(math.inf, include_private=False).values()
+                    if "assembly" in record
+                }
+            )
+        )
 
     grp = sc.add_mutually_exclusive_group(required=False)
     grp.add_argument(
@@ -491,6 +502,15 @@ def _make_stripepy_plot_subcommand(main_parser) -> argparse.ArgumentParser:
         "found inside a stripe and the number of interactions in a neighborhood outside of the stripe.",
     )
 
+    sc.add_argument(
+        "--coefficient-of-variation-threshold",
+        type=_nonnegative_float,
+        help="Cutoff for the coefficient of variation (default: %(default)s).\n"
+        "Only used when highlighting architectural stripes.\n"
+        "The coefficient of variation is computed as the ratio between the standard deviation and the mean \n"
+        "of the values inside a stripe. In our case, it is always nonnegative because of the preprocessing step.",
+    )
+
     grp = sc.add_mutually_exclusive_group()
     grp.add_argument(
         "--highlight-seeds",
@@ -588,6 +608,15 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     )
 
     sc.add_argument(
+        "--coefficient-of-variation-threshold",
+        type=_nonnegative_float,
+        default=None,
+        help="Cutoff for the coefficient of variation (default: %(default)s).\n"
+        "The coefficient of variation is computed as the ratio between the standard deviation and the mean \n"
+        "of the values inside a stripe. In our case, it is always nonnegative because of the preprocessing step.",
+    )
+
+    sc.add_argument(
         "--with-biodescriptors",
         action="store_true",
         default=False,
@@ -604,7 +633,7 @@ def _make_stripepy_view_subcommand(main_parser) -> argparse.ArgumentParser:
     sc.add_argument(
         "--transform",
         type=str,
-        choices={"transpose_to_ut", "transpose_to_lt", None},
+        choices=(None, "transpose_to_lt", "transpose_to_ut"),
         default=None,
         help="Control if and how stripe coordinates should be transformed (default: %(default)s).",
     )

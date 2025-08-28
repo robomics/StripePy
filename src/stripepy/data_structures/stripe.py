@@ -285,6 +285,23 @@ class Stripe(object):
             warnings.filterwarnings(category=RuntimeWarning, action="ignore")
             return abs(self.inner_mean - outer_mean) / outer_mean * 100
 
+    @property
+    def cfx_of_variation(self) -> float:
+        """
+        The coefficient of variation (CV), also known as Normalized Root-Mean-Square Deviation (NRMSD) and Relative
+        Standard Deviation (RSD)
+        """
+
+        try:
+            # Suppress divide-by-zero warning:
+            with warnings.catch_warnings():
+                warnings.filterwarnings(category=RuntimeWarning, action="ignore")
+                return self.inner_std / self.inner_mean
+        except RuntimeError as e:
+            if not str(e).startswith("caught an attempt to access"):
+                raise e
+            raise RuntimeError(str(e).replace("inner_std", "cfx_of_variation"))
+
     def set_horizontal_bounds(self, left_bound: int, right_bound: int):
         """
         Set the horizontal bounds for the stripe.

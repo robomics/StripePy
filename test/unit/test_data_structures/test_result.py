@@ -90,12 +90,12 @@ class TestResult:
         with pytest.raises(ValueError, match="Location should be UT or LT"):
             res.get_stripes_descriptor("seed", "foobar")
 
-        res.set("stripes", stripes, "LT")
+        res.set("stripes", stripes, "UT")
 
-        assert len(res.get_stripe_geo_descriptors("UT")) == 0
-        assert len(res.get_stripe_bio_descriptors("UT")) == 0
+        assert len(res.get_stripe_geo_descriptors("LT")) == 0
+        assert len(res.get_stripe_bio_descriptors("LT")) == 0
 
-        df = res.get_stripe_geo_descriptors("LT")
+        df = res.get_stripe_geo_descriptors("UT")
         assert df.columns.tolist() == [
             "seed",
             "top_persistence",
@@ -113,8 +113,27 @@ class TestResult:
         assert df["top_bound"].iloc[0] == 5
         assert df["bottom_bound"].iloc[0] == 10
 
-        df = res.get_stripe_bio_descriptors("LT")
-        assert df.columns.tolist() == ["inner_mean", "outer_mean", "rel_change", "inner_std"]
+        expected_columns = [
+            "inner_mean",
+            "outer_mean",
+            "rel_change",
+            "cfx_of_variation",
+            "inner_std",
+            "outer_lsum",
+            "outer_rsum",
+            "outer_lsize",
+            "outer_rsize",
+            "outer_lmean",
+            "outer_rmean",
+            "min",
+            "q1",
+            "q2",
+            "q3",
+            "max",
+        ]
+
+        df = res.get_stripe_bio_descriptors("UT")
+        assert df.columns.tolist() == expected_columns
         assert len(df) == 1
 
         assert df["inner_mean"].iloc[0] == 0

@@ -144,10 +144,10 @@ class TestResultFile:
                 "outer_mean",
                 "rel_change",
                 "inner_std",
+                "cfx_of_variation",
             ]
 
-            assert len(df.columns) == len(columns)
-            assert (df.columns == columns).all()
+            assert df.columns.tolist() == columns
             assert len(df) == 17_639
 
             with pytest.raises(KeyError):
@@ -191,6 +191,7 @@ class TestResultFile:
                 "q3",
                 "max",
                 "rel_change",
+                "cfx_of_variation",
             ]
 
             assert len(df.columns) == len(columns)
@@ -242,6 +243,7 @@ class TestResultFile:
                 "outer_rmean",
                 "outer_mean",
                 "rel_change",
+                "cfx_of_variation",
             ]
 
             assert len(df.columns) == len(columns)
@@ -307,7 +309,8 @@ class TestResultFile:
         name = name[:-3]
 
         if name == "bio_descriptors":
-            found = result.get_stripe_bio_descriptors(location)  # noqa
+            cols = ["inner_mean", "outer_mean", "rel_change", "inner_std"]
+            found = result.get_stripe_bio_descriptors(location)[cols]  # noqa
         elif name == "geo_descriptors":
             found = result.get_stripe_geo_descriptors(location)  # noqa
         else:
