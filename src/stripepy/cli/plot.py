@@ -56,6 +56,7 @@ def run(
         highlight_stripes=kwargs.get("highlight_stripes"),
         stripepy_hdf5=kwargs.get("stripepy_hdf5"),
         relative_change_threshold=kwargs.get("relative_change_threshold"),
+        coefficient_of_variation_threshold=kwargs.get("coefficient_of_variation_threshold"),
     )
 
     logger.info('generating "%s" plot', plot_type)
@@ -102,6 +103,7 @@ def _configure_telemetry(
     highlight_seeds: Optional[bool],
     highlight_stripes: Optional[bool],
     relative_change_threshold: Optional[float],
+    coefficient_of_variation_threshold: Optional[float],
     stripepy_hdf5: Optional[pathlib.Path],
 ):
     try:
@@ -110,16 +112,29 @@ def _configure_telemetry(
 
         span.update_name(f"plot {plot_type}")
 
-        if highlight_seeds is not None:
-            span.set_attribute("params.highlight_seeds", highlight_seeds)
-        if highlight_stripes is not None:
-            span.set_attribute("params.highlight_stripes", highlight_stripes)
-        if relative_change_threshold is not None:
-            span.set_attribute("params.relative_change_threshold", relative_change_threshold)
+        if plot_type != "cm":
+            return
 
-        # We write this attribute last just in case there are IO errors
-        if stripepy_hdf5 is not None:
-            span.set_attribute("params.result_file_format_version", ResultFile(stripepy_hdf5).format_version)
+        if relative_change_threshold is None:
+            relative_change_threshold = 0
+
+        if coefficient_of_variation_threshold is None:
+            coefficient_of_variation_threshold = math.nextafter(math.inf, 0)
+
+        try:
+            if stripepy_hdf5 is None:
+                format_version = "not-applicable"
+            else:
+                format_version = ResultFile(stripepy_hdf5).format_version
+        except:  # noqa
+            format_version = "unknown"
+
+        span.set_attribute("params.highlight_seeds", highlight_seeds)
+        span.set_attribute("params.highlight_stripes", highlight_stripes)
+        span.set_attribute("params.relative_change_threshold", relative_change_threshold)
+        span.set_attribute("params.coefficient_of_variation_threshold", coefficient_of_variation_threshold)
+        span.set_attribute("params.result_file_format_version", format_version)
+
     except:  # noqa
         pass
 

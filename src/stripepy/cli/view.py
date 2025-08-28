@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import math
 import pathlib
 import sys
 from typing import Optional
@@ -81,6 +82,9 @@ def _configure_telemetry(
     try:
         if not span.is_recording():
             return
+
+        if coefficient_of_variation_threshold is None:
+            coefficient_of_variation_threshold = math.nextafter(math.inf, 0)
 
         span.set_attribute("params.relative_change_threshold", relative_change_threshold)
         span.set_attribute("params.coefficient_of_variation_threshold", coefficient_of_variation_threshold)
