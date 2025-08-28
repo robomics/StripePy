@@ -203,14 +203,15 @@ def _find_v_domain_helper(
         - the bound of the domain
         - the array of maximum points (optional, when min_persistence is provided)
     """
-    if min_persistence is None:
-        max_points = tuple()
-    else:
-        max_points = (
-            Persistence1DTable.calculate_persistence(profile, min_persistence=min_persistence)
-            .max.sort_values(kind="stable")
-            .index.to_numpy()
-        )
+    # min_persistence could be None when support for --constrain-heights is correctly implemented and
+    # --constrain-heights is False
+    assert min_persistence is not None
+
+    max_points = (
+        Persistence1DTable.calculate_persistence(profile, min_persistence=min_persistence)
+        .max.sort_values(kind="stable")
+        .index.to_numpy()
+    )
 
     if len(max_points) > 1:
         return max_points.max(), max_points[:-1]  # drop global maximum
