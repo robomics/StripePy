@@ -342,6 +342,9 @@ def _configure_telemetry(
         if not span.is_recording():
             return
 
+        if normalization is None:
+            normalization = "NONE"
+
         span.set_attributes(
             {
                 "params.contact_map_format": _infer_matrix_format(contact_map),
