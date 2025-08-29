@@ -38,7 +38,7 @@ Before running the notebook, scroll down to the following cell
   mcool = ensure_file_exists("CHANGEME.mcool")
   bedpe = ensure_file_exists("CHANGEME.bedpe")
 
-and set the ``mcool`` and ``bedpe`` variables to the path to the ``.mcool`` file used to call stripes and the path to the stripe coordinates extracted with `stripepy_view_help`, respectively.
+and set the ``mcool`` and ``bedpe`` variables to the path to the ``.mcool`` file used to call stripes and the path to the stripe coordinates extracted with `stripepy_view_help` (optionally filtered with ``--relative-change-threshold`` and/or ``--coefficient-of-variation-threshold``), respectively.
 
 .. code-block:: bash
 
