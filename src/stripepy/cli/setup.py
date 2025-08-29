@@ -233,7 +233,8 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         "--constrain-heights",
         action="store_true",
         default=False,
-        help="Use peaks in signal to constrain the stripe height (default: %(default)s).",
+        help=argparse.SUPPRESS,
+        # help="Use peaks in signal to constrain the stripe height (default: %(default)s).",
     )
 
     sc.add_argument(
@@ -250,7 +251,7 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         type=_probability,
         default=0.33,
         help="Threshold value between 0 and 1 to find peaks in signal in a horizontal domain while estimating the "
-        "height of a stripe; when --constrain-heights is set to 'False', it is not used (default: %(default)s).",
+        "height of a stripe (default: %(default)s).",
     )
 
     sc.add_argument(
@@ -258,9 +259,8 @@ def _make_stripepy_call_subcommand(main_parser) -> argparse.ArgumentParser:
         type=_probability,
         default=0.25,
         help="Threshold value between 0 and 1 to estimate the height of a stripe (default: %(default)s); "
-        "the higher this value, the shorter the stripe; it is always used when --constrain-heights is set to "
-        "'False', but could be necessary also when --constrain-heights is 'True' and no persistent maximum other "
-        "than the global maximum is found.",
+        "the higher this value, the shorter the stripe; it is used to avoid overly long stripes when no persistent "
+        "maximum besides the global one is found.",
     )
 
     sc.add_argument(
