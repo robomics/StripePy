@@ -61,19 +61,8 @@ Stripe coordinates can be fetched from the ``.hdf5`` file using `stripepy_view_h
 
 Further details can be found in `Fetch architectural stripes <./fetch_stripes>`.
 
-4) Quickly visualize architectural stripes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-It is often a good idea to visually inspect at least some of the stripes to make sure that the used parameters are suitable for the dataset that was given to `stripepy_call_help`.
-
-We provide a Jupyter notebook :download:`visualize_stripes_with_highlass.ipynb <../utils/visualize_stripes_with_highlass.ipynb>` to facilitate this visual inspection.
-The notebook expects the input file to be in ``.mcool`` format.
-
-More info available at `Visualize architectural stripes <./visualize_stripes>`.
-
-
-Generating plots
-----------------
+4) Generating plots
+^^^^^^^^^^^^^^^^^^^
 
 StripePy comes with a ``plot`` subcommand that can be used to visualize architectural stripes overlaid on top of the Hi-C matrix.
 `stripepy_plot_help` can also generate several graphs showing the general properties of the called stripes, see `Generating plots <./generate_plots>` for a complete overview.
