@@ -118,7 +118,7 @@ The height of a stripe is determined by studying a local pseudo-distribution.
 The algorithm applies topological persistence to the local pseudo-distribution to identify persistent peaks.
 The ``--loc-pers-min`` option acts as a threshold value between 0 and 1 (defaulting to 0.33) used to determine which peaks are persistent with respect to their topological persistence.
 The location of the furthest identified peak is then used as a boundary for the stripe.
-If no persistent maximum other than the global maximum is found, we threshold the local pseudo-distribution to a minimum value, specified via the option ``--loc-trend-min``, which should be set between 0 and 1 (defaulting to 0.25).
+If no persistent maximum other than the global maximum is found, we threshold the local pseudo-distribution to a minimum value, specified via the option ``--loc-trend-min``, which should be set to a value between 0 and 1 (defaulting to 0.25).
 A higher value for this parameter generally results in the detection of shorter stripes.
 
 Step 4: signal analysis

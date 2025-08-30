@@ -17,7 +17,6 @@ StripePy comes with a ``plot`` subcommand that can be used to generate various k
 All three subcommands support specifying a region of interest through the ``--region`` option.
 When the commands are run without specifying the region of interest, ``stripepy plot cm`` and ``stripepy plot pd`` will generate plots for a random 2.5 Mbp region, while ``stripepy hist`` will generate histograms using data from the entire genome.
 
-Some example plots generated with `stripepy_plot_help` can be found in file ``stripepy-plot-test-images.tar.xz`` from `doi.org/10.5281/zenodo.14283921 <https://doi.org/10.5281/zenodo.14283921>`_.
 
 Plots of contact maps
 ---------------------
