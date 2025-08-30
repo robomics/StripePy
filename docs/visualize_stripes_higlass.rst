@@ -2,8 +2,10 @@
   Copyright (C) 2025 Andrea Raffo <andrea.raffo@ibv.uio.no>
   SPDX-License-Identifier: MIT
 
-Visualize architectural stripes
-===============================
+:orphan:
+
+Visualize architectural stripes with HiGlass
+============================================
 
 Visually inspecting a subset of the detected stripes is highly recommended to verify that the parameters configured for `stripepy_call_help` are well-suited to your specific dataset.
 To assist with this inspection, the Jupyter notebook
