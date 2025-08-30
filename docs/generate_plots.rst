@@ -27,17 +27,17 @@ We here provide a few examples.
 
 The simplest plot displays the contact map at a given resolution:
 
-.. code-block:: bash
+.. code-block:: console
 
   # Plot the Hi-C matrix
-  stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix.png
+  user@dev:/tmp$ stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix.png
 
 Stripe seeds can be visualized with the option ``--highlight-seeds``. Note that the HDF5 output is required:
 
-.. code-block:: bash
+.. code-block:: console
 
   # Plot the Hi-C matrix highlighting the stripe seeds
-  stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix_with_seeds.png --stripepy-hdf5 4DNFI9GMP2J8.10000.hdf5 --highlight-seeds
+  user@dev:/tmp$ stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix_with_seeds.png --stripepy-hdf5 4DNFI9GMP2J8.10000.hdf5 --highlight-seeds
 
 .. only:: not latex
 
@@ -50,10 +50,10 @@ Stripe seeds can be visualized with the option ``--highlight-seeds``. Note that 
 To visualize the detected architectural stripes, use the ``--highlight-stripes`` flag.
 It is possible to visualize the stripes **without** any thresholding
 
-.. code-block:: bash
+.. code-block:: console
 
   # Plot the Hi-C matrix highlighting the architectural stripes
-  stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix_with_stripes.png --stripepy-hdf5 4DNFI9GMP2J8.10000.hdf5 --highlight-stripes
+  user@dev:/tmp$ stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix_with_stripes.png --stripepy-hdf5 4DNFI9GMP2J8.10000.hdf5 --highlight-stripes
 
 .. only:: not latex
 
@@ -65,10 +65,10 @@ It is possible to visualize the stripes **without** any thresholding
 
 or **with** thresholding (using either ``--coefficient-of-variation-threshold``, ``--relative-change-threshold``, or both options):
 
-.. code-block:: bash
+.. code-block:: console
 
   # Plot the Hi-C matrix highlighting the architectural stripes -- thresholding both relative change and coefficient of variation
-  stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix_with_stripes.png --stripepy-hdf5 4DNFI9GMP2J8.10000.hdf5 --highlight-stripes --coefficient-of-variation-threshold 1 --relative-change-threshold 5
+  user@dev:/tmp$ stripepy plot cm 4DNFI9GMP2J8.mcool 10000 /tmp/matrix_with_stripes.png --stripepy-hdf5 4DNFI9GMP2J8.10000.hdf5 --highlight-stripes --coefficient-of-variation-threshold 1 --relative-change-threshold 5
 
 .. only:: not latex
 
@@ -86,10 +86,10 @@ Plots of pseudo-distributions
 
 Example usage:
 
-.. code-block:: bash
+.. code-block:: console
 
   # Plot the pseudo-distribution
-  stripepy plot pd 4DNFI9GMP2J8.10000.hdf5 /tmp/pseudodistribution.png
+  user@dev:/tmp$ stripepy plot pd 4DNFI9GMP2J8.10000.hdf5 /tmp/pseudodistribution.png
 
 .. only:: not latex
 
@@ -106,10 +106,10 @@ Plots of histograms
 
 Example usage:
 
-.. code-block:: bash
+.. code-block:: console
 
   # Plot the histograms using genome-wide data
-  stripepy plot hist 4DNFI9GMP2J8.10000.hdf5 /tmp/stripe_hist_gw.png
+  user@dev:/tmp$ stripepy plot hist 4DNFI9GMP2J8.10000.hdf5 /tmp/stripe_hist_gw.png
 
 
 .. only:: not latex
