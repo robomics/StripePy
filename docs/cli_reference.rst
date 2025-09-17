@@ -47,8 +47,7 @@ stripepy call
                        [--roi {middle,start}] [-o OUTPUT_FILE]
                        [--log-file LOG_FILE] [--plot-dir PLOT_DIR]
                        [--max-width MAX_WIDTH] [--glob-pers-min GLOB_PERS_MIN]
-                       [--constrain-heights] [-k K]
-                       [--loc-pers-min LOC_PERS_MIN]
+                       [-k K] [--loc-pers-min LOC_PERS_MIN]
                        [--loc-trend-min LOC_TREND_MIN] [-f]
                        [--verbosity {debug,info,warning,error,critical}]
                        [-p NPROC] [--min-chrom-size MIN_CHROM_SIZE]
@@ -75,12 +74,11 @@ stripepy call
                           Maximum stripe width, in bp (default: 100000).
     --glob-pers-min GLOB_PERS_MIN
                           Threshold value between 0 and 1 to filter persistence maxima points and identify loci of interest, aka seeds (default: 0.04).
-    --constrain-heights   Use peaks in signal to constrain the stripe height (default: False).
     -k, --k-neighbour K   k for the k-neighbour, i.e., number of bins adjacent to the stripe boundaries on both sides (default: 3).
     --loc-pers-min LOC_PERS_MIN
-                          Threshold value between 0 and 1 to find peaks in signal in a horizontal domain while estimating the height of a stripe; when --constrain-heights is set to 'False', it is not used (default: 0.33).
+                          Threshold value between 0 and 1 to find peaks in signal in a horizontal domain while estimating the height of a stripe (default: 0.33).
     --loc-trend-min LOC_TREND_MIN
-                          Threshold value between 0 and 1 to estimate the height of a stripe (default: 0.25); the higher this value, the shorter the stripe; it is always used when --constrain-heights is set to 'False', but could be necessary also when --constrain-heights is 'True' and no persistent maximum other than the global maximum is found.
+                          Threshold value between 0 and 1 to estimate the height of a stripe (default: 0.25); the higher this value, the shorter the stripe; it is used to avoid overly long stripes when no persistent maximum besides the global one is found.
     -f, --force           Overwrite existing file(s) (default: False).
     --verbosity {debug,info,warning,error,critical}
                           Set verbosity of output to the console (default: info).
