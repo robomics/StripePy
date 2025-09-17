@@ -39,14 +39,14 @@ Installing version corresponding to a git tag
 
 .. code-block:: bash
 
-  pip install 'stripepy-hic[all] @ git+https://github.com/paulsengroup/StripePy.git@v1.1.1'
+  pip install 'stripepy-hic[all] @ git+https://github.com/paulsengroup/StripePy.git@v1.2.0'
 
 Installing from a release archive
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
-  pip install 'stripepy-hic[all] @ https://pypi.python.org/packages/source/s/stripepy_hic/stripepy_hic-1.1.1.tar.gz'
+  pip install 'stripepy-hic[all] @ https://pypi.python.org/packages/source/s/stripepy_hic/stripepy_hic-1.2.0.tar.gz'
 
 
 Containers (Docker or Singularity/Apptainer)
@@ -92,10 +92,10 @@ Downloading and running the latest stable release can be done as follows:
 .. code-block:: console
 
   # Using Docker, may require sudo
-  user@dev:/tmp$ docker run ghcr.io/paulsengroup/stripepy:1.1.1 --help
+  user@dev:/tmp$ docker run ghcr.io/paulsengroup/stripepy:1.2.0 --help
 
   # Using Singularity/Apptainer
-  user@dev:/tmp$ singularity run ghcr.io/paulsengroup/stripepy:1.1.1 --help
+  user@dev:/tmp$ singularity run ghcr.io/paulsengroup/stripepy:1.2.0 --help
 
   usage: stripepy [-h] [-v] {call,download,plot,view} ...
 
