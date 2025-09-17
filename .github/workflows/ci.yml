@@ -44,7 +44,7 @@ jobs:
       matrix: ${{ steps.set-result.outputs.result }}
     steps:
       - name: Generate matrix
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         id: set-result
         with:
           script: |
@@ -81,7 +81,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -92,7 +92,7 @@ jobs:
           echo 'minimal_install=${{ matrix.minimal_install }}' >> dep-file.txt
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python_version }}
           cache: pip
@@ -132,7 +132,7 @@ jobs:
 
       - name: Upload unit test coverage report to Codecov
         if: (! matrix.minimal_install)
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
           flags: "tests | unit | python-${{ matrix.python_version }}"
           disable_search: true
@@ -143,7 +143,7 @@ jobs:
 
       - name: Upload unit test coverage report to Codecov (core)
         if: matrix.minimal_install
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
           flags: "tests | unit | python-${{ matrix.python_version }} | core"
           disable_search: true
@@ -164,7 +164,7 @@ jobs:
 
       - name: Upload end2end test coverage report to Codecov
         if: (! matrix.minimal_install)
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
           flags: "tests | integration | python-${{ matrix.python_version }}"
           disable_search: true
@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload end2end test coverage report to Codecov (core)
         if: matrix.minimal_install
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
           flags: "tests | integration | python-${{ matrix.python_version }} | core"
           disable_search: true
