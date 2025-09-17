@@ -100,7 +100,6 @@ jobs:
           BASE_IMAGE_DIGEST="$(docker inspect --format='{{index .RepoDigests 0}}' "$BASE_IMAGE" | cut -f 2 -d '@')"
 
           GIT_HASH="$(git rev-parse HEAD)"
-          GIT_SHORT_HASH="$(git rev-parse --short HEAD)"
           CREATION_DATE="$(date --iso-8601)"
           VERSION="$(hatchling version)"
 
