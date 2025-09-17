@@ -123,7 +123,7 @@ Example usage:
 Visualize architectural stripes in HiGlass
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We provide a Jupyter notebook :download:`visualize_stripes_with_highlass.ipynb <../utils/visualize_stripes_with_highlass.ipynb>` to facilitate this visual inspection with HiGlass.
+We provide a Jupyter notebook :download:`visualize_stripes_with_highlass.ipynb <https://github.com/paulsengroup/StripePy/blob/main/utils/visualize_stripes_with_highlass.ipynb>` to facilitate this visual inspection with HiGlass.
 The notebook expects the input file to be in ``.mcool`` format.
 
 More info available at :doc:`Visualize architectural stripes with HiGlass <./visualize_stripes_higlass>`.
