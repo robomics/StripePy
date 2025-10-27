@@ -16,8 +16,14 @@ from typing import Dict, List, Optional
 
 import hictkpy
 import structlog
+from packaging.version import Version
 
 from stripepy.io import get_stderr, initialize_progress_bar
+
+if Version(structlog.__version__) < Version("25.5.0"):
+    StructlogColumnStyles = structlog.dev.Styles
+else:
+    StructlogColumnStyles = structlog.dev.ColumnStyles
 
 
 class _ProgressBarProxy(object):
@@ -200,7 +206,7 @@ class _StructLogColorfulStyles(object):
 
 def _configure_logger_columns(
     colors: bool,
-    level_styles: Optional[structlog.dev.Styles] = None,
+    level_styles: Optional[StructlogColumnStyles] = None,
     event_key: str = "event",
     timestamp_key: str = "timestamp",
     pad_level: bool = True,
