@@ -17,6 +17,7 @@ Python API Reference
   .. autoproperty:: top_persistence
   .. autoproperty:: lower_triangular
   .. autoproperty:: upper_triangular
+  .. autoproperty:: triangular_undetermined
   .. autoproperty:: left_bound
   .. autoproperty:: right_bound
   .. autoproperty:: top_bound
