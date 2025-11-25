@@ -252,6 +252,31 @@ class TestBoundarySetters:
         ):
             stripe.set_vertical_bounds(0, 1)
 
+    def test_zero_height_stripe(self):
+        stripe = Stripe(
+            seed=1,
+            top_pers=None,
+            horizontal_bounds=None,
+            vertical_bounds=None,
+            where="lower_triangular",
+        )
+
+        stripe.set_vertical_bounds(1, 1)
+
+        assert stripe.triangular_undetermined
+
+        stripe = Stripe(
+            seed=1,
+            top_pers=None,
+            horizontal_bounds=None,
+            vertical_bounds=None,
+            where="upper_triangular",
+        )
+
+        stripe.set_vertical_bounds(1, 1)
+
+        assert stripe.triangular_undetermined
+
 
 @pytest.mark.unit
 class TestComputeBiodescriptors:
