@@ -145,7 +145,13 @@ def run(
             normalization = "NONE"
 
         # Generate a plan for the work to be done
-        tasks = _plan_tasks(chroms, min_chrom_size, main_logger)
+        tasks = _plan_tasks(
+            contact_map,
+            resolution,
+            chroms,
+            min_chrom_size,
+            main_logger,
+        )
 
         # Set up the progress bar
         progress_weights_df = get_stripepy_call_progress_bar_weights(
@@ -390,27 +396,42 @@ def _generate_metadata_attribute(
 
 
 def _plan_tasks(
+    contact_map: pathlib.Path,
+    resolution: int,
     chromosomes: Dict[str, int],
     min_size: int,
     logger,
 ) -> List[Tuple[str, int, bool]]:
     """
     Generate the list of tasks to be processed.
-    Chromosomes whose size is <= min_size will be skipped.
+    Chromosomes where:
+        * size is <= min_size, or
+        * matrix is empty
+    will be skipped.
     """
-    plan = []
-    small_chromosomes = []
-    for chrom, length in chromosomes.items():
-        skip = length <= min_size
-        plan.append((chrom, length, skip))
-        if skip:
-            small_chromosomes.append(chrom)
+    import hictkpy
 
-    if len(small_chromosomes) != 0:
+    f = hictkpy.File(contact_map, resolution)
+
+    def matrix_is_empty(chrom: str) -> bool:
+        return not any(f.fetch(chrom))
+
+    plan = []
+    discarded_chromosomes = {}
+    for chrom, length in chromosomes.items():
+        too_small = length <= min_size
+        skip = too_small or matrix_is_empty(chrom)
+
+        plan.append((chrom, length, skip))
+        if too_small:
+            discarded_chromosomes[chrom] = f"chromosome is shorter than --min-chrom-size={min_size} bp"
+        elif skip:
+            discarded_chromosomes[chrom] = "matrix has no interactions"
+
+    if len(discarded_chromosomes) != 0:
         logger.warning(
-            "the following chromosomes are discarded because shorter than --min-chrom-size=%d bp: %s",
-            min_size,
-            ", ".join(small_chromosomes),
+            "the following chromosome(s) are discarded:\n%s",
+            json.dumps(discarded_chromosomes, indent=2),
         )
 
     return plan
