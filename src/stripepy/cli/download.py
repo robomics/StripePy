@@ -23,7 +23,7 @@ from stripepy.utils import pretty_format_elapsed_time
 def _get_datasets(max_size: float, include_private: bool) -> Dict[str, Dict[str, str]]:
     assert not math.isnan(max_size)
 
-    record_id = "15301784"
+    record_id = "17749038"
 
     datasets = {
         "4DNFI3RFZLZ5": {
@@ -96,6 +96,14 @@ def _get_datasets(max_size: float, include_private: bool) -> Dict[str, Dict[str,
             "assembly": "hg38",
             "format": "tar",
             "size_mb": 1.54,
+        },
+        "__stripepy_zero_height_stripes_cooler": {
+            "url": f"https://zenodo.org/records/{record_id}/files/4DNFI6HDY7WZ.stripepy.chr16.5000.cool?download=1",
+            "md5": "0abfa93d40b71e960593c11ae092573e",
+            "filename": "4DNFI6HDY7WZ.stripepy.chr16.5000.cool",
+            "assembly": "hg38",
+            "format": "cool",
+            "size_mb": 4.62,
         },
     }
 
@@ -419,6 +427,7 @@ def _download_data_for_end2end_tests(progress_bar):
         "__results_v2": pathlib.Path("test/data/results_4DNFI9GMP2J8_v2.hdf5"),
         "__results_v3": pathlib.Path("test/data/results_4DNFI9GMP2J8_v3.hdf5"),
         "__stripepy_plot_images": pathlib.Path("test/data/stripepy-plot-test-images.tar.xz"),
+        "__stripepy_zero_height_stripes_cooler": pathlib.Path("test/data/4DNFI6HDY7WZ.stripepy.chr16.5000.cool"),
     }
 
     _download_multiple(list(names.keys()), list(names.values()), progress_bar)

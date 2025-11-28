@@ -20,22 +20,25 @@ permissions:
 
 env:
   TEST_MCOOL_NAME: 4DNFI9GMP2J8.mcool
-  TEST_MCOOL_URL: "https://zenodo.org/records/15301784/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
+  TEST_MCOOL_URL: "https://zenodo.org/records/17749038/files/4DNFI9GMP2J8.stripepy.mcool?download=1"
   TEST_MCOOL_MD5: "a17d08460c03cf6c926e2ca5743e4888"
+  TEST_COOL_NAME: 4DNFI6HDY7WZ.stripepy.chr16.5000.cool
+  TEST_COOL_URL: "https://zenodo.org/records/17749038/files/4DNFI6HDY7WZ.stripepy.chr16.5000.cool?download=1"
+  TEST_COOL_MD5: "0abfa93d40b71e960593c11ae092573e"
   TEST_RESULT_FILE_V1_NAME: results_4DNFI9GMP2J8_v1.hdf5
-  TEST_RESULT_FILE_V1_URL: "https://zenodo.org/records/15301784/files/results_4DNFI9GMP2J8_v1.hdf5?download=1"
+  TEST_RESULT_FILE_V1_URL: "https://zenodo.org/records/17749038/files/results_4DNFI9GMP2J8_v1.hdf5?download=1"
   TEST_RESULT_FILE_V1_MD5: "03bca8d430191aaf3c90a4bc22a8c579"
   TEST_RESULT_FILE_V2_NAME: results_4DNFI9GMP2J8_v2.hdf5
-  TEST_RESULT_FILE_V2_URL: "https://zenodo.org/records/15301784/files/results_4DNFI9GMP2J8_v2.hdf5?download=1"
+  TEST_RESULT_FILE_V2_URL: "https://zenodo.org/records/17749038/files/results_4DNFI9GMP2J8_v2.hdf5?download=1"
   TEST_RESULT_FILE_V2_MD5: "dd14a2f69b337c40727d414d85e2f0a4"
   TEST_RESULT_FILE_V3_NAME: results_4DNFI9GMP2J8_v3.hdf5
-  TEST_RESULT_FILE_V3_URL: "https://zenodo.org/records/15301784/files/results_4DNFI9GMP2J8_v3.hdf5?download=1"
+  TEST_RESULT_FILE_V3_URL: "https://zenodo.org/records/17749038/files/results_4DNFI9GMP2J8_v3.hdf5?download=1"
   TEST_RESULT_FILE_V3_MD5: "47c6b3ec62b53397d44cd1813caf678b"
   TEST_TABLES_NAME: stripepy-call-result-tables.tar.xz
-  TEST_TABLES_URL: "https://zenodo.org/records/15301784/files/stripepy-call-result-tables.tar.xz?download=1"
+  TEST_TABLES_URL: "https://zenodo.org/records/17749038/files/stripepy-call-result-tables.tar.xz?download=1"
   TEST_TABLES_MD5: "04ef7694cbb68739f205c5030681c199"
   TEST_PLOTS_NAME: stripepy-plot-test-images.tar.xz
-  TEST_PLOTS_URL: "https://zenodo.org/records/15301784/files/stripepy-plot-test-images.tar.xz?download=1"
+  TEST_PLOTS_URL: "https://zenodo.org/records/17749038/files/stripepy-plot-test-images.tar.xz?download=1"
   TEST_PLOTS_MD5: "e88d5a6ff33fb7cb0a15e27c5bac7644"
 
 jobs:
@@ -50,6 +53,7 @@ jobs:
       - name: Generate checksum file
         run: |
           echo "${{env.TEST_MCOOL_MD5 }}  test/data/${{env.TEST_MCOOL_NAME }}" | tee checksums.md5
+          echo "${{env.TEST_COOL_MD5 }}  test/data/${{env.TEST_COOL_NAME }}" | tee checksums.md5
           echo "${{env.TEST_RESULT_FILE_V1_MD5 }}  test/data/${{env.TEST_RESULT_FILE_V1_NAME }}" | tee -a checksums.md5
           echo "${{env.TEST_RESULT_FILE_V2_MD5 }}  test/data/${{env.TEST_RESULT_FILE_V2_NAME }}" | tee -a checksums.md5
           echo "${{env.TEST_RESULT_FILE_V3_MD5 }}  test/data/${{env.TEST_RESULT_FILE_V3_NAME }}" | tee -a checksums.md5
@@ -77,6 +81,7 @@ jobs:
           mkdir -p test/data
 
           curl -L "${{env.TEST_MCOOL_URL }}" -o "test/data/${{env.TEST_MCOOL_NAME }}"
+          curl -L "${{env.TEST_COOL_URL }}" -o "test/data/${{env.TEST_COOL_NAME }}"
           curl -L "${{env.TEST_RESULT_FILE_V1_URL }}" -o "test/data/${{env.TEST_RESULT_FILE_V1_NAME }}"
           curl -L "${{env.TEST_RESULT_FILE_V2_URL }}" -o "test/data/${{env.TEST_RESULT_FILE_V2_NAME }}"
           curl -L "${{env.TEST_RESULT_FILE_V3_URL }}" -o "test/data/${{env.TEST_RESULT_FILE_V3_NAME }}"

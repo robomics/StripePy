@@ -9,6 +9,8 @@ from typing import Optional
 import hictkpy
 import pytest
 
+from stripepy.data_structures import ResultFile
+
 from .common import (
     check_results_are_empty,
     compare_result_files,
@@ -26,6 +28,7 @@ class TestStripePyCall:
     def setup_class():
         test_files = [
             testdir / "data" / "4DNFI9GMP2J8.mcool",
+            testdir / "data" / "4DNFI6HDY7WZ.stripepy.chr16.5000.cool",
             testdir / "data" / "results_4DNFI9GMP2J8_v3.hdf5",
         ]
 
@@ -150,3 +153,36 @@ class TestStripePyCall:
             nproc=1,
             with_roi=True,
         )
+
+    @staticmethod
+    def test_stripepy_call_with_zero_height_stripes(tmpdir):
+        tmpdir = pathlib.Path(tmpdir)
+        testfile = testdir / "data" / "4DNFI6HDY7WZ.stripepy.chr16.5000.cool"
+        nproc = min(8, get_avail_cpu_cores())
+
+        resolution = hictkpy.File(testfile).resolution()
+        chrom_sizes = hictkpy.File(testfile).chromosomes()
+
+        output_file = tmpdir / f"{testfile.stem}.hdf5"
+        log_file = tmpdir / f"{testfile.stem}.log"
+
+        args = [
+            "call",
+            str(testfile),
+            str(resolution),
+            "--output-file",
+            str(output_file),
+            "--log-file",
+            str(log_file),
+            "--nproc",
+            str(nproc),
+        ]
+
+        stripepy_main(args)
+
+        with ResultFile(output_file) as h5:
+            for chrom in chrom_sizes:
+                if chrom == "chr16":
+                    assert not h5[chrom].empty
+                else:
+                    assert h5[chrom].empty

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import time
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Sequence, Tuple
 
 import numpy as np
 import structlog
@@ -13,7 +13,7 @@ from stripepy.algorithms.finders import (
     find_horizontal_intervals_of_interest,
     find_vertical_intervals_of_interest,
 )
-from stripepy.data_structures import Result, SparseMatrix
+from stripepy.data_structures import Result, SparseMatrix, Stripe
 from stripepy.utils import pretty_format_elapsed_time
 
 
@@ -153,6 +153,10 @@ def run(
         axis="columns",
     )
 
+    num_stripes_dropped = _drop_zero_height_stripes(result, stripes, location)
+    if num_stripes_dropped > 0:
+        logger.bind(step=(3, 4)).info("dropped %d zero-height stripe(s)", num_stripes_dropped)
+
     return location, result
 
 
@@ -198,3 +202,25 @@ def _complement_persistent_minimum_points(
     assert right_bound != persistent_minimum_points[-1]
 
     return np.concatenate([[left_bound], persistent_minimum_points, [right_bound]], dtype=int)
+
+
+def _drop_zero_height_stripes(
+    result: Result,
+    stripes: Sequence[Stripe],
+    location: str,
+) -> int:
+    """
+    Drop stripes with height equals to 0
+
+    Returns:
+    -------
+    int
+        Number of stripes dropped
+    """
+    valid_stripes = [s for s in stripes if not s.triangular_undetermined]
+
+    num_stripes_dropped = len(stripes) - len(valid_stripes)
+    if num_stripes_dropped > 0:
+        result.set("stripes", valid_stripes, location, force=True)
+
+    return num_stripes_dropped

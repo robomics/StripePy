@@ -114,6 +114,13 @@ class Stripe(object):
         return self._where == "upper_triangular"
 
     @property
+    def triangular_undetermined(self) -> bool:
+        """
+        True when the stripe has height 0
+        """
+        return self._where == "undetermined"
+
+    @property
     def left_bound(self) -> int:
         """
         The left bound of the stripe
@@ -352,8 +359,7 @@ class Stripe(object):
             )
 
         computed_where = self._infer_location(self._seed, top_bound, bottom_bound)
-
-        if self._where is not None and computed_where != self._where:
+        if self._where is not None and computed_where != self._where and computed_where != "undetermined":
             raise RuntimeError(
                 f"computed location does not match the provided stripe location: computed={computed_where}, expected={self._where}"
             )
@@ -436,8 +442,10 @@ class Stripe(object):
 
     @staticmethod
     def _infer_location(seed: int, top_bound: int, bottom_bound: int) -> str:
-        # TODO is it ok that when bottom_bound==seed==top_bound the stripe is considered as upper_triangular?
 
+        if bottom_bound == top_bound:
+            assert bottom_bound == seed
+            return "undetermined"
         if bottom_bound == seed:
             return "upper_triangular"
         if top_bound == seed:
@@ -446,11 +454,13 @@ class Stripe(object):
         raise ValueError(f"At least one of {top_bound=} and {bottom_bound=} must be equal to {seed=}")
 
     def _pad_horizontal_domain(self, matrix: SparseMatrix, padding: int) -> Tuple[int, int]:
+        # assert self._where in {"lower_triangular", "upper_triangular"}
         j0 = max(0, self._left_bound - padding)
         j1 = min(self._right_bound + padding + 1, matrix.shape[1])
         return j0, j1
 
     def _pad_vertical_domain(self, matrix: SparseMatrix, j0: int, j1: int) -> Tuple[int, int]:
+        # assert self._where in {"lower_triangular", "upper_triangular"}
         if self.lower_triangular:
             i0 = j0
             i1 = min(j1 + (self._bottom_bound - self._top_bound), matrix.shape[0])
@@ -482,6 +492,7 @@ class Stripe(object):
         NDArray
             The matrix right neighborhood
         """
+        assert self._where in {"lower_triangular", "upper_triangular"}
         stripe_height = self._bottom_bound - self._top_bound + 1
 
         # Compute the indices for the minimum-bounding matrix
