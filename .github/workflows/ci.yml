@@ -103,7 +103,7 @@ jobs:
       - name: Install package
         run: |
           if [[ ${{ matrix.minimal_install }} == 'true' ]]; then
-            pip install '.' pytest pytest-cov
+            pip install '.' pyarrow pytest pytest-cov
           else
             pip install '.[all,test]'
           fi
