@@ -53,9 +53,9 @@ jobs:
             // https://github.com/actions/runner/issues/982#issuecomment-809360765
 
             const platforms = ["windows-latest", "macos-latest", "ubuntu-latest"]
-            var python_versions = ["3.9", "3.13"]
+            var python_versions = ["3.10", "3.14"]
             if ("${{github.event_name}}" != "pull_request") {
-                python_versions = python_versions.concat(["3.10", "3.11", "3.12"])
+                python_versions = python_versions.concat(["3.11", "3.12", "3.13"])
             }
 
             var includes = []
