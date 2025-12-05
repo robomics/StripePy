@@ -122,6 +122,7 @@ norecursedirs = [
 ]
 filterwarnings = [
   'ignore:This process .* is multi-threaded, use of fork\(\) may lead to deadlocks in the child:DeprecationWarning',
+  'ignore:hictkpy. detected a call to fork\(\)..*:UserWarning',
 ]
 
 [tool.coverage.run]

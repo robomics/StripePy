@@ -75,7 +75,52 @@ def _dispatch_subcommand(subcommand: str, verbosity: str, **kwargs) -> int:
         raise
 
 
-def main(args: Optional[List[str]] = None, no_telemetry: bool = False) -> int:
+def _set_process_start_method():
+    import multiprocessing as mp
+
+    if mp.get_start_method(allow_none=False) != "fork":
+        return
+
+    from importlib.util import find_spec
+
+    mp.set_start_method("forkserver", force=True)
+    modules = [
+        "h5py",
+        "scipy.sparse",
+        "numpy",
+        "pandas",
+        "structlog",
+    ]
+
+    if find_spec("colorama") is not None:
+        modules.append("colorama")
+
+    if find_spec("matplotlib") is not None:
+        modules.extend(
+            (
+                "matplotlib.pyplot",
+                "matplotlib.ticker",
+            )
+        )
+
+    if find_spec("rich") is not None:
+        modules.extend(
+            (
+                "rich.console",
+                "rich.progress",
+            )
+        )
+
+    mp.set_forkserver_preload(modules)
+
+
+def main(
+    args: Optional[List[str]] = None,
+    no_telemetry: bool = False,
+    skip_set_process_start_method: bool = False,
+) -> int:
+    if not skip_set_process_start_method:
+        _set_process_start_method()
     # It is important that stripepy is not imported in the global namespace to enable coverage
     # collection when using multiprocessing
     from stripepy.cli import setup, telemetry

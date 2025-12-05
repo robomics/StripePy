@@ -16,7 +16,11 @@ from stripepy.io import compare_result_files as _compare_result_files
 def stripepy_main(args) -> int:
     from stripepy.main import main
 
-    return main(args, no_telemetry=True)
+    return main(
+        args,
+        no_telemetry=True,
+        skip_set_process_start_method=True,
+    )
 
 
 def matplotlib_avail() -> bool:
