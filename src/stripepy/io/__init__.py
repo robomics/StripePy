@@ -7,4 +7,4 @@ from .progress_bar import (  # isort:skip
     get_stripepy_call_progress_bar_weights,
     initialize_progress_bar,
 )
-from .logging import ProcessSafeLogger
+from .logging import ProcessSafeLogger, disable_hictkpy_logger

@@ -26,6 +26,14 @@ else:
     StructlogColumnStyles = structlog.dev.ColumnStyles
 
 
+def disable_hictkpy_logger():
+    import hictkpy
+
+    if hasattr(hictkpy, "logging"):
+        level_critical = 50
+        hictkpy.logging.setLevel(level_critical + 1)
+
+
 class _ProgressBarProxy(object):
     def __init__(self, event_queue: mp.Queue):
         self._queue = event_queue
