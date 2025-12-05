@@ -21,7 +21,7 @@ from stripepy.data_structures import (
     set_shared_state,
     unset_shared_state,
 )
-from stripepy.io import ProcessSafeLogger
+from stripepy.io import ProcessSafeLogger, disable_hictkpy_logger
 from stripepy.utils import (
     define_region_of_interest,
     pretty_format_elapsed_time,
@@ -38,6 +38,8 @@ def _init_shared_state(
     Function to initialize newly created worker processes.
     """
     ProcessSafeLogger.setup_logger(log_queue)
+
+    disable_hictkpy_logger()
 
     if lower_triangular_matrix is not None:
         assert upper_triangular_matrix is not None

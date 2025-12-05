@@ -9,7 +9,9 @@ from typing import List, Optional
 
 
 def _setup_logger(subcommand: str, verbosity: str, kwargs):
-    from stripepy.io import ProcessSafeLogger
+    from stripepy.io import ProcessSafeLogger, disable_hictkpy_logger
+
+    disable_hictkpy_logger()
 
     return ProcessSafeLogger(
         verbosity,
