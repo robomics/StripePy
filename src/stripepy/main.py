@@ -79,41 +79,17 @@ def _dispatch_subcommand(subcommand: str, verbosity: str, **kwargs) -> int:
 
 def _set_process_start_method():
     import multiprocessing as mp
+    import platform
+
+    from packaging.version import Version
 
     if mp.get_start_method(allow_none=False) != "fork":
         return
 
-    from importlib.util import find_spec
+    if Version(platform.python_version()) >= Version("3.14"):
+        return
 
-    mp.set_start_method("forkserver", force=True)
-    modules = [
-        "h5py",
-        "scipy.sparse",
-        "numpy",
-        "pandas",
-        "structlog",
-    ]
-
-    if find_spec("colorama") is not None:
-        modules.append("colorama")
-
-    if find_spec("matplotlib") is not None:
-        modules.extend(
-            (
-                "matplotlib.pyplot",
-                "matplotlib.ticker",
-            )
-        )
-
-    if find_spec("rich") is not None:
-        modules.extend(
-            (
-                "rich.console",
-                "rich.progress",
-            )
-        )
-
-    mp.set_forkserver_preload(modules)
+    mp.set_start_method("spawn", force=True)
 
 
 def main(
